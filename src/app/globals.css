@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+body {
+  background: #f8fafc;
+  color: #1e293b;
+  overflow-x: hidden;
+  user-select: none;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-primary text-white px-6 py-3 rounded-xl font-bold transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:scale-100;
+  }
+  
+  .game-card {
+    @apply bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:border-brand-primary/20 transition-all cursor-pointer flex flex-col items-center gap-4;
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
