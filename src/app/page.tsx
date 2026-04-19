@@ -1,13 +1,35 @@
 "use client";
 import { useGameStore } from "@/store/useGameStore";
 import { GameCard } from "@/components/hub/GameCard";
-import { Calculator, Trophy, Users, BookOpen, Brain, Star } from "lucide-react";
-import { useState } from "react";
+import { Calculator, Trophy, Users, BookOpen, Brain, Star, LogIn, LogOut } from "lucide-react";
+import { useState, useEffect } from "react";
 import { MultiplicationGame } from "@/components/game/MultiplayerGame";
+import { useMsal, useIsAuthenticated } from "@azure/msal-react";
+import { loginRequest } from "@/lib/msal";
 
 export default function Home() {
   const { playerName, setPlayerName, focusNumber, setFocusNumber } = useGameStore();
   const [showGame, setShowGame] = useState(false);
+  const { instance, accounts } = useMsal();
+  const isAuthenticated = useIsAuthenticated();
+
+  useEffect(() => {
+    if (isAuthenticated && accounts.length > 0 && !playerName) {
+      setPlayerName(accounts[0].name || accounts[0].username);
+    }
+  }, [isAuthenticated, accounts, playerName, setPlayerName]);
+
+  const handleLogin = () => {
+    instance.loginPopup(loginRequest).catch(e => {
+      console.error(e);
+    });
+  };
+
+  const handleLogout = () => {
+    instance.logoutPopup().then(() => {
+      setPlayerName("");
+    });
+  };
 
   if (!playerName) {
     return (
@@ -22,6 +44,23 @@ export default function Home() {
           <p className="text-slate-500 text-center mb-8">Ready to level up your learning?</p>
           
           <div className="space-y-4">
+            <button 
+              onClick={handleLogin}
+              className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-xl border-2 border-slate-100 hover:border-brand-primary hover:bg-brand-primary/5 transition-all text-lg font-bold text-slate-700"
+            >
+              <LogIn size={24} className="text-brand-primary" />
+              Sign in with Microsoft
+            </button>
+            
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-100"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-white text-slate-400 font-medium">or continue as guest</span>
+              </div>
+            </div>
+
             <label className="block text-sm font-bold text-slate-700">Student Name</label>
             <input 
               type="text"
@@ -30,7 +69,6 @@ export default function Home() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') setPlayerName((e.target as HTMLInputElement).value);
               }}
-              autoFocus
             />
             <button 
               onClick={() => {
@@ -63,6 +101,15 @@ export default function Home() {
             <Trophy className="text-brand-accent" />
             <span className="font-bold text-slate-700">Rank: Explorer</span>
           </div>
+          {isAuthenticated && (
+            <button 
+              onClick={handleLogout}
+              className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 text-slate-400 hover:text-red-500 transition-colors"
+              title="Sign Out"
+            >
+              <LogOut size={24} />
+            </button>
+          )}
         </div>
       </header>
 
