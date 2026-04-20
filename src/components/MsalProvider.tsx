@@ -11,6 +11,8 @@ export function MsalProvider({ children }: { children: React.ReactNode }) {
     const initializeMsal = async () => {
       try {
         await msalInstance.initialize();
+        // Handle any redirect results (even for popups, this helps sync state)
+        await msalInstance.handleRedirectPromise();
         setIsInitialized(true);
       } catch (error) {
         console.error("MSAL Initialization Error:", error);

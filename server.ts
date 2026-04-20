@@ -28,17 +28,16 @@ app.prepare().then(() => {
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('join_room', ({ roomId, playerName }) => {
+    socket.on('join_room', ({ roomId, playerName, playerAvatar }) => {
       socket.join(roomId);
-      console.log(`${playerName} joined room: ${roomId}`);
-      
       if (!rooms.has(roomId)) {
         rooms.set(roomId, { players: [], gameState: 'waiting', config: null });
       }
-      
       const room = rooms.get(roomId);
-      room.players.push({ id: socket.id, name: playerName, score: 0, streak: 0 });
-      
+      // Avoid duplicate entries on reconnect
+      if (!room.players.find((p: any) => p.name === playerName)) {
+        room.players.push({ id: socket.id, name: playerName, avatar: playerAvatar ?? '🦁', score: 0, streak: 0 });
+      }
       io.to(roomId).emit('room_update', room);
     });
 

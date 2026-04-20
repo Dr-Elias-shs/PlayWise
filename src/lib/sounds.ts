@@ -1,73 +1,63 @@
-// Procedural sound generation using Web Audio API
-export const playSound = (type: 'correct' | 'wrong' | 'click') => {
-  if (typeof window === 'undefined') return;
-  
-  const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+// Singleton AudioContext — avoids creating a new one on every sound
+let _ctx: AudioContext | null = null;
+
+function getCtx(): AudioContext {
+  if (!_ctx) _ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  if (_ctx.state === 'suspended') _ctx.resume();
+  return _ctx;
+}
+
+function tone(freq: number, type: OscillatorType, duration: number, vol = 0.3, delay = 0) {
+  const ctx = getCtx();
+  const osc = ctx.createOscillator();
   const gain = ctx.createGain();
+  osc.connect(gain);
   gain.connect(ctx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+  gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+  gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + delay + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+  osc.start(ctx.currentTime + delay);
+  osc.stop(ctx.currentTime + delay + duration + 0.05);
+}
 
-  const now = ctx.currentTime;
-
-  if (type === 'correct') {
-    // "Magical Chime" effect using 3 oscillators in a fast arpeggio
-    const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-    freqs.forEach((f, i) => {
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.connect(g);
-      g.connect(ctx.destination);
-      
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(f, now + (i * 0.05));
-      g.gain.setValueAtTime(0, now + (i * 0.05));
-      g.gain.linearRampToValueAtTime(0.1, now + (i * 0.05) + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.001, now + (i * 0.05) + 0.4);
-      
-      osc.start(now + (i * 0.05));
-      osc.stop(now + (i * 0.05) + 0.5);
-    });
-  } else if (type === 'wrong') {
-    const osc = ctx.createOscillator();
-    osc.connect(gain);
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(220, now);
-    osc.frequency.linearRampToValueAtTime(110, now + 0.2);
-    gain.gain.setValueAtTime(0.1, now);
-    gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
-    osc.start(now);
-    osc.stop(now + 0.4);
-  } else {
-    const osc = ctx.createOscillator();
-    osc.connect(gain);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, now);
-    gain.gain.setValueAtTime(0.1, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-    osc.start(now);
-    osc.stop(now + 0.1);
-  }
+const SOUNDS: Record<string, () => void> = {
+  correct: () => {
+    [[523, 0], [659, 0.08], [784, 0.16], [1047, 0.24]].forEach(([f, d]) =>
+      tone(f, 'sine', 0.3, 0.25, d));
+  },
+  wrong: () => {
+    tone(220, 'sawtooth', 0.15, 0.25);
+    tone(160, 'sawtooth', 0.15, 0.2, 0.12);
+  },
+  click: () => tone(660, 'sine', 0.08, 0.2),
+  powerup: () => {
+    [[400,0],[600,0.07],[900,0.14],[1200,0.21]].forEach(([f,d]) =>
+      tone(f, 'square', 0.1, 0.15, d));
+  },
+  countdown: () => tone(440, 'sine', 0.18, 0.4),
+  go: () => {
+    [[440,0],[660,0.1],[880,0.2]].forEach(([f,d]) => tone(f, 'sine', 0.25, 0.4, d));
+  },
 };
+
+export function playSound(type: string) {
+  if (typeof window === 'undefined') return;
+  try { SOUNDS[type]?.(); } catch {}
+}
 
 export const speak = (text: string) => {
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
-  
   window.speechSynthesis.cancel();
-  
   const utterance = new SpeechSynthesisUtterance(text);
-  
-  // Try to find a feminine voice
   const voices = window.speechSynthesis.getVoices();
-  const femaleVoice = voices.find(v => 
-    v.name.includes('Female') || 
-    v.name.includes('Samantha') || 
-    v.name.includes('Google UK English Female') ||
-    v.name.includes('Microsoft Zira') ||
-    v.name.includes('Princess')
+  const preferred = voices.find(v =>
+    v.name.includes('Samantha') || v.name.includes('Google UK English Female') ||
+    v.name.includes('Microsoft Zira') || v.name.includes('Female')
   );
-  
-  if (femaleVoice) utterance.voice = femaleVoice;
-  
-  utterance.rate = 1.1; 
-  utterance.pitch = 1.2; // Slightly higher pitch for a "magical" girl feel
+  if (preferred) utterance.voice = preferred;
+  utterance.rate = 1.1;
+  utterance.pitch = 1.2;
   window.speechSynthesis.speak(utterance);
 };
