@@ -13,10 +13,17 @@ export function Leaderboard() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState(false);
+  const [dbError, setDbError] = useState('');
 
   const fetchLeaderboard = async () => {
-    const { data } = await getGlobalLeaderboard();
-    if (data) setEntries(data);
+    const { data, error } = await getGlobalLeaderboard();
+    if (error) {
+      console.error('Leaderboard error:', error.message);
+      setDbError(error.message);
+    } else {
+      setDbError('');
+      setEntries(data ?? []);
+    }
     setLoading(false);
   };
 
@@ -97,7 +104,14 @@ export function Leaderboard() {
           ))}
         </AnimatePresence>
 
-        {entries.length === 0 && (
+        {dbError && (
+          <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
+            <p className="text-red-500 font-bold text-sm mb-1">⚠️ Table not set up</p>
+            <p className="text-red-400 text-xs">Run the scores SQL in Supabase to enable this.</p>
+          </div>
+        )}
+
+        {!dbError && entries.length === 0 && (
           <div className="text-center py-12 text-slate-400 font-medium">
             No scores yet — be the first! 🚀
           </div>

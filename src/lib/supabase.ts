@@ -6,27 +6,34 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-ke
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const saveScore = async (studentName: string, focusTable: number, score: number, gameType = 'multiplication') => {
+  // Find existing best score for this student + game type
   const { data: existing } = await supabase
     .from('scores')
-    .select('*')
+    .select('id, score')
     .eq('student_name', studentName)
-    .eq('game_type', gameType)
     .eq('focus_table', focusTable)
-    .single();
+    .maybeSingle();
 
   if (existing) {
     if (score > existing.score) {
-      return await supabase
-        .from('scores')
-        .update({ score, timestamp: new Date() })
-        .eq('id', existing.id);
+      return supabase.from('scores').update({ score, timestamp: new Date() }).eq('id', existing.id);
     }
     return { data: existing, error: null };
   }
 
-  return await supabase
+  // Try inserting with game_type; if column doesn't exist yet, insert without it
+  const { data, error } = await supabase
     .from('scores')
     .insert([{ student_name: studentName, focus_table: focusTable, game_type: gameType, score, timestamp: new Date() }]);
+
+  if (error?.message?.includes('game_type')) {
+    // game_type column not added yet — insert without it
+    return supabase
+      .from('scores')
+      .insert([{ student_name: studentName, focus_table: focusTable, score, timestamp: new Date() }]);
+  }
+
+  return { data, error };
 };
 
 export const getLeaderboard = async (focusTable: number) => {
@@ -77,13 +84,14 @@ export async function createGameRoom(hostName: string, hostAvatar: string, gameI
   return data;
 }
 
-export async function getOpenRooms(): Promise<GameRoom[]> {
-  const { data } = await supabase
+export async function getOpenRooms(): Promise<{ rooms: GameRoom[]; error: string | null }> {
+  const { data, error } = await supabase
     .from('game_rooms')
     .select('*')
     .eq('status', 'waiting')
     .order('created_at', { ascending: false });
-  return data ?? [];
+  if (error) return { rooms: [], error: error.message };
+  return { rooms: data ?? [], error: null };
 }
 
 export async function incrementRoomPlayers(roomCode: string, count: number) {

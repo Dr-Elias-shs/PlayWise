@@ -67,16 +67,30 @@ function RoomCard({ room, onJoin, gameConfig }: {
 
 function CreateRoomModal({ onClose, onCreate }: {
   onClose: () => void;
-  onCreate: (gameId: string) => void;
+  onCreate: (gameId: string) => Promise<void>;
 }) {
   const [selected, setSelected] = useState<string>(ALL_GAMES[0].id);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleCreate = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      await onCreate(selected);
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not create room. Try again.');
+      setLoading(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6"
-      onClick={onClose}
+      onClick={() => !loading && onClose()}
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
@@ -89,26 +103,37 @@ function CreateRoomModal({ onClose, onCreate }: {
         <p className="text-white/50 text-sm mb-4">Pick which game to play:</p>
         <div className="space-y-2 mb-6">
           {ALL_GAMES.map(g => (
-            <button key={g.id} onClick={() => setSelected(g.id)}
+            <button key={g.id} onClick={() => !loading && setSelected(g.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
-                selected === g.id
-                  ? 'bg-white text-slate-800'
-                  : 'bg-white/10 text-white hover:bg-white/15'
+                selected === g.id ? 'bg-white text-slate-800' : 'bg-white/10 text-white hover:bg-white/15'
               }`}>
               <span className="text-xl">{g.emoji}</span>
               {g.title}
             </button>
           ))}
         </div>
+
+        {error && (
+          <div className="bg-red-500/20 border border-red-400/30 rounded-xl px-4 py-2 mb-4 text-red-300 text-sm font-medium">
+            ⚠️ {error}
+          </div>
+        )}
+
         <div className="flex gap-3">
-          <button onClick={onClose}
-            className="flex-1 py-3 bg-white/10 text-white font-bold rounded-xl hover:bg-white/15 transition-colors">
+          <button onClick={onClose} disabled={loading}
+            className="flex-1 py-3 bg-white/10 text-white font-bold rounded-xl hover:bg-white/15 transition-colors disabled:opacity-40">
             Cancel
           </button>
-          <button onClick={() => onCreate(selected)}
-            className="flex-1 py-3 text-white font-black rounded-xl hover:scale-105 transition-transform"
+          <button onClick={handleCreate} disabled={loading}
+            className="flex-1 py-3 text-white font-black rounded-xl hover:scale-105 transition-transform disabled:opacity-60 disabled:hover:scale-100 flex items-center justify-center gap-2"
             style={{ background: 'linear-gradient(135deg, #7c3aed, #9333ea)' }}>
-            Create 🚀
+            {loading ? (
+              <>
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8 }}
+                  className="w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                Creating...
+              </>
+            ) : 'Create 🚀'}
           </button>
         </div>
       </motion.div>
@@ -196,6 +221,8 @@ export function MultiplayerHub({ onGameStart, onBack }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [activeRoom, setActiveRoom] = useState<{ code: string; gameId: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [roomsError, setRoomsError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const gameConfigMap = Object.fromEntries(ALL_GAMES.map(g => [g.id, g]));
 
@@ -209,20 +236,37 @@ export function MultiplayerHub({ onGameStart, onBack }: Props) {
     }
   }, [roomData?.gameState, activeRoom, onGameStart]);
 
-  // Load rooms + subscribe to realtime
-  const loadRooms = useCallback(async () => {
-    const data = await getOpenRooms();
-    setRooms(data);
+  // Load rooms with error visibility
+  const loadRooms = useCallback(async (isManual = false) => {
+    if (isManual) setRefreshing(true);
+    const { rooms: data, error } = await getOpenRooms();
+    if (error) {
+      console.error('Room list error:', error);
+      setRoomsError(error);
+    } else {
+      setRoomsError(null);
+      setRooms(data);
+    }
     setLoading(false);
+    setRefreshing(false);
   }, []);
 
   useEffect(() => {
     loadRooms();
+
+    // Supabase Realtime for instant updates
     const channel = supabase
       .channel('game-rooms-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_rooms' }, () => loadRooms())
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    // Polling fallback every 4s in case Realtime isn't enabled
+    const poll = setInterval(() => loadRooms(), 4000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
   }, [loadRooms]);
 
   // Update player count in supabase when socket room data changes
@@ -233,15 +277,26 @@ export function MultiplayerHub({ onGameStart, onBack }: Props) {
   }, [roomData?.players?.length, activeRoom]);
 
   const handleCreate = async (gameId: string) => {
-    setShowCreate(false);
+    const avatar = playerAvatar || '🦁';
+    let roomCode: string;
+
     try {
-      const room = await createGameRoom(playerName, playerAvatar, gameId);
-      joinRoom(room.room_code);
-      setActiveRoom({ code: room.room_code, gameId });
-      playSound('click');
-    } catch (e) {
-      console.error('Failed to create room:', e);
+      // Try Supabase first (enables live room browser)
+      const room = await createGameRoom(playerName, avatar, gameId);
+      roomCode = room.room_code;
+    } catch (e: any) {
+      // Fallback: local code only — game still works via Socket.io
+      console.warn('Supabase room creation failed, using local fallback:', e?.message);
+      if (e?.message?.includes('does not exist') || e?.code === '42P01') {
+        throw new Error('game_rooms table missing in Supabase. Run the SQL setup first.');
+      }
+      roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     }
+
+    joinRoom(roomCode);
+    setActiveRoom({ code: roomCode, gameId });
+    setShowCreate(false);
+    playSound('click');
   };
 
   const handleJoin = async (room: GameRoom) => {
@@ -313,8 +368,16 @@ export function MultiplayerHub({ onGameStart, onBack }: Props) {
           {!activeRoom && (
             <motion.div key="browser" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 
-              {/* Create button */}
-              <div className="flex justify-end mb-4">
+              {/* Create + Refresh buttons */}
+              <div className="flex justify-between items-center mb-4">
+                <button onClick={() => loadRooms(true)} disabled={refreshing}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white/70 text-sm font-bold rounded-xl transition-colors disabled:opacity-40">
+                  <motion.span animate={refreshing ? { rotate: 360 } : {}}
+                    transition={{ repeat: refreshing ? Infinity : 0, duration: 0.8 }}>
+                    🔄
+                  </motion.span>
+                  Refresh
+                </button>
                 <button onClick={() => setShowCreate(true)}
                   className="flex items-center gap-2 px-5 py-2.5 text-white font-black text-sm rounded-xl hover:scale-105 transition-transform shadow-lg"
                   style={{ background: 'linear-gradient(135deg, #7c3aed, #9333ea)' }}>
@@ -346,7 +409,16 @@ export function MultiplayerHub({ onGameStart, onBack }: Props) {
                   </div>
                 )}
 
-                {!loading && filteredRooms.length === 0 && (
+                {/* Error state */}
+                {!loading && roomsError && (
+                  <div className="bg-red-500/10 border border-red-400/30 rounded-2xl p-5 text-center">
+                    <p className="text-red-400 font-bold mb-1">⚠️ Can't load rooms</p>
+                    <p className="text-red-300/70 text-xs mb-3 break-all">{roomsError}</p>
+                    <p className="text-white/40 text-xs">Make sure you ran the game_rooms SQL in Supabase and enabled RLS policies.</p>
+                  </div>
+                )}
+
+                {!loading && !roomsError && filteredRooms.length === 0 && (
                   <div className="text-center py-14">
                     <div className="text-5xl mb-3">🏜️</div>
                     <p className="text-white/50 font-medium">No open rooms right now</p>
@@ -355,7 +427,7 @@ export function MultiplayerHub({ onGameStart, onBack }: Props) {
                 )}
 
                 <AnimatePresence>
-                  {filteredRooms.map(room => (
+                  {!roomsError && filteredRooms.map(room => (
                     <RoomCard
                       key={room.id}
                       room={room}
