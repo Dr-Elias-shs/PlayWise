@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { MultiplicationGame } from "@/components/game/MultiplayerGame";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { loginRequest } from "@/lib/msal";
+import { Leaderboard } from "@/components/hub/Leaderboard";
 
 export default function Home() {
   const { playerName, setPlayerName, focusNumber, setFocusNumber } = useGameStore();
@@ -90,42 +91,50 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        <GameCard 
-          title="Multiplication Blitz"
-          description="Master your tables with speed and accuracy."
-          icon={Calculator}
-          color="bg-brand-primary"
-          onClick={() => setShowGame(true)}
-        />
-        <GameCard 
-          title="Fraction Heroes"
-          description="Save the city by solving fraction puzzles."
-          icon={Brain}
-          color="bg-pink-500"
-          disabled
-        />
-        <GameCard 
-          title="Vocabulary Quest"
-          description="Explore new worlds and build your word power."
-          icon={BookOpen}
-          color="bg-emerald-500"
-          disabled
-        />
-      </section>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="lg:col-span-2 space-y-8">
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <GameCard 
+              title="Multiplication Blitz"
+              description="Master your tables with speed and accuracy."
+              icon={Calculator}
+              color="bg-brand-primary"
+              onClick={() => setShowGame(true)}
+            />
+            <GameCard 
+              title="Fraction Heroes"
+              description="Save the city by solving fraction puzzles."
+              icon={Brain}
+              color="bg-pink-500"
+              disabled
+            />
+            <GameCard 
+              title="Vocabulary Quest"
+              description="Explore new worlds and build your word power."
+              icon={BookOpen}
+              color="bg-emerald-500"
+              disabled
+            />
+          </section>
 
-      <section className="mt-16 bg-white/50 border-2 border-dashed border-slate-200 rounded-3xl p-12 flex flex-col items-center text-center">
-        <div className="bg-slate-100 p-4 rounded-2xl text-slate-400 mb-4">
-          <Users size={32} />
+          <section className="bg-white/50 border-2 border-dashed border-slate-200 rounded-3xl p-8 flex flex-col items-center text-center">
+            <div className="bg-slate-100 p-4 rounded-2xl text-slate-400 mb-4">
+              <Users size={32} />
+            </div>
+            <h2 className="text-xl font-bold text-slate-700">Classroom Challenges</h2>
+            <p className="text-slate-500 max-w-md mt-2 mb-6 text-sm font-medium">Join a live session hosted by your teacher or compete with your classmates in real-time.</p>
+            <div className="flex gap-4">
+               <button className="bg-white text-slate-700 border-2 border-slate-200 px-6 py-2 rounded-xl font-bold hover:border-brand-primary hover:text-brand-primary transition-all text-sm">
+                 Join with Code
+               </button>
+            </div>
+          </section>
         </div>
-        <h2 className="text-2xl font-bold text-slate-700">Classroom Challenges</h2>
-        <p className="text-slate-500 max-w-md mt-2 mb-6 font-medium">Join a live session hosted by your teacher or compete with your classmates in real-time.</p>
-        <div className="flex gap-4">
-           <button className="bg-white text-slate-700 border-2 border-slate-200 px-6 py-3 rounded-xl font-bold hover:border-brand-primary hover:text-brand-primary transition-all">
-             Join with Code
-           </button>
+
+        <div className="lg:col-span-1">
+          <Leaderboard />
         </div>
-      </section>
+      </div>
     </div>
   );
 }

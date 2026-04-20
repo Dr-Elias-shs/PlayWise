@@ -88,7 +88,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
       setTimeout(() => {
         setFeedback(null);
         generateQuestion();
-      }, 2500);
+      }, 3500);
     } else {
       if (soundEnabled) {
         playSound('wrong');
@@ -98,7 +98,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
       setTimeout(() => {
         setFeedback(null);
         generateQuestion();
-      }, 3500);
+      }, 4500);
     }
   };
 
