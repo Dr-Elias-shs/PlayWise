@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   description: "Educational Gaming Platform",
 };
 
+import { MsalProvider } from "@/components/MsalProvider";
+
 export default function RootLayout({
   children,
 }: {
@@ -17,7 +19,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {children}
+        <MsalProvider>
+          {children}
+        </MsalProvider>
       </body>
     </html>
   );
