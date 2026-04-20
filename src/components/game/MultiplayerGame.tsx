@@ -88,7 +88,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
       setTimeout(() => {
         setFeedback(null);
         generateQuestion();
-      }, 1000);
+      }, 2500);
     } else {
       if (soundEnabled) {
         playSound('wrong');
@@ -98,7 +98,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
       setTimeout(() => {
         setFeedback(null);
         generateQuestion();
-      }, 1200);
+      }, 3500);
     }
   };
 
@@ -177,6 +177,9 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
            <button onClick={() => { setFocusNumber(null); resetGame(); }} className="text-slate-400 hover:text-slate-600">
              <ChevronLeft size={32} />
            </button>
+           <div className="hidden sm:block p-1 bg-slate-50 rounded-lg border border-slate-100">
+             <img src="/exams-logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+           </div>
            <div className="flex flex-col">
              <span className="text-xs font-bold text-slate-400 uppercase">Focus</span>
              <span className="text-xl font-black text-slate-800">Table of {focusNumber}</span>
@@ -239,6 +242,9 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
                     <CheckCircle2 size={120} />
                   </motion.div>
                   <span className="text-3xl font-black mt-4 animate-bounce">Magic! Perfect!</span>
+                  <div className="mt-4 text-2xl font-bold text-slate-600">
+                    {question?.num1} × {question?.num2} = <span className="text-brand-secondary">{question?.answer}</span>
+                  </div>
                   
                   {[...Array(8)].map((_, i) => (
                     <motion.div
@@ -260,6 +266,12 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
                 <div className="flex flex-col items-center text-red-500">
                   <XCircle size={120} />
                   <span className="text-3xl font-black mt-4">Try Again!</span>
+                  <div className="mt-6 bg-slate-50 px-8 py-4 rounded-3xl border-2 border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase block text-sm mb-1">Correct Answer</span>
+                    <span className="text-5xl font-black text-slate-800">
+                      {question?.num1} × {question?.num2} = <span className="text-brand-primary">{question?.answer}</span>
+                    </span>
+                  </div>
                 </div>
               )}
             </motion.div>

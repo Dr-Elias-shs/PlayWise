@@ -36,8 +36,8 @@ export default function Home() {
       <div className="flex-1 flex flex-col items-center justify-center p-6 bg-brand-background">
         <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
           <div className="flex justify-center mb-6">
-            <div className="bg-brand-primary p-4 rounded-2xl text-white shadow-lg">
-              <Star size={40} className="animate-pulse-subtle" />
+            <div className="bg-white p-2 rounded-2xl shadow-lg border border-slate-100">
+              <img src="/exams-logo.png" alt="PlayWise Logo" className="w-16 h-16 object-contain" />
             </div>
           </div>
           <h1 className="text-3xl font-black text-center text-slate-800 mb-2">PlayWise</h1>
@@ -50,34 +50,6 @@ export default function Home() {
             >
               <LogIn size={24} className="text-brand-primary" />
               Sign in with Microsoft
-            </button>
-            
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-100"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white text-slate-400 font-medium">or continue as guest</span>
-              </div>
-            </div>
-
-            <label className="block text-sm font-bold text-slate-700">Student Name</label>
-            <input 
-              type="text"
-              placeholder="Enter your name..."
-              className="w-full px-5 py-4 rounded-xl border-2 border-slate-100 focus:border-brand-primary outline-none transition-all text-lg font-medium"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') setPlayerName((e.target as HTMLInputElement).value);
-              }}
-            />
-            <button 
-              onClick={() => {
-                const input = document.querySelector('input') as HTMLInputElement;
-                if (input.value) setPlayerName(input.value);
-              }}
-              className="btn-primary w-full text-lg py-4"
-            >
-              Get Started
             </button>
           </div>
         </div>
@@ -92,9 +64,14 @@ export default function Home() {
   return (
     <div className="flex-1 bg-brand-background p-6 md:p-10 lg:p-16">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-        <div>
-          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Welcome, {playerName}! 👋</h1>
-          <p className="text-slate-500 text-lg mt-1 font-medium">What would you like to master today?</p>
+        <div className="flex items-center gap-4">
+          <div className="bg-white p-2 rounded-xl shadow-sm border border-slate-100 hidden sm:block">
+            <img src="/exams-logo.png" alt="Logo" className="w-12 h-12 object-contain" />
+          </div>
+          <div>
+            <h1 className="text-4xl font-black text-slate-800 tracking-tight">Welcome, {playerName}! 👋</h1>
+            <p className="text-slate-500 text-lg mt-1 font-medium">What would you like to master today?</p>
+          </div>
         </div>
         <div className="flex gap-4">
           <div className="bg-white px-6 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
