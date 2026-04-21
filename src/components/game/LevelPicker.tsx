@@ -14,9 +14,10 @@ interface Props {
   onSelect: (level: Level) => void;
   onBack: () => void;
   bgStyle?: string;
+  descriptions?: Partial<Record<Level, string>>;
 }
 
-export function LevelPicker({ onSelect, onBack, bgStyle }: Props) {
+export function LevelPicker({ onSelect, onBack, bgStyle, descriptions }: Props) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6"
       style={{ background: bgStyle ?? 'linear-gradient(135deg, #1e1b4b, #4c1d95, #6b21a8)' }}>
@@ -48,7 +49,7 @@ export function LevelPicker({ onSelect, onBack, bgStyle }: Props) {
               {/* Info */}
               <div className="flex-1 text-left">
                 <div className="font-black text-xl">{cfg.label}</div>
-                <div className="text-white/60 text-sm font-medium">{cfg.desc}</div>
+                <div className="text-white/60 text-sm font-medium">{descriptions?.[id] ?? cfg.desc}</div>
               </div>
 
               {/* Multiplier badge */}
