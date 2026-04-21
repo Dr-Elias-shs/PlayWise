@@ -165,44 +165,29 @@ export default function Home() {
           )}
 
           <div className="space-y-3">
-            {/* School email login — always visible */}
-            <div>
-              <p className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">
-                Sign in with your school email
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  value={emailInput}
-                  onChange={e => { setEmailInput(e.target.value); setDomainError(''); }}
-                  onKeyDown={e => e.key === 'Enter' && handleEmailLogin()}
-                  placeholder={`yourname@${ALLOWED_DOMAIN}`}
-                  className="flex-1 px-3 py-3 border-2 border-slate-200 focus:border-brand-primary rounded-xl text-sm font-medium outline-none transition-colors"
-                />
-                <button onClick={handleEmailLogin}
-                  className="px-4 py-3 bg-brand-primary text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">
-                  Go →
-                </button>
-              </div>
-            </div>
-
-            {/* Microsoft SSO — only shown when Azure is configured */}
-            {msalConfigured && (
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-100" />
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="px-3 bg-white text-xs text-slate-400 font-medium">or</span>
-                </div>
-              </div>
-            )}
-            {msalConfigured && (
+            {/* Microsoft SSO — the real login */}
+            {msalConfigured ? (
               <button onClick={handleLogin}
-                className="w-full flex items-center justify-center gap-3 px-5 py-3 rounded-xl border-2 border-slate-100 hover:border-brand-primary hover:bg-brand-primary/5 transition-all font-bold text-slate-700 text-sm">
-                <LogIn size={20} className="text-brand-primary" />
-                Sign in with Microsoft SSO
+                className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-xl border-2 border-slate-100 hover:border-brand-primary hover:bg-brand-primary/5 transition-all font-bold text-slate-700 text-lg">
+                <LogIn size={22} className="text-brand-primary" />
+                Sign in with Microsoft
               </button>
+            ) : (
+              /* Email fallback — only when Azure not configured */
+              <div>
+                <p className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">School email</p>
+                <div className="flex gap-2">
+                  <input type="email" value={emailInput}
+                    onChange={e => { setEmailInput(e.target.value); setDomainError(''); }}
+                    onKeyDown={e => e.key === 'Enter' && handleEmailLogin()}
+                    placeholder={`yourname@${ALLOWED_DOMAIN}`}
+                    className="flex-1 px-3 py-3 border-2 border-slate-200 focus:border-brand-primary rounded-xl text-sm font-medium outline-none transition-colors" />
+                  <button onClick={handleEmailLogin}
+                    className="px-4 py-3 bg-brand-primary text-white rounded-xl font-bold text-sm hover:opacity-90">
+                    Go →
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* DEV ONLY */}
