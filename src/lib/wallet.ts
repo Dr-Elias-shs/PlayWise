@@ -13,11 +13,14 @@ export function calcCoins(correctCount: number, maxStreak: number, won: boolean,
 // ─── Wallet ───────────────────────────────────────────────────────────────────
 
 export async function getWallet(studentName: string) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('player_wallets')
     .select('*')
     .eq('student_name', studentName)
     .single();
+  if (error && error.code !== 'PGRST116') { // PGRST116 = row not found (expected for new players)
+    console.error('getWallet error:', error.message);
+  }
   return data;
 }
 
