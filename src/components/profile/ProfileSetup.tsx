@@ -54,12 +54,18 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
           <p className="text-sm font-bold text-slate-500 mb-3">Choose your avatar</p>
           <div className="grid grid-cols-8 gap-2">
             {AVATARS.map(a => (
-              <motion.button key={a} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+              <motion.button key={a}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
                 onClick={() => setAvatar(a)}
-                className={`text-2xl p-1.5 rounded-xl transition-all ${
-                  avatar === a ? 'bg-violet-100 ring-2 ring-violet-500 scale-110' : 'hover:bg-slate-50'
-                }`}>
-                {a}
+                className="relative flex items-center justify-center rounded-xl transition-colors"
+                style={{
+                  padding: '6px',
+                  background: avatar === a ? '#ede9fe' : 'transparent',
+                  outline: avatar === a ? '2.5px solid #7c3aed' : '2.5px solid transparent',
+                  outlineOffset: '1px',
+                }}>
+                <span className="text-2xl leading-none select-none">{a}</span>
               </motion.button>
             ))}
           </div>
