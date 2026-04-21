@@ -7,7 +7,7 @@ import {
   updateRedemptionStatus, formatPlayTime,
 } from '@/lib/wallet';
 
-const ADMIN_PIN = '1234'; // change this in production
+const ADMIN_PIN = 'astalabista'; // change this in production
 
 type Tab = 'students' | 'redemptions' | 'shop';
 
