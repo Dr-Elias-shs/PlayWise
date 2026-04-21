@@ -235,6 +235,20 @@ export const fractionGame: GameConfig = {
   },
 };
 
+// ─── Memory Game (standalone component — config only for hub card) ────────────
+
+export const memoryGame: GameConfig = {
+  id: 'memory',
+  title: 'Memory Match',
+  description: 'Flip cards to find matching math pairs!',
+  emoji: '🧠',
+  bgStyle:     'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
+  cardStyle:   'linear-gradient(135deg, #4f46e5, #7c3aed)',
+  accentStyle: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+  duration: 0,
+  generateQuestion: () => ({ displayText: '', answer: 0, choices: [], formatChoice: n => String(n) }),
+};
+
 // ─── All games ────────────────────────────────────────────────────────────────
 
 export const ALL_GAMES: GameConfig[] = [
@@ -242,4 +256,5 @@ export const ALL_GAMES: GameConfig[] = [
   multiplicationGame,
   divisionGame,
   fractionGame,
+  memoryGame,
 ];

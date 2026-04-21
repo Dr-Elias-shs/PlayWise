@@ -6,6 +6,7 @@ import { useFullscreen } from "@/hooks/useFullscreen";
 import { motion } from "framer-motion";
 import { MultiplicationGame } from "@/components/game/MultiplayerGame";
 import { GameEngine } from "@/components/game/GameEngine";
+import { MemoryGame } from "@/components/game/MemoryGame";
 import { MultiplayerHub } from "@/components/multiplayer/MultiplayerHub";
 import { ProfileSetup } from "@/components/profile/ProfileSetup";
 import { RedeemPage } from "@/components/redeem/RedeemPage";
@@ -242,6 +243,9 @@ export default function Home() {
     const backToHub = () => { resetGame(); setWalletRefresh(r => r + 1); setScreen('hub'); };
     if (!activeGame || activeGame.id === 'multiplication') {
       return <MultiplicationGame onBack={backToHub} />;
+    }
+    if (activeGame.id === 'memory') {
+      return <MemoryGame onBack={backToHub} />;
     }
     return <GameEngine config={activeGame} onBack={backToHub} />;
   }
