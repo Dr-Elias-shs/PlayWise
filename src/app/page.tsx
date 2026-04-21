@@ -73,16 +73,19 @@ export default function Home() {
 
   // After MSAL login — check domain then set name
   useEffect(() => {
-    if (!isAuthenticated || accounts.length === 0 || playerName) return;
-    const email = accounts[0].username ?? '';
-    if (!email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`)) {
+    if (!isAuthenticated || accounts.length === 0) return;
+    const email = (accounts[0].username ?? '').toLowerCase();
+    if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
       setDomainError(true);
-      instance.logoutPopup().catch(() => {});
+      // Use redirect so there's no popup needed
+      instance.logoutRedirect({ postLogoutRedirectUri: window.location.origin }).catch(() => {});
       return;
     }
-    setDomainError(false);
-    setPlayerName(accounts[0].name || accounts[0].username);
-  }, [isAuthenticated, accounts, playerName, setPlayerName, instance]);
+    if (!playerName) {
+      setDomainError(false);
+      setPlayerName(accounts[0].name || accounts[0].username);
+    }
+  }, [isAuthenticated, accounts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Determine initial screen once playerName/avatar known
   useEffect(() => {
