@@ -7,6 +7,8 @@ import { playSound, speak } from '@/lib/sounds';
 import { saveScore } from '@/lib/supabase';
 import { addCoins, calcCoins } from '@/lib/wallet';
 import { GameConfig, Question } from '@/lib/gameConfigs';
+import { StreakOverlay } from './StreakOverlay';
+import { CoinReward } from './CoinReward';
 
 // ─── Timer bar ────────────────────────────────────────────────────────────────
 
@@ -30,9 +32,9 @@ TimerBar.displayName = 'TimerBar';
 
 // ─── Game Over screen ─────────────────────────────────────────────────────────
 
-function GameOver({ config, score, maxStreak, correctCount, wrongCount, onPlayAgain, onBack }: {
+function GameOver({ config, score, maxStreak, correctCount, wrongCount, coinsEarned, onPlayAgain, onBack }: {
   config: GameConfig;
-  score: number; maxStreak: number; correctCount: number; wrongCount: number;
+  score: number; maxStreak: number; correctCount: number; wrongCount: number; coinsEarned: number;
   onPlayAgain: () => void; onBack: () => void;
 }) {
   const accuracy = correctCount + wrongCount > 0
@@ -65,9 +67,11 @@ function GameOver({ config, score, maxStreak, correctCount, wrongCount, onPlayAg
           className="text-7xl mb-3">{config.emoji}</motion.div>
 
         <h2 className="text-4xl font-black text-white mb-1">Time's Up!</h2>
-        <p className={`text-xl font-bold mb-6 ${grade.color}`}>{grade.label}</p>
+        <p className={`text-xl font-bold mb-4 ${grade.color}`}>{grade.label}</p>
 
-        <div className="grid grid-cols-2 gap-3 mb-6">
+        <CoinReward coins={coinsEarned} />
+
+        <div className="grid grid-cols-2 gap-3 my-5">
           {[
             { label: 'Score',       value: score.toLocaleString(), icon: '⭐', color: 'from-amber-400 to-yellow-500' },
             { label: 'Best Streak', value: `×${maxStreak}`,        icon: '🔥', color: 'from-orange-400 to-red-500' },
@@ -116,6 +120,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
   const [question, setQuestion] = useState<Question | null>(null);
   const [timeLeft, setTimeLeft] = useState(config.duration);
   const [isGameOver, setIsGameOver] = useState(false);
+  const [coinsEarned, setCoinsEarned] = useState(0);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [isAnswering, setIsAnswering] = useState(false);
   const [particles, setParticles] = useState<{ id: number; color: string; angle: number }[]>([]);
@@ -157,6 +162,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
         });
 
       const coins = calcCoins(cc, ms, false, false);
+      setCoinsEarned(coins);
       console.log(`₿ Awarding ${coins} coins to ${playerName} (correct: ${cc}, streak: ${ms})`);
       addCoins(playerName, coins, elapsed, true, playerGrade)
         .then(({ error }: any) => {
@@ -204,7 +210,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
   if (isGameOver) {
     return (
       <GameOver config={config} score={score} maxStreak={maxStreak}
-        correctCount={correctCount} wrongCount={wrongCount}
+        correctCount={correctCount} wrongCount={wrongCount} coinsEarned={coinsEarned}
         onPlayAgain={handlePlayAgain}
         onBack={() => { resetGame(); onBack(); }}
       />
@@ -220,7 +226,8 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
     : 'from-emerald-400 to-teal-400';
 
   return (
-    <div className="min-h-screen flex flex-col select-none" style={{ background: config.bgStyle }}>
+    <div className="min-h-screen flex flex-col select-none relative" style={{ background: config.bgStyle }}>
+      <StreakOverlay streak={streak} />
 
       {/* Header */}
       <div className="px-4 pt-4 pb-3 space-y-2">
@@ -250,9 +257,11 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
             <span className="text-white font-bold text-sm">{config.title}</span>
           </div>
 
-          {label && (
-            <motion.div key={label.text} initial={{ scale: 0 }} animate={{ scale: 1 }}
-              className={`font-black text-sm ${label.color}`}>{label.text}</motion.div>
+          {streak >= 3 && (
+            <motion.div key={streak} initial={{ scale: 0 }} animate={{ scale: 1 }}
+              className="font-black text-sm text-orange-300">
+              {streak >= 10 ? '🔥' : streak >= 5 ? '⚡' : '💥'} ×{streak}
+            </motion.div>
           )}
 
           <div className="bg-white/20 rounded-xl px-4 py-1 text-right">

@@ -5,6 +5,8 @@ import { useGameStore } from '@/store/useGameStore';
 import { playSound, speak } from '@/lib/sounds';
 import { saveScore } from '@/lib/supabase';
 import { addCoins, calcCoins } from '@/lib/wallet';
+import { StreakOverlay } from './StreakOverlay';
+import { CoinReward } from './CoinReward';
 import { Volume2, VolumeX } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -118,8 +120,8 @@ function TablePicker({ onSelect, onBack, soundEnabled, onToggleSound }: {
 
 // ─── Game Over ────────────────────────────────────────────────────────────────
 
-function GameOver({ score, maxStreak, correctCount, wrongCount, players, playerName, onPlayAgain, onBack }: {
-  score: number; maxStreak: number; correctCount: number; wrongCount: number;
+function GameOver({ score, maxStreak, correctCount, wrongCount, coinsEarned, players, playerName, onPlayAgain, onBack }: {
+  score: number; maxStreak: number; correctCount: number; wrongCount: number; coinsEarned: number;
   players: { name: string; score: number; streak: number }[];
   playerName: string;
   onPlayAgain: () => void; onBack: () => void;
@@ -192,9 +194,12 @@ function GameOver({ score, maxStreak, correctCount, wrongCount, players, playerN
             <motion.div animate={{ rotate: [0, -10, 10, 0] }} transition={{ repeat: Infinity, duration: 3 }}
               className="text-7xl mb-3">🏆</motion.div>
             <h2 className="text-4xl font-black text-white mb-1">Time's Up!</h2>
-            <p className={`text-xl font-bold mb-5 ${grade.color}`}>{grade.label}</p>
+            <p className={`text-xl font-bold mb-4 ${grade.color}`}>{grade.label}</p>
           </>
         )}
+
+        {/* Coin reward */}
+        <CoinReward coins={coinsEarned} />
 
         {/* Multiplayer score comparison */}
         {isMultiplayer && (
@@ -265,6 +270,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
   const [question, setQuestion] = useState<Question | null>(null);
   const [timeLeft, setTimeLeft] = useState(DURATION);
   const [isGameOver, setIsGameOver] = useState(false);
+  const [coinsEarned, setCoinsEarned] = useState(0);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [isAnswering, setIsAnswering] = useState(false);
   const [particles, setParticles] = useState<{ id: number; color: string; angle: number }[]>([]);
@@ -315,6 +321,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
     const won = opponent ? s > (opponent.score ?? 0) : false;
     const isMulti = players.length > 1;
     const coins = calcCoins(cc, ms, won, isMulti);
+    setCoinsEarned(coins);
 
     console.log(`₿ Awarding ${coins} coins to ${playerName} (correct: ${cc}, streak: ${ms})`);
     addCoins(playerName, coins, DURATION, true, playerGrade)
@@ -389,6 +396,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
     return (
       <GameOver
         score={score} maxStreak={maxStreak} correctCount={correctCount} wrongCount={wrongCount}
+        coinsEarned={coinsEarned}
         players={roomData?.players ?? []}
         playerName={playerName}
         onPlayAgain={handlePlayAgain}
@@ -403,7 +411,8 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
   const label = streakLabel(streak);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-700 via-purple-600 to-fuchsia-700 flex flex-col select-none">
+    <div className="min-h-screen bg-gradient-to-br from-violet-700 via-purple-600 to-fuchsia-700 flex flex-col select-none relative">
+      <StreakOverlay streak={streak} />
 
       {/* Header */}
       <div className="px-4 pt-4 pb-3 space-y-2">
@@ -440,10 +449,10 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
           {roomData?.players?.length > 1 ? (
             <div className="text-white/60 font-black text-sm">VS</div>
           ) : (
-            label && (
-              <motion.div key={label.text} initial={{ scale: 0 }} animate={{ scale: 1 }}
-                className={`font-black text-xs ${label.color} text-center`}>
-                {label.text}
+            streak >= 3 && (
+              <motion.div key={streak} initial={{ scale: 0 }} animate={{ scale: 1 }}
+                className="font-black text-xs text-orange-300 text-center">
+                {streak >= 10 ? '🔥' : streak >= 5 ? '⚡' : '💥'} ×{streak}
               </motion.div>
             )
           )}
