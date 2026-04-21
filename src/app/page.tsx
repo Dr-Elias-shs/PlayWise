@@ -157,9 +157,9 @@ export default function Home() {
                 <p className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">School email</p>
                 <div className="flex gap-2">
                   <input type="email" value={emailInput}
-                    onChange={e => { setEmailInput(e.target.value); setDomainError(''); }}
+                    onChange={e => setEmailInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleEmailLogin()}
-                    placeholder={`yourname@${ALLOWED_DOMAIN}`}
+                    placeholder="yourname@school.com"
                     className="flex-1 px-3 py-3 border-2 border-slate-200 focus:border-brand-primary rounded-xl text-sm font-medium outline-none transition-colors" />
                   <button onClick={handleEmailLogin}
                     className="px-4 py-3 bg-brand-primary text-white rounded-xl font-bold text-sm hover:opacity-90">
