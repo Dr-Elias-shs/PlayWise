@@ -2,7 +2,7 @@
   "relation": ["delegate_permission/common.handle_all_urls"],
   "target": {
     "namespace": "android_app",
-    "package_name": "com.sagessehs.playwise",
-    "sha256_cert_fingerprints": ["PASTE_SHA256_FINGERPRINT_FROM_PWABUILDER_HERE"]
+    "package_name": "com.onrender.playwise_8b6o.twa",
+    "sha256_cert_fingerprints": ["5B:CB:FE:37:6D:AE:C1:A9:85:08:5D:1F:2A:5C:FF:AA:34:9B:EB:F6:3C:4F:91:80:8D:AE:27:94:1D:8E:5B:A1"]
   }
 }]
