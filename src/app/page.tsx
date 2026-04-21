@@ -51,7 +51,7 @@ function HubGameCard({ config, onClick, multiplayerBadge }: {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-const ALLOWED_DOMAIN = 'sagesssehs.edu.lb';
+const ALLOWED_DOMAIN = 'sagessehs.edu.lb';
 
 type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer' | 'redeem';
 
