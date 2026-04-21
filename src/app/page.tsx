@@ -120,7 +120,7 @@ export default function Home() {
         <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
           <div className="flex justify-center mb-6">
             <div className="bg-white p-2 rounded-2xl shadow-lg border border-slate-100">
-              <img src="/exams-logo.png" alt="PlayWise Logo" className="w-16 h-16 object-contain" />
+              <img src="/playwise-logo.png" alt="PlayWise Logo" className="w-24 h-24 object-contain" />
             </div>
           </div>
           <h1 className="text-3xl font-black text-center text-slate-800 mb-2">PlayWise</h1>
@@ -204,7 +204,7 @@ export default function Home() {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div className="flex items-center gap-4">
           <div className="bg-white p-2 rounded-xl shadow-sm border border-slate-100 hidden sm:block">
-            <img src="/exams-logo.png" alt="Logo" className="w-12 h-12 object-contain" />
+            <img src="/playwise-logo.png" alt="Logo" className="w-12 h-12 object-contain" />
           </div>
           <div>
             <div className="flex items-center gap-2">
