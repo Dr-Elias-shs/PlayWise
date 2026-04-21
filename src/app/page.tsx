@@ -52,7 +52,6 @@ function HubGameCard({ config, onClick, multiplayerBadge }: {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-const ALLOWED_DOMAIN = 'sagessehs.edu.lb';
 
 type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer' | 'redeem';
 
@@ -62,7 +61,6 @@ export default function Home() {
   const [activeGame, setActiveGame] = useState<GameConfig | null>(null);
   const [multiGameId, setMultiGameId] = useState<string>('multiplication');
   const [walletRefresh, setWalletRefresh] = useState(0);
-  const [domainError, setDomainError] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const { isFullscreen, toggle: toggleFullscreen, enter: enterFullscreen } = useFullscreen();
   const msalConfigured = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID !== '00000000-0000-0000-0000-000000000000';
@@ -74,17 +72,10 @@ export default function Home() {
     loadStoredProfile();
   }, [loadStoredProfile]);
 
-  // After MSAL login — check domain then set name
+  // After MSAL login — set player name from account
   useEffect(() => {
     if (!isAuthenticated || accounts.length === 0) return;
-    const email = (accounts[0].username ?? '').toLowerCase();
-    if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
-      setDomainError(`Only @${ALLOWED_DOMAIN} accounts can access PlayWise.`);
-      instance.logoutRedirect({ postLogoutRedirectUri: window.location.origin }).catch(() => {});
-      return;
-    }
     if (!playerName) {
-      setDomainError('');
       setPlayerName(accounts[0].name || accounts[0].username);
     }
   }, [isAuthenticated, accounts]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -97,20 +88,14 @@ export default function Home() {
   }, [playerName, playerAvatar, screen]);
 
   const handleLogin = () => {
-    instance.loginRedirect(loginRequest).catch(e => {
-      if (e?.errorCode !== 'interaction_in_progress') console.error(e);
+    instance.loginPopup(loginRequest).catch(e => {
+      if (e?.errorCode !== 'user_cancelled') console.error(e);
     });
   };
 
   const handleEmailLogin = () => {
     const email = emailInput.trim().toLowerCase();
-    if (!email.includes('@')) { setDomainError('Enter a valid email address.'); return; }
-    if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
-      setDomainError(`Only @${ALLOWED_DOMAIN} accounts can access PlayWise.`);
-      return;
-    }
-    setDomainError('');
-    // Extract display name from email prefix (john.doe → John Doe)
+    if (!email.includes('@')) return;
     const prefix = email.split('@')[0];
     const displayName = prefix.split(/[._-]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     setPlayerName(displayName);
@@ -157,12 +142,6 @@ export default function Home() {
           </div>
           <h1 className="text-3xl font-black text-center text-slate-800 mb-2">PlayWise</h1>
           <p className="text-slate-500 text-center mb-8">Ready to level up your learning?</p>
-
-          {domainError && (
-            <div className="mb-4 bg-red-50 border-2 border-red-200 rounded-2xl px-4 py-3 text-center">
-              <p className="text-red-600 font-bold text-sm">⛔ {domainError}</p>
-            </div>
-          )}
 
           <div className="space-y-3">
             {/* Microsoft SSO — the real login */}

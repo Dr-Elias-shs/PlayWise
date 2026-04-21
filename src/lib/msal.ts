@@ -6,17 +6,16 @@ export const msalConfig: Configuration = {
   auth: {
     clientId: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
     authority: `https://login.microsoftonline.com/${process.env.NEXT_PUBLIC_MICROSOFT_TENANT_ID}`,
-    redirectUri: isDev
-      ? "http://localhost:3000"
-      : "https://playwise-8b6o.onrender.com",
-    postLogoutRedirectUri: isDev
-      ? "http://localhost:3000"
-      : "https://playwise-8b6o.onrender.com",
-    navigateToLoginRequestUrl: false,
+    redirectUri: typeof window !== "undefined"
+      ? `${window.location.origin}/blank.html`
+      : isDev ? "http://localhost:3000/blank.html" : "https://playwise-8b6o.onrender.com/blank.html",
+    postLogoutRedirectUri: typeof window !== "undefined"
+      ? window.location.origin
+      : isDev ? "http://localhost:3000" : "https://playwise-8b6o.onrender.com",
   },
   cache: {
     cacheLocation: "localStorage",
-    storeAuthStateInCookie: false,
+    storeAuthStateInCookie: true, // keeps PKCE state across redirect in Safari/private mode
   },
   system: {
     loggerOptions: {
