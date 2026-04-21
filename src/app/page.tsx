@@ -1,7 +1,8 @@
 "use client";
 import { useGameStore } from "@/store/useGameStore";
-import { Users, Trophy, LogIn, LogOut, Settings } from "lucide-react";
+import { Users, Trophy, LogIn, LogOut, Settings, Maximize, Minimize } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useFullscreen } from "@/hooks/useFullscreen";
 import { motion } from "framer-motion";
 import { MultiplicationGame } from "@/components/game/MultiplayerGame";
 import { GameEngine } from "@/components/game/GameEngine";
@@ -59,6 +60,7 @@ export default function Home() {
   const [activeGame, setActiveGame] = useState<GameConfig | null>(null);
   const [multiGameId, setMultiGameId] = useState<string>('multiplication');
   const [walletRefresh, setWalletRefresh] = useState(0);
+  const { isFullscreen, toggle: toggleFullscreen, enter: enterFullscreen } = useFullscreen();
   const { instance, accounts } = useMsal();
   const isAuthenticated = useIsAuthenticated();
 
@@ -95,6 +97,7 @@ export default function Home() {
   const handleGameCardClick = (config: GameConfig) => {
     resetGame();
     setActiveGame(config);
+    enterFullscreen();
     setScreen('game');
   };
 
@@ -223,6 +226,11 @@ export default function Home() {
             <Trophy size={16} className="text-brand-accent" />
             <span className="font-bold text-slate-700 text-sm">Explorer</span>
           </div>
+          <button onClick={toggleFullscreen}
+            className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 text-slate-400 hover:text-violet-500 transition-colors"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
+            {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+          </button>
           <button onClick={() => setScreen('profile-edit')}
             className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 text-slate-400 hover:text-violet-500 transition-colors"
             title="Edit Profile">

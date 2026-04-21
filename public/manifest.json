@@ -3,7 +3,7 @@
   "short_name": "PlayWise",
   "description": "Educational gaming hub for students",
   "start_url": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "landscape",
   "background_color": "#F8FAFC",
   "theme_color": "#4F46E5",
