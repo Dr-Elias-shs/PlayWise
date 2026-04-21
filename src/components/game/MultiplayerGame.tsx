@@ -21,14 +21,30 @@ interface Question {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function generateQuestion(focusNumber: number): Question {
-  const b = Math.floor(Math.random() * 10) + 1;
+// Shuffle an array in place
+function shuffle<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Build a shuffled deck of multipliers for the chosen level
+function makeDeck(level: Level | null): number[] {
+  const max = level === 'hard' ? 12 : level === 'easy' ? 5 : 10;
+  return shuffle(Array.from({ length: max }, (_, i) => i + 1));
+}
+
+function generateQuestion(focusNumber: number, b: number): Question {
   const answer = focusNumber * b;
   const wrongs = new Set<number>();
-  while (wrongs.size < 3) {
-    const offset = Math.floor(Math.random() * 4) + 1;
+  let tries = 0;
+  while (wrongs.size < 3 && tries < 100) {
+    const offset = Math.floor(Math.random() * 5) + 1;
     const w = answer + (Math.random() > 0.5 ? offset : -offset);
     if (w > 0 && w !== answer) wrongs.add(w);
+    tries++;
   }
   const choices = [answer, ...Array.from(wrongs)].sort(() => Math.random() - 0.5);
   return { a: focusNumber, b, answer, choices };
@@ -277,6 +293,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
   const DURATION = 60;
   const [level, setLevel] = useState<Level | null>(null);
   const [question, setQuestion] = useState<Question | null>(null);
+  const deckRef = useRef<number[]>([]);
   const [timeLeft, setTimeLeft] = useState(DURATION);
   const [isGameOver, setIsGameOver] = useState(false);
   const [coinsEarned, setCoinsEarned] = useState(0);
@@ -290,14 +307,18 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
 
   const nextQuestion = useCallback(() => {
     if (focusNumber === null) return;
-    setQuestion(generateQuestion(focusNumber));
+    // Refill deck when empty
+    if (deckRef.current.length === 0) deckRef.current = makeDeck(level);
+    const b = deckRef.current.pop()!;
+    setQuestion(generateQuestion(focusNumber, b));
     setSelectedChoice(null);
     setIsAnswering(false);
-  }, [focusNumber]);
+  }, [focusNumber, level]);
 
-  // Start game when focusNumber is set
+  // Start game when focusNumber + level are both set
   useEffect(() => {
-    if (focusNumber === null || isGameOver) return;
+    if (focusNumber === null || isGameOver || !level) return;
+    deckRef.current = makeDeck(level); // fresh deck for new game
     nextQuestion();
     setTimeLeft(DURATION);
     timerRef.current = setInterval(() => {
