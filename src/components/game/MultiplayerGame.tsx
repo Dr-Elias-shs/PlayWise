@@ -298,21 +298,30 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
     return () => clearInterval(timerRef.current!);
   }, [focusNumber]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Save score when game ends
+  // Save score + award coins when game ends
   useEffect(() => {
-    if (isGameOver && focusNumber !== null) {
-      saveScore(playerName, focusNumber, score)
-        .then(({ error }: { error: any }) => {
-          if (error) console.error('Score save failed:', error.message);
-        });
-      const players: any[] = roomData?.players ?? [];
-      const opponent = players.find((p: any) => p.name !== playerName);
-      const won = opponent ? score > (opponent.score ?? 0) : false;
-      const isMulti = players.length > 1;
-      const coins = calcCoins(correctCount, maxStreak, won, isMulti);
-      addCoins(playerName, coins, DURATION).catch(() => {});
-      console.log(`₿ +${coins} coins earned`);
-    }
+    if (!isGameOver || focusNumber === null) return;
+
+    // Read latest values directly from store to avoid stale closure
+    const { score: s, correctCount: cc, maxStreak: ms, roomData: rd } = useGameStore.getState();
+
+    saveScore(playerName, focusNumber, s)
+      .then(({ error }: { error: any }) => {
+        if (error) console.error('Score save failed:', error.message);
+      });
+
+    const players: any[] = rd?.players ?? [];
+    const opponent = players.find((p: any) => p.name !== playerName);
+    const won = opponent ? s > (opponent.score ?? 0) : false;
+    const isMulti = players.length > 1;
+    const coins = calcCoins(cc, ms, won, isMulti);
+
+    console.log(`₿ Awarding ${coins} coins to ${playerName} (correct: ${cc}, streak: ${ms})`);
+    addCoins(playerName, coins, DURATION)
+      .then(({ error }: any) => {
+        if (error) console.error('Coin save failed:', error.message);
+        else console.log(`₿ +${coins} PlayBits saved!`);
+      });
   }, [isGameOver]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = useCallback((choice: number) => {

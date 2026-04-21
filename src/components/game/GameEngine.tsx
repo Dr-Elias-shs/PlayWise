@@ -148,14 +148,21 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
 
   useEffect(() => {
     if (isGameOver) {
-      saveScore(playerName, 0, score, config.id)
+      const { score: s, correctCount: cc, maxStreak: ms } = useGameStore.getState();
+      const elapsed = config.duration - timeLeft;
+
+      saveScore(playerName, 0, s, config.id)
         .then(({ error }: { error: any }) => {
           if (error) console.error('Score save failed:', error.message);
         });
-      const coins = calcCoins(correctCount, maxStreak, false, false);
-      const elapsed = config.duration - timeLeft;
-      addCoins(playerName, coins, elapsed).catch(() => {});
-      console.log(`₿ +${coins} coins earned`);
+
+      const coins = calcCoins(cc, ms, false, false);
+      console.log(`₿ Awarding ${coins} coins to ${playerName} (correct: ${cc}, streak: ${ms})`);
+      addCoins(playerName, coins, elapsed)
+        .then(({ error }: any) => {
+          if (error) console.error('Coin save failed:', error.message);
+          else console.log(`₿ +${coins} PlayBits saved!`);
+        });
     }
   }, [isGameOver]); // eslint-disable-line react-hooks/exhaustive-deps
 
