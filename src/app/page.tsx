@@ -61,8 +61,10 @@ export default function Home() {
   const [activeGame, setActiveGame] = useState<GameConfig | null>(null);
   const [multiGameId, setMultiGameId] = useState<string>('multiplication');
   const [walletRefresh, setWalletRefresh] = useState(0);
-  const [domainError, setDomainError] = useState(false);
+  const [domainError, setDomainError] = useState('');
+  const [emailInput, setEmailInput] = useState('');
   const { isFullscreen, toggle: toggleFullscreen, enter: enterFullscreen } = useFullscreen();
+  const msalConfigured = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID !== '00000000-0000-0000-0000-000000000000';
   const { instance, accounts } = useMsal();
   const isAuthenticated = useIsAuthenticated();
 
@@ -76,13 +78,12 @@ export default function Home() {
     if (!isAuthenticated || accounts.length === 0) return;
     const email = (accounts[0].username ?? '').toLowerCase();
     if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
-      setDomainError(true);
-      // Use redirect so there's no popup needed
+      setDomainError(`Only @${ALLOWED_DOMAIN} accounts can access PlayWise.`);
       instance.logoutRedirect({ postLogoutRedirectUri: window.location.origin }).catch(() => {});
       return;
     }
     if (!playerName) {
-      setDomainError(false);
+      setDomainError('');
       setPlayerName(accounts[0].name || accounts[0].username);
     }
   }, [isAuthenticated, accounts]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -100,10 +101,28 @@ export default function Home() {
     });
   };
 
+  const handleEmailLogin = () => {
+    const email = emailInput.trim().toLowerCase();
+    if (!email.includes('@')) { setDomainError('Enter a valid email address.'); return; }
+    if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
+      setDomainError(`Only @${ALLOWED_DOMAIN} accounts can access PlayWise.`);
+      return;
+    }
+    setDomainError('');
+    // Extract display name from email prefix (john.doe → John Doe)
+    const prefix = email.split('@')[0];
+    const displayName = prefix.split(/[._-]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    setPlayerName(displayName);
+    setScreen('profile-setup');
+  };
+
   const handleLogout = () => {
     setPlayerName('');
+    setEmailInput('');
     setScreen('login');
-    instance.logoutRedirect({ postLogoutRedirectUri: window.location.origin });
+    if (isAuthenticated) {
+      instance.logoutRedirect({ postLogoutRedirectUri: window.location.origin });
+    }
   };
 
   const handleGameCardClick = (config: GameConfig) => {
@@ -140,35 +159,63 @@ export default function Home() {
 
           {domainError && (
             <div className="mb-4 bg-red-50 border-2 border-red-200 rounded-2xl px-4 py-3 text-center">
-              <p className="text-red-600 font-bold text-sm">⛔ Access Restricted</p>
-              <p className="text-red-400 text-xs mt-1">
-                Only <span className="font-bold">@{ALLOWED_DOMAIN}</span> accounts can access PlayWise.
-              </p>
+              <p className="text-red-600 font-bold text-sm">⛔ {domainError}</p>
             </div>
           )}
 
-          <div className="space-y-4">
-            <button onClick={handleLogin}
-              className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-xl border-2 border-slate-100 hover:border-brand-primary hover:bg-brand-primary/5 transition-all text-lg font-bold text-slate-700">
-              <LogIn size={24} className="text-brand-primary" />
-              Sign in with Microsoft
-            </button>
+          <div className="space-y-3">
+            {/* School email login — always visible */}
+            <div>
+              <p className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">
+                Sign in with your school email
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={emailInput}
+                  onChange={e => { setEmailInput(e.target.value); setDomainError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && handleEmailLogin()}
+                  placeholder={`yourname@${ALLOWED_DOMAIN}`}
+                  className="flex-1 px-3 py-3 border-2 border-slate-200 focus:border-brand-primary rounded-xl text-sm font-medium outline-none transition-colors"
+                />
+                <button onClick={handleEmailLogin}
+                  className="px-4 py-3 bg-brand-primary text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">
+                  Go →
+                </button>
+              </div>
+            </div>
 
-            {/* DEV ONLY — remove before deploying */}
+            {/* Microsoft SSO — only shown when Azure is configured */}
+            {msalConfigured && (
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-100" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="px-3 bg-white text-xs text-slate-400 font-medium">or</span>
+                </div>
+              </div>
+            )}
+            {msalConfigured && (
+              <button onClick={handleLogin}
+                className="w-full flex items-center justify-center gap-3 px-5 py-3 rounded-xl border-2 border-slate-100 hover:border-brand-primary hover:bg-brand-primary/5 transition-all font-bold text-slate-700 text-sm">
+                <LogIn size={20} className="text-brand-primary" />
+                Sign in with Microsoft SSO
+              </button>
+            )}
+
+            {/* DEV ONLY */}
             {process.env.NODE_ENV === 'development' && (
-              <div className="border-t border-slate-100 pt-4">
-                <p className="text-xs text-slate-400 text-center mb-3">— Dev bypass —</p>
+              <div className="border-t border-slate-100 pt-3">
+                <p className="text-xs text-slate-400 text-center mb-2">— Dev bypass —</p>
                 <div className="flex gap-2">
-                  <input id="dev-name" type="text" placeholder="Enter any name..."
-                    defaultValue="TestPlayer"
+                  <input id="dev-name" type="text" placeholder="Any name..." defaultValue="TestPlayer"
                     className="flex-1 px-3 py-2 border-2 border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-brand-primary" />
-                  <button
-                    onClick={() => {
-                      const input = document.getElementById('dev-name') as HTMLInputElement;
-                      setPlayerName(input.value.trim() || 'TestPlayer');
-                      setScreen('profile-setup');
-                    }}
-                    className="px-4 py-2 bg-brand-primary text-white rounded-xl text-sm font-bold hover:opacity-90">
+                  <button onClick={() => {
+                    const input = document.getElementById('dev-name') as HTMLInputElement;
+                    setPlayerName(input.value.trim() || 'TestPlayer');
+                    setScreen('profile-setup');
+                  }} className="px-4 py-2 bg-brand-primary text-white rounded-xl text-sm font-bold hover:opacity-90">
                     Go
                   </button>
                 </div>
