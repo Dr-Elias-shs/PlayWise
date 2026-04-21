@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 
-const STORAGE_KEY = 'playwise_profile';
+const STORAGE_KEY = 'playwise_profile_v2'; // bumped → clears all email-bypass sessions
 
 function loadProfile(): { name: string; avatar: string; grade: string } {
   if (typeof window === 'undefined') return { name: '', avatar: '', grade: '' };
