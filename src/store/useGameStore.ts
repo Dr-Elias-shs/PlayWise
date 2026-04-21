@@ -3,24 +3,25 @@ import { io, Socket } from 'socket.io-client';
 
 const STORAGE_KEY = 'playwise_profile';
 
-function loadProfile(): { name: string; avatar: string } {
-  if (typeof window === 'undefined') return { name: '', avatar: '' };
+function loadProfile(): { name: string; avatar: string; grade: string } {
+  if (typeof window === 'undefined') return { name: '', avatar: '', grade: '' };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : { name: '', avatar: '' };
-  } catch { return { name: '', avatar: '' }; }
+    return raw ? JSON.parse(raw) : { name: '', avatar: '', grade: '' };
+  } catch { return { name: '', avatar: '', grade: '' }; }
 }
 
-function saveProfile(name: string, avatar: string) {
+function saveProfile(name: string, avatar: string, grade: string) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ name, avatar }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ name, avatar, grade }));
 }
 
 interface GameState {
   // Profile
   playerName: string;
   playerAvatar: string;
-  setProfile: (name: string, avatar: string) => void;
+  playerGrade: string;
+  setProfile: (name: string, avatar: string, grade: string) => void;
   setPlayerName: (name: string) => void;
   loadStoredProfile: () => void;
 
@@ -55,21 +56,22 @@ interface GameState {
 export const useGameStore = create<GameState>((set, get) => ({
   playerName: '',
   playerAvatar: '',
+  playerGrade: '',
 
-  setProfile: (name, avatar) => {
-    saveProfile(name, avatar);
-    set({ playerName: name, playerAvatar: avatar });
+  setProfile: (name, avatar, grade) => {
+    saveProfile(name, avatar, grade);
+    set({ playerName: name, playerAvatar: avatar, playerGrade: grade });
   },
 
   setPlayerName: (name) => {
-    const { playerAvatar } = get();
-    saveProfile(name, playerAvatar);
+    const { playerAvatar, playerGrade } = get();
+    saveProfile(name, playerAvatar, playerGrade);
     set({ playerName: name });
   },
 
   loadStoredProfile: () => {
-    const { name, avatar } = loadProfile();
-    if (name) set({ playerName: name, playerAvatar: avatar });
+    const { name, avatar, grade } = loadProfile();
+    if (name) set({ playerName: name, playerAvatar: avatar, playerGrade: grade });
   },
 
   soundEnabled: true,

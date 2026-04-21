@@ -8,22 +8,26 @@ export const AVATARS = [
   '🦋','🐺','🧙','🦸','🤖','👾','🧚','🦝',
 ];
 
+const GRADES = Array.from({ length: 12 }, (_, i) => String(i + 1));
+
 interface Props {
   onDone: () => void;
   isEditing?: boolean;
 }
 
 export function ProfileSetup({ onDone, isEditing = false }: Props) {
-  const { playerName, playerAvatar, setProfile } = useGameStore();
-  const [name, setName] = useState(playerName || '');
+  const { playerName, playerAvatar, playerGrade, setProfile } = useGameStore();
+  const [name, setName]   = useState(playerName  || '');
   const [avatar, setAvatar] = useState(playerAvatar || AVATARS[0]);
-  const [error, setError] = useState('');
+  const [grade, setGrade]  = useState(playerGrade  || '');
+  const [error, setError]  = useState('');
 
   const handleSave = () => {
     const trimmed = name.trim();
-    if (trimmed.length < 2) { setError('Name must be at least 2 characters'); return; }
-    if (trimmed.length > 20) { setError('Name must be 20 characters or less'); return; }
-    setProfile(trimmed, avatar);
+    if (trimmed.length < 2)  { setError('Name must be at least 2 characters'); return; }
+    if (trimmed.length > 20) { setError('Name must be 20 characters or less');  return; }
+    if (!grade)              { setError('Please select your grade');             return; }
+    setProfile(trimmed, avatar, grade);
     onDone();
   };
 
@@ -41,59 +45,62 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
             {isEditing ? 'Edit Profile' : 'Create Your Profile'}
           </h2>
           <p className="text-slate-500 text-sm mt-1">
-            {isEditing ? 'Change your name or avatar' : 'Pick an avatar and enter your name'}
+            {isEditing ? 'Update your info' : 'Set up your player profile'}
           </p>
         </div>
 
         {/* Avatar grid */}
-        <div className="mb-6">
+        <div className="mb-5">
           <p className="text-sm font-bold text-slate-500 mb-3">Choose your avatar</p>
           <div className="grid grid-cols-8 gap-2">
             {AVATARS.map(a => (
-              <motion.button
-                key={a}
-                whileHover={{ scale: 1.15 }}
-                whileTap={{ scale: 0.9 }}
+              <motion.button key={a} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
                 onClick={() => setAvatar(a)}
                 className={`text-2xl p-1.5 rounded-xl transition-all ${
-                  avatar === a
-                    ? 'bg-violet-100 ring-2 ring-violet-500 scale-110'
-                    : 'hover:bg-slate-50'
-                }`}
-              >
+                  avatar === a ? 'bg-violet-100 ring-2 ring-violet-500 scale-110' : 'hover:bg-slate-50'
+                }`}>
                 {a}
               </motion.button>
             ))}
           </div>
         </div>
 
-        {/* Name input */}
-        <div className="mb-6">
+        {/* Name */}
+        <div className="mb-4">
           <p className="text-sm font-bold text-slate-500 mb-2">Your name</p>
-          <input
-            type="text"
-            value={name}
+          <input type="text" value={name}
             onChange={e => { setName(e.target.value); setError(''); }}
             onKeyDown={e => e.key === 'Enter' && handleSave()}
             placeholder="Enter your name..."
             maxLength={20}
             className="w-full px-4 py-3 border-2 border-slate-200 focus:border-violet-500 rounded-2xl text-lg font-bold text-slate-800 outline-none transition-colors"
           />
-          {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
         </div>
 
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+        {/* Grade */}
+        <div className="mb-6">
+          <p className="text-sm font-bold text-slate-500 mb-2">Your grade</p>
+          <select value={grade} onChange={e => { setGrade(e.target.value); setError(''); }}
+            className="w-full px-4 py-3 border-2 border-slate-200 focus:border-violet-500 rounded-2xl text-lg font-bold text-slate-800 outline-none transition-colors bg-white appearance-none cursor-pointer">
+            <option value="">Select your grade...</option>
+            {GRADES.map(g => (
+              <option key={g} value={g}>Grade {g}</option>
+            ))}
+          </select>
+        </div>
+
+        {error && <p className="text-red-500 text-sm mb-3 font-medium">{error}</p>}
+
+        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
           onClick={handleSave}
           className="w-full py-4 text-white font-black text-lg rounded-2xl shadow-lg"
-          style={{ background: 'linear-gradient(135deg, #7c3aed, #9333ea)' }}
-        >
+          style={{ background: 'linear-gradient(135deg, #7c3aed, #9333ea)' }}>
           {isEditing ? '✅ Save Changes' : '🚀 Let\'s Play!'}
         </motion.button>
 
         {isEditing && (
-          <button onClick={onDone} className="w-full mt-3 py-2 text-slate-400 hover:text-slate-600 font-medium text-sm transition-colors">
+          <button onClick={onDone}
+            className="w-full mt-3 py-2 text-slate-400 hover:text-slate-600 font-medium text-sm transition-colors">
             Cancel
           </button>
         )}

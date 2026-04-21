@@ -25,7 +25,8 @@ export async function addCoins(
   studentName: string,
   amount: number,
   playTimeSeconds = 0,
-  incrementGames = true
+  incrementGames = true,
+  grade = ''
 ) {
   const { data: existing } = await supabase
     .from('player_wallets')
@@ -39,6 +40,7 @@ export async function addCoins(
       total_earned: existing.total_earned + amount,
       play_time_seconds: existing.play_time_seconds + playTimeSeconds,
       games_played: existing.games_played + (incrementGames ? 1 : 0),
+      ...(grade ? { grade } : {}),
       updated_at: new Date().toISOString(),
     }).eq('student_name', studentName);
   }
@@ -50,6 +52,7 @@ export async function addCoins(
     total_redeemed: 0,
     play_time_seconds: playTimeSeconds,
     games_played: incrementGames ? 1 : 0,
+    grade,
   });
 }
 

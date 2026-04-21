@@ -14,6 +14,7 @@ type Tab = 'students' | 'redemptions' | 'shop';
 interface Wallet {
   student_name: string; coins: number; total_earned: number;
   total_redeemed: number; play_time_seconds: number; games_played: number;
+  grade: string;
 }
 interface Redemption {
   id: string; student_name: string; item_name: string;
@@ -69,6 +70,11 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   const [redemptions, setRedemptions] = useState<Redemption[]>([]);
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Student filters
+  const [search, setSearch] = useState('');
+  const [gradeFilter, setGradeFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'coins' | 'games' | 'playtime' | 'name'>('coins');
 
   // New shop item form
   const [form, setForm] = useState({ name: '', description: '', cost: '', emoji: '🎁' });
@@ -147,37 +153,97 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
 
             {/* ── Students ── */}
             {tab === 'students' && (
-              <motion.div key="students" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <motion.div key="students" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+
+                {/* Filters bar */}
+                <div className="flex flex-wrap gap-3 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+                  {/* Search */}
+                  <input
+                    type="text" value={search} onChange={e => setSearch(e.target.value)}
+                    placeholder="🔍 Search by name..."
+                    className="flex-1 min-w-[180px] px-3 py-2 border-2 border-slate-200 focus:border-violet-400 rounded-xl text-sm font-medium outline-none"
+                  />
+                  {/* Grade filter */}
+                  <select value={gradeFilter} onChange={e => setGradeFilter(e.target.value)}
+                    className="px-3 py-2 border-2 border-slate-200 focus:border-violet-400 rounded-xl text-sm font-bold outline-none bg-white cursor-pointer">
+                    <option value="">All Grades</option>
+                    {Array.from({ length: 12 }, (_, i) => String(i + 1)).map(g => (
+                      <option key={g} value={g}>Grade {g}</option>
+                    ))}
+                  </select>
+                  {/* Sort */}
+                  <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
+                    className="px-3 py-2 border-2 border-slate-200 focus:border-violet-400 rounded-xl text-sm font-bold outline-none bg-white cursor-pointer">
+                    <option value="coins">Sort: Most Coins</option>
+                    <option value="games">Sort: Most Games</option>
+                    <option value="playtime">Sort: Most Play Time</option>
+                    <option value="name">Sort: Name A–Z</option>
+                  </select>
+                  {/* Stats summary */}
+                  <div className="ml-auto flex items-center gap-4 text-xs text-slate-400 font-medium">
+                    <span>{wallets.length} total students</span>
+                  </div>
+                </div>
+
+                {/* Table */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50 border-b border-slate-100">
                       <tr>
-                        {['Student', 'Coins', 'Total Earned', 'Redeemed', 'Play Time', 'Games'].map(h => (
+                        {['#', 'Student', 'Grade', 'Coins', 'Games Played', 'Play Time', 'Total Earned', 'Redeemed'].map(h => (
                           <th key={h} className="text-left px-4 py-3 text-slate-500 font-bold text-xs uppercase tracking-wide">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                      {wallets.length === 0 && (
-                        <tr><td colSpan={6} className="text-center py-10 text-slate-400">No students yet. Play some games!</td></tr>
-                      )}
-                      {wallets.map((w, i) => (
-                        <motion.tr key={w.student_name}
-                          initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
-                          transition={{ delay: i * 0.03 }}
-                          className="hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3 font-bold text-slate-800">{w.student_name}</td>
-                          <td className="px-4 py-3">
-                            <span className="flex items-center gap-1 font-black text-amber-600">
-                              ₿ {w.coins.toLocaleString()}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-slate-600">₿ {w.total_earned.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-slate-600">₿ {w.total_redeemed.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-slate-600">{formatPlayTime(w.play_time_seconds)}</td>
-                          <td className="px-4 py-3 text-slate-600">{w.games_played}</td>
-                        </motion.tr>
-                      ))}
+                      {(() => {
+                        const filtered = wallets
+                          .filter(w =>
+                            (!search || w.student_name.toLowerCase().includes(search.toLowerCase())) &&
+                            (!gradeFilter || w.grade === gradeFilter)
+                          )
+                          .sort((a, b) => {
+                            if (sortBy === 'coins')    return b.coins - a.coins;
+                            if (sortBy === 'games')    return b.games_played - a.games_played;
+                            if (sortBy === 'playtime') return b.play_time_seconds - a.play_time_seconds;
+                            return a.student_name.localeCompare(b.student_name);
+                          });
+
+                        if (filtered.length === 0) return (
+                          <tr><td colSpan={8} className="text-center py-10 text-slate-400">
+                            {wallets.length === 0 ? 'No students yet. Play some games!' : 'No students match your filters.'}
+                          </td></tr>
+                        );
+
+                        return filtered.map((w, i) => (
+                          <motion.tr key={w.student_name}
+                            initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
+                            transition={{ delay: i * 0.02 }}
+                            className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-3 text-slate-400 font-bold text-xs">{i + 1}</td>
+                            <td className="px-4 py-3 font-bold text-slate-800">{w.student_name}</td>
+                            <td className="px-4 py-3">
+                              {w.grade
+                                ? <span className="bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full text-xs font-bold">Grade {w.grade}</span>
+                                : <span className="text-slate-300 text-xs">—</span>}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="flex items-center gap-1 font-black text-amber-600">
+                                ₿ {w.coins.toLocaleString()}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="flex items-center gap-1.5">
+                                <span className="text-base">🎮</span>
+                                <span className="font-bold text-slate-700">{w.games_played}</span>
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600">{formatPlayTime(w.play_time_seconds)}</td>
+                            <td className="px-4 py-3 text-slate-500">₿ {w.total_earned.toLocaleString()}</td>
+                            <td className="px-4 py-3 text-slate-500">₿ {w.total_redeemed.toLocaleString()}</td>
+                          </motion.tr>
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>

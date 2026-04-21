@@ -303,7 +303,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
     if (!isGameOver || focusNumber === null) return;
 
     // Read latest values directly from store to avoid stale closure
-    const { score: s, correctCount: cc, maxStreak: ms, roomData: rd } = useGameStore.getState();
+    const { score: s, correctCount: cc, maxStreak: ms, roomData: rd, playerGrade } = useGameStore.getState();
 
     saveScore(playerName, focusNumber, s)
       .then(({ error }: { error: any }) => {
@@ -317,7 +317,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
     const coins = calcCoins(cc, ms, won, isMulti);
 
     console.log(`₿ Awarding ${coins} coins to ${playerName} (correct: ${cc}, streak: ${ms})`);
-    addCoins(playerName, coins, DURATION)
+    addCoins(playerName, coins, DURATION, true, playerGrade)
       .then(({ error }: any) => {
         if (error) console.error('Coin save failed:', error.message);
         else console.log(`₿ +${coins} PlayBits saved!`);
