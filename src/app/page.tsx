@@ -7,6 +7,9 @@ import { MultiplicationGame } from "@/components/game/MultiplayerGame";
 import { GameEngine } from "@/components/game/GameEngine";
 import { MultiplayerHub } from "@/components/multiplayer/MultiplayerHub";
 import { ProfileSetup } from "@/components/profile/ProfileSetup";
+import { RedeemPage } from "@/components/redeem/RedeemPage";
+import { AdminPage } from "@/components/admin/AdminPage";
+import { WalletBadge } from "@/components/hub/WalletBadge";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { loginRequest } from "@/lib/msal";
 import { Leaderboard } from "@/components/hub/Leaderboard";
@@ -48,13 +51,14 @@ function HubGameCard({ config, onClick, multiplayerBadge }: {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer';
+type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer' | 'redeem' | 'admin';
 
 export default function Home() {
   const { playerName, playerAvatar, setPlayerName, resetGame, loadStoredProfile } = useGameStore();
   const [screen, setScreen] = useState<Screen>('login');
   const [activeGame, setActiveGame] = useState<GameConfig | null>(null);
   const [multiGameId, setMultiGameId] = useState<string>('multiplication');
+  const [walletRefresh, setWalletRefresh] = useState(0);
   const { instance, accounts } = useMsal();
   const isAuthenticated = useIsAuthenticated();
 
@@ -164,10 +168,21 @@ export default function Home() {
 
   // ── Active solo game ──
   if (screen === 'game') {
+    const backToHub = () => { resetGame(); setWalletRefresh(r => r + 1); setScreen('hub'); };
     if (!activeGame || activeGame.id === 'multiplication') {
-      return <MultiplicationGame onBack={() => { resetGame(); setScreen('hub'); }} />;
+      return <MultiplicationGame onBack={backToHub} />;
     }
-    return <GameEngine config={activeGame} onBack={() => { resetGame(); setScreen('hub'); }} />;
+    return <GameEngine config={activeGame} onBack={backToHub} />;
+  }
+
+  // ── Redeem page ──
+  if (screen === 'redeem') {
+    return <RedeemPage studentName={playerName} onBack={() => setScreen('hub')} onCoinsChanged={() => setWalletRefresh(r => r + 1)} />;
+  }
+
+  // ── Admin page ──
+  if (screen === 'admin') {
+    return <AdminPage onBack={() => setScreen('hub')} />;
   }
 
   // ── Multiplayer hub ──
@@ -197,16 +212,27 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center flex-wrap">
+          {/* Wallet */}
+          <WalletBadge
+            studentName={playerName}
+            refreshKey={walletRefresh}
+            onClick={() => setScreen('redeem')}
+          />
           <div className="bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-2">
             <Trophy size={16} className="text-brand-accent" />
             <span className="font-bold text-slate-700 text-sm">Explorer</span>
           </div>
-          {/* Edit profile */}
           <button onClick={() => setScreen('profile-edit')}
             className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 text-slate-400 hover:text-violet-500 transition-colors"
             title="Edit Profile">
             <Settings size={20} />
+          </button>
+          {/* Admin shortcut — hidden from students, accessed by URL or long press */}
+          <button onClick={() => setScreen('admin')}
+            className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 text-slate-200 hover:text-slate-500 transition-colors"
+            title="Admin">
+            <span className="text-sm">🛠️</span>
           </button>
           {isAuthenticated && (
             <button onClick={handleLogout}

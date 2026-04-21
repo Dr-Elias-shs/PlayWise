@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/useGameStore';
 import { playSound, speak } from '@/lib/sounds';
 import { saveScore } from '@/lib/supabase';
+import { addCoins, calcCoins } from '@/lib/wallet';
 import { Volume2, VolumeX } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -303,8 +304,14 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
       saveScore(playerName, focusNumber, score)
         .then(({ error }: { error: any }) => {
           if (error) console.error('Score save failed:', error.message);
-          else console.log(`✅ Score saved — ${playerName}: ${score} pts (table ${focusNumber}×)`);
         });
+      const players: any[] = roomData?.players ?? [];
+      const opponent = players.find((p: any) => p.name !== playerName);
+      const won = opponent ? score > (opponent.score ?? 0) : false;
+      const isMulti = players.length > 1;
+      const coins = calcCoins(correctCount, maxStreak, won, isMulti);
+      addCoins(playerName, coins, DURATION).catch(() => {});
+      console.log(`₿ +${coins} coins earned`);
     }
   }, [isGameOver]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -5,6 +5,7 @@ import { Volume2, VolumeX } from 'lucide-react';
 import { useGameStore } from '@/store/useGameStore';
 import { playSound, speak } from '@/lib/sounds';
 import { saveScore } from '@/lib/supabase';
+import { addCoins, calcCoins } from '@/lib/wallet';
 import { GameConfig, Question } from '@/lib/gameConfigs';
 
 // ─── Timer bar ────────────────────────────────────────────────────────────────
@@ -150,8 +151,11 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
       saveScore(playerName, 0, score, config.id)
         .then(({ error }: { error: any }) => {
           if (error) console.error('Score save failed:', error.message);
-          else console.log(`✅ ${config.id} score saved — ${playerName}: ${score}`);
         });
+      const coins = calcCoins(correctCount, maxStreak, false, false);
+      const elapsed = config.duration - timeLeft;
+      addCoins(playerName, coins, elapsed).catch(() => {});
+      console.log(`₿ +${coins} coins earned`);
     }
   }, [isGameOver]); // eslint-disable-line react-hooks/exhaustive-deps
 
