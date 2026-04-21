@@ -36,12 +36,25 @@ function makeDeck(level: Level | null): number[] {
   return shuffle(Array.from({ length: max }, (_, i) => i + 1));
 }
 
+// Wrong answers must share the same divisibility pattern as the real answer.
+// ×10 → all choices are multiples of 10  (can't just pick "the one ending in 0")
+// ×5  → all choices are multiples of 5
+// ×2/4/6/8 → all choices are even
+// odd tables → free offsets
+function choiceStep(focusNumber: number): number {
+  if (focusNumber === 10) return 10;
+  if (focusNumber === 5)  return 5;
+  if (focusNumber % 2 === 0) return 2;
+  return 1;
+}
+
 function generateQuestion(focusNumber: number, b: number): Question {
   const answer = focusNumber * b;
+  const step = choiceStep(focusNumber);
   const wrongs = new Set<number>();
   let tries = 0;
-  while (wrongs.size < 3 && tries < 100) {
-    const offset = Math.floor(Math.random() * 5) + 1;
+  while (wrongs.size < 3 && tries < 150) {
+    const offset = (Math.floor(Math.random() * 5) + 1) * step;
     const w = answer + (Math.random() > 0.5 ? offset : -offset);
     if (w > 0 && w !== answer) wrongs.add(w);
     tries++;
