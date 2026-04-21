@@ -51,6 +51,8 @@ function HubGameCard({ config, onClick, multiplayerBadge }: {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const ALLOWED_DOMAIN = 'sagesssehs.edu.lb';
+
 type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer' | 'redeem';
 
 export default function Home() {
@@ -59,6 +61,7 @@ export default function Home() {
   const [activeGame, setActiveGame] = useState<GameConfig | null>(null);
   const [multiGameId, setMultiGameId] = useState<string>('multiplication');
   const [walletRefresh, setWalletRefresh] = useState(0);
+  const [domainError, setDomainError] = useState(false);
   const { isFullscreen, toggle: toggleFullscreen, enter: enterFullscreen } = useFullscreen();
   const { instance, accounts } = useMsal();
   const isAuthenticated = useIsAuthenticated();
@@ -68,12 +71,18 @@ export default function Home() {
     loadStoredProfile();
   }, [loadStoredProfile]);
 
-  // After MSAL login, set name
+  // After MSAL login — check domain then set name
   useEffect(() => {
-    if (isAuthenticated && accounts.length > 0 && !playerName) {
-      setPlayerName(accounts[0].name || accounts[0].username);
+    if (!isAuthenticated || accounts.length === 0 || playerName) return;
+    const email = accounts[0].username ?? '';
+    if (!email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`)) {
+      setDomainError(true);
+      instance.logoutPopup().catch(() => {});
+      return;
     }
-  }, [isAuthenticated, accounts, playerName, setPlayerName]);
+    setDomainError(false);
+    setPlayerName(accounts[0].name || accounts[0].username);
+  }, [isAuthenticated, accounts, playerName, setPlayerName, instance]);
 
   // Determine initial screen once playerName/avatar known
   useEffect(() => {
@@ -125,8 +134,17 @@ export default function Home() {
           <h1 className="text-3xl font-black text-center text-slate-800 mb-2">PlayWise</h1>
           <p className="text-slate-500 text-center mb-8">Ready to level up your learning?</p>
 
+          {domainError && (
+            <div className="mb-4 bg-red-50 border-2 border-red-200 rounded-2xl px-4 py-3 text-center">
+              <p className="text-red-600 font-bold text-sm">⛔ Access Restricted</p>
+              <p className="text-red-400 text-xs mt-1">
+                Only <span className="font-bold">@{ALLOWED_DOMAIN}</span> accounts can access PlayWise.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-4">
-            <button onClick={handleLogin}
+            <button onClick={() => { setDomainError(false); handleLogin(); }}
               className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-xl border-2 border-slate-100 hover:border-brand-primary hover:bg-brand-primary/5 transition-all text-lg font-bold text-slate-700">
               <LogIn size={24} className="text-brand-primary" />
               Sign in with Microsoft
