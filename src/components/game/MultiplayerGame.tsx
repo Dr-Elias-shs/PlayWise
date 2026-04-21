@@ -32,7 +32,7 @@ function shuffle<T>(arr: T[]): T[] {
 
 // Build a shuffled deck of multipliers for the chosen level
 function makeDeck(level: Level | null): number[] {
-  const max = level === 'hard' ? 12 : level === 'easy' ? 5 : 10;
+  const max = level === 'hard' ? 20 : level === 'easy' ? 10 : 15;
   return shuffle(Array.from({ length: max }, (_, i) => i + 1));
 }
 
@@ -332,7 +332,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
       });
     }, 1000);
     return () => clearInterval(timerRef.current!);
-  }, [focusNumber]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [focusNumber, level]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save score + award coins when game ends
   useEffect(() => {

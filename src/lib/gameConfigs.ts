@@ -18,11 +18,19 @@ function makeChoices(answer: number, min: number, max: number, count = 4): numbe
   return Array.from(set).sort(() => Math.random() - 0.5);
 }
 
+function gcd(a: number, b: number): number { return b === 0 ? a : gcd(b, a % b); }
+function lcm(a: number, b: number): number { return (a * b) / gcd(a, b); }
+function simplify(num: number, den: number): [number, number] {
+  const g = gcd(num, den);
+  return [num / g, den / g];
+}
+
 // ─── Question type ────────────────────────────────────────────────────────────
 
 export interface Question {
   displayText: string;
-  answer: number;
+  answer: number;           // numeric answer (for same-denom fractions: the numerator)
+  answerDisplay?: string;   // formatted answer for display (e.g. "5/6")
   choices: number[];
   formatChoice: (n: number) => string;
   hint?: string;
@@ -54,19 +62,15 @@ export const additionGame: GameConfig = {
   accentStyle: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
   duration: 60,
   generateQuestion: (level = 'medium') => {
-    // Easy: 1-10 addition only | Medium: 1-25 add+sub | Hard: 1-50 add+sub
-    const ranges = { easy: 10, medium: 25, hard: 50 };
-    const max = ranges[level];
+    const max    = { easy: 20, medium: 50, hard: 100 }[level];
     const addOnly = level === 'easy';
     const op = addOnly || Math.random() > 0.45 ? '+' : '−';
 
     if (op === '+') {
-      const a = randInt(1, max);
-      const b = randInt(1, max);
+      const a = randInt(1, max), b = randInt(1, max);
       return { displayText: `${a} + ${b}`, answer: a + b, choices: makeChoices(a + b, 1, max * 2), formatChoice: n => String(n) };
     } else {
-      const b = randInt(1, max - 1);
-      const a = randInt(b + 1, max);
+      const b = randInt(1, max - 1), a = randInt(b + 1, max);
       return { displayText: `${a} − ${b}`, answer: a - b, choices: makeChoices(a - b, 0, max), formatChoice: n => String(n) };
     }
   },
@@ -83,12 +87,11 @@ export const multiplicationGame: GameConfig = {
   cardStyle:   'linear-gradient(135deg, #7c3aed, #9333ea)',
   accentStyle: 'linear-gradient(135deg, #7c3aed, #9333ea)',
   duration: 60,
+  // Note: MultiplayerGame.tsx handles question generation for this game (table picker + deck)
   generateQuestion: (level = 'medium') => {
-    // Easy: tables 2-5 | Medium: tables 2-9 | Hard: tables 2-12
     const maxA = { easy: 5, medium: 9, hard: 12 }[level];
-    const maxB = { easy: 10, medium: 10, hard: 12 }[level];
-    const a = randInt(2, maxA);
-    const b = randInt(1, maxB);
+    const maxB = { easy: 10, medium: 15, hard: 20 }[level];
+    const a = randInt(2, maxA), b = randInt(1, maxB);
     return { displayText: `${a} × ${b}`, answer: a * b, choices: makeChoices(a * b, 2, maxA * maxB), formatChoice: n => String(n) };
   },
 };
@@ -105,22 +108,32 @@ export const divisionGame: GameConfig = {
   accentStyle: 'linear-gradient(135deg, #f97316, #f59e0b)',
   duration: 60,
   generateQuestion: (level = 'medium') => {
-    // Easy: divisors 2-5 | Medium: divisors 2-9 | Hard: divisors 2-12
-    const maxDiv = { easy: 5, medium: 9, hard: 12 }[level];
-    const maxQ   = { easy: 10, medium: 10, hard: 12 }[level];
-    const divisor  = randInt(2, maxDiv);
-    const quotient = randInt(1, maxQ);
-    return { displayText: `${divisor * quotient} ÷ ${divisor}`, answer: quotient, choices: makeChoices(quotient, 1, maxQ), formatChoice: n => String(n) };
+    const maxDiv = { easy: 5, medium: 10, hard: 15 }[level];
+    const maxQ   = { easy: 10, medium: 15, hard: 20 }[level];
+    const divisor = randInt(2, maxDiv), quotient = randInt(1, maxQ);
+    return {
+      displayText: `${divisor * quotient} ÷ ${divisor}`,
+      answer: quotient,
+      choices: makeChoices(quotient, 1, maxQ),
+      formatChoice: n => String(n),
+    };
   },
 };
 
 // ─── Grade 5 — Fractions ──────────────────────────────────────────────────────
 
-const DENOMS: Record<Level, number[]> = {
+const SAME_DENOMS: Record<'easy' | 'medium', number[]> = {
   easy:   [2, 3, 4],
-  medium: [2, 3, 4, 5, 6],
-  hard:   [2, 3, 4, 5, 6, 8, 10],
+  medium: [2, 3, 4, 5, 6, 8],
 };
+
+// Friendly denominator pairs for Hard — LCD is always manageable
+const DIFF_PAIRS: [number, number][] = [
+  [2, 3], [2, 4], [2, 6], [2, 8],
+  [3, 4], [3, 6], [3, 9],
+  [4, 8], [4, 12],
+  [5, 10],
+];
 
 export const fractionGame: GameConfig = {
   id: 'fractions',
@@ -132,7 +145,71 @@ export const fractionGame: GameConfig = {
   accentStyle: 'linear-gradient(135deg, #ec4899, #f43f5e)',
   duration: 60,
   generateQuestion: (level = 'medium') => {
-    const pool = DENOMS[level];
+
+    // ── Hard: different denominators ─────────────────────────────────────────
+    if (level === 'hard') {
+      let tries = 0;
+      while (tries < 50) {
+        tries++;
+        const [d1, d2] = DIFF_PAIRS[randInt(0, DIFF_PAIRS.length - 1)];
+        const lcd = lcm(d1, d2);
+        const num1 = randInt(1, d1 - 1);
+        const num2 = randInt(1, d2 - 1);
+        const n1 = num1 * (lcd / d1);
+        const n2 = num2 * (lcd / d2);
+        const op = Math.random() > 0.45 ? '+' : '−';
+
+        let ansNum: number;
+        if (op === '+') {
+          ansNum = n1 + n2;
+          if (ansNum > lcd) continue; // keep sum proper fraction
+        } else {
+          if (n1 <= n2) continue;     // ensure positive result
+          ansNum = n1 - n2;
+        }
+
+        const [sNum, sDen] = simplify(ansNum, lcd);
+
+        // Generate wrong choices by varying the simplified numerator
+        const wrongChoices = new Set<string>();
+        let offset = 1;
+        while (wrongChoices.size < 3 && offset < 10) {
+          const wNum = sNum + (wrongChoices.size % 2 === 0 ? offset : -offset);
+          if (wNum > 0 && wNum !== sNum) {
+            const [wS, wD] = simplify(wNum, sDen);
+            wrongChoices.add(`${wS}/${wD}`);
+          }
+          if (wrongChoices.size < 3) {
+            const wNum2 = sNum - (wrongChoices.size % 2 === 0 ? offset : -offset);
+            if (wNum2 > 0 && wNum2 !== sNum) {
+              const [wS2, wD2] = simplify(wNum2, sDen);
+              wrongChoices.add(`${wS2}/${wD2}`);
+            }
+          }
+          offset++;
+        }
+
+        const answerDisplay = `${sNum}/${sDen}`;
+        // Pack choices as indices: 0 = correct, 1..3 = wrongs
+        // We store answer as 0 and use formatChoice to map to strings
+        const allChoices = [answerDisplay, ...Array.from(wrongChoices).slice(0, 3)];
+        const shuffled = allChoices.sort(() => Math.random() - 0.5);
+        const correctIdx = shuffled.indexOf(answerDisplay);
+
+        return {
+          displayText: `${num1}/${d1}  ${op}  ${num2}/${d2}`,
+          answer: correctIdx,
+          choices: [0, 1, 2, 3],
+          formatChoice: n => shuffled[n] ?? '?',
+          hint: '= ?',
+        };
+      }
+      // Fallback to medium if all tries fail
+      level = 'medium';
+    }
+
+    // ── Easy / Medium: same denominator ──────────────────────────────────────
+    const pool = SAME_DENOMS[level as 'easy' | 'medium'];
     const denom = pool[randInt(0, pool.length - 1)];
     const addOnly = level === 'easy';
     const op = addOnly || Math.random() > 0.45 ? '+' : '−';
