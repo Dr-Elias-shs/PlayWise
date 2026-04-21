@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { playSound } from '@/lib/sounds';
 
 interface Props { coins: number; }
 
@@ -11,6 +12,8 @@ function useCounter(target: number, delay = 500) {
 
   useEffect(() => {
     if (target === 0) { setDone(true); return; }
+    // Coin rain sound at start
+    setTimeout(() => playSound('coinrain'), delay * 0.4);
     const startAt = Date.now() + delay;
     const duration = Math.min(2800, 600 + target * 55); // ~55ms per coin, max 2.8s
     let raf: number;
@@ -25,7 +28,7 @@ function useCounter(target: number, delay = 500) {
       const current = Math.round(eased * target);
       setVal(current);
       if (t < 1) raf = requestAnimationFrame(tick);
-      else setDone(true);
+      else { setDone(true); playSound('coindone'); }
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);

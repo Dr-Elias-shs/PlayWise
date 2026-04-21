@@ -40,6 +40,10 @@ function GameOver({ config, score, maxStreak, correctCount, wrongCount, coinsEar
   const accuracy = correctCount + wrongCount > 0
     ? Math.round((correctCount / (correctCount + wrongCount)) * 100) : 0;
 
+  useEffect(() => {
+    playSound(accuracy >= 70 ? 'win' : 'lose');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const grade =
     accuracy >= 90 ? { label: '⭐ Amazing!',         color: 'text-yellow-400' } :
     accuracy >= 70 ? { label: '👍 Great job!',        color: 'text-emerald-400' } :
@@ -182,7 +186,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
       const comboBonus = streak >= 5 ? streak * 8 : streak >= 3 ? streak * 4 : 0;
       const points = 100 + timeBonus + comboBonus;
       incrementScore(points);
-      if (soundEnabled) playSound('correct');
+      if (soundEnabled) { playSound('correct'); setTimeout(() => playSound('coin'), 320); }
 
       setParticles(Array.from({ length: 8 }, (_, i) => ({ id: i, color: COLORS[i % COLORS.length], angle: i * 45 })));
       setTimeout(() => setParticles([]), 900);

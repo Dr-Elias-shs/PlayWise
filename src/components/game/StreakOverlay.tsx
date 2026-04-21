@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { playSound } from '@/lib/sounds';
 
 interface Props { streak: number; }
 
@@ -24,6 +25,10 @@ export function StreakOverlay({ streak }: Props) {
     if (!isMilestone(streak)) return;
     setSnap(streak);
     setVisible(true);
+    // Play matching streak sound
+    if (streak >= 10) playSound('onfire');
+    else if (streak >= 5) playSound('lightning');
+    else playSound('combo');
     const t = setTimeout(() => setVisible(false), 1400);
     return () => clearTimeout(t);
   }, [streak]);

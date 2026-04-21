@@ -140,6 +140,13 @@ function GameOver({ score, maxStreak, correctCount, wrongCount, coinsEarned, pla
     : 'draw'
     : null;
 
+  useEffect(() => {
+    if (outcome === 'win') playSound('win');
+    else if (outcome === 'lose') playSound('lose');
+    else if (outcome === 'draw') playSound('draw');
+    else playSound(accuracy >= 70 ? 'win' : 'lose');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const outcomeDisplay = {
     win:  { emoji: '🏆', label: 'You Win!',    color: 'from-amber-400 to-yellow-500',   text: 'text-yellow-300' },
     lose: { emoji: '💪', label: 'Good Try!',   color: 'from-violet-600 to-purple-700',  text: 'text-purple-300' },
@@ -343,7 +350,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
 
       incrementScore(points);
       broadcastScore(score + Math.floor(points * 1), streak + 1);
-      if (soundEnabled) { playSound('correct'); speak(`${question.a} times ${question.b} equals ${question.answer}`); }
+      if (soundEnabled) { playSound('correct'); setTimeout(() => playSound('coin'), 320); speak(`${question.a} times ${question.b} equals ${question.answer}`); }
 
       // Particles
       setParticles(Array.from({ length: 8 }, (_, i) => ({
