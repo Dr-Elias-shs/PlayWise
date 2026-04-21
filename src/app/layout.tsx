@@ -7,6 +7,15 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "PlayWise",
   description: "Educational Gaming Platform",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/playwise-logo.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#4F46E5",
 };
 
 import { MsalProvider } from "@/components/MsalProvider";

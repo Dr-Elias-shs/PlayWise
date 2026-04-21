@@ -1,12 +1,15 @@
 {
   "name": "PlayWise",
   "short_name": "PlayWise",
-  "description": "Educational gaming hub for students",
+  "description": "Educational gaming hub for Sagesse High School students",
   "start_url": "/",
+  "scope": "/",
   "display": "fullscreen",
   "orientation": "landscape",
   "background_color": "#F8FAFC",
   "theme_color": "#4F46E5",
+  "lang": "en",
+  "categories": ["education", "games"],
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
@@ -17,7 +20,10 @@
     {
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "screenshots": [],
+  "shortcuts": []
 }
