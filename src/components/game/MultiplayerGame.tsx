@@ -7,6 +7,7 @@ import { saveScore } from '@/lib/supabase';
 import { addCoins, calcCoins } from '@/lib/wallet';
 import { StreakOverlay } from './StreakOverlay';
 import { CoinReward } from './CoinReward';
+import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 import { Volume2, VolumeX } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -274,6 +275,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
   }, [socket, roomId]);
 
   const DURATION = 60;
+  const [level, setLevel] = useState<Level | null>(null);
   const [question, setQuestion] = useState<Question | null>(null);
   const [timeLeft, setTimeLeft] = useState(DURATION);
   const [isGameOver, setIsGameOver] = useState(false);
@@ -344,9 +346,10 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
     setSelectedChoice(choice);
 
     if (choice === question.answer) {
+      const lvlMultiplier = level ? LEVEL_CONFIG[level].multiplier : 1;
       const timeBonus = Math.floor(timeLeft / 6);
       const comboBonus = streak >= 5 ? streak * 8 : streak >= 3 ? streak * 4 : 0;
-      const points = 100 + timeBonus + comboBonus;
+      const points = Math.floor((100 + timeBonus + comboBonus) * lvlMultiplier);
 
       incrementScore(points);
       broadcastScore(score + Math.floor(points * 1), streak + 1);
@@ -390,10 +393,21 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
   if (focusNumber === null) {
     return (
       <TablePicker
-        onSelect={(n) => { resetGame(); setFocusNumber(n); }}
+        onSelect={(n) => { resetGame(); setFocusNumber(n); setLevel(null); }}
         onBack={onBack}
         soundEnabled={soundEnabled}
         onToggleSound={() => setSoundEnabled(!soundEnabled)}
+      />
+    );
+  }
+
+  // ── Level picker (after table selected) ──
+  if (focusNumber !== null && !level) {
+    return (
+      <LevelPicker
+        onSelect={setLevel}
+        onBack={() => setFocusNumber(null)}
+        bgStyle="linear-gradient(135deg, #6d28d9, #9333ea, #a21caf)"
       />
     );
   }
@@ -478,9 +492,16 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
 
           {/* Solo: table badge */}
           {!roomData?.players?.length && (
-            <div className="bg-white/20 rounded-xl px-3 py-1.5">
-              <span className="text-white/60 text-xs">Table </span>
-              <span className="text-white font-black">{focusNumber}×</span>
+            <div className="flex items-center gap-2">
+              <div className="bg-white/20 rounded-xl px-3 py-1.5">
+                <span className="text-white/60 text-xs">Table </span>
+                <span className="text-white font-black">{focusNumber}×</span>
+              </div>
+              {level && (
+                <div className="bg-white/20 rounded-lg px-2 py-0.5 text-white text-xs font-black">
+                  {LEVEL_CONFIG[level].emoji} ×{LEVEL_CONFIG[level].multiplier}
+                </div>
+              )}
             </div>
           )}
         </div>

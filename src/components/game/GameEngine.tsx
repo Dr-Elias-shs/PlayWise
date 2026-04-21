@@ -9,6 +9,7 @@ import { addCoins, calcCoins } from '@/lib/wallet';
 import { GameConfig, Question } from '@/lib/gameConfigs';
 import { StreakOverlay } from './StreakOverlay';
 import { CoinReward } from './CoinReward';
+import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 
 // ─── Timer bar ────────────────────────────────────────────────────────────────
 
@@ -121,6 +122,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
   const { playerName, soundEnabled, setSoundEnabled, score, streak, maxStreak,
           correctCount, wrongCount, incrementScore, incrementWrong, resetGame } = useGameStore();
 
+  const [level, setLevel] = useState<Level | null>(null);
   const [question, setQuestion] = useState<Question | null>(null);
   const [timeLeft, setTimeLeft] = useState(config.duration);
   const [isGameOver, setIsGameOver] = useState(false);
@@ -134,7 +136,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
   const ptId = useRef(0);
 
   const nextQuestion = useCallback(() => {
-    setQuestion(config.generateQuestion());
+    setQuestion(config.generateQuestion(level ?? 'medium'));
     setSelectedChoice(null);
     setIsAnswering(false);
   }, [config]);
@@ -182,9 +184,10 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
     setSelectedChoice(choice);
 
     if (choice === question.answer) {
+      const lvlMultiplier = level ? LEVEL_CONFIG[level].multiplier : 1;
       const timeBonus = Math.floor(timeLeft / 6);
       const comboBonus = streak >= 5 ? streak * 8 : streak >= 3 ? streak * 4 : 0;
-      const points = 100 + timeBonus + comboBonus;
+      const points = Math.floor((100 + timeBonus + comboBonus) * lvlMultiplier);
       incrementScore(points);
       if (soundEnabled) { playSound('correct'); setTimeout(() => playSound('coin'), 320); }
 
@@ -206,10 +209,12 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
   const handlePlayAgain = () => {
     resetGame();
     setIsGameOver(false);
-    setTimeLeft(config.duration);
-    nextQuestion();
-    startTimer();
+    setLevel(null); // go back to level picker
   };
+
+  if (!level) {
+    return <LevelPicker onSelect={setLevel} onBack={onBack} bgStyle={config.bgStyle} />;
+  }
 
   if (isGameOver) {
     return (
@@ -257,8 +262,16 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
 
         {/* Score row */}
         <div className="flex items-center justify-between">
-          <div className="bg-white/20 rounded-xl px-3 py-1">
-            <span className="text-white font-bold text-sm">{config.title}</span>
+          <div className="flex items-center gap-2">
+            <div className="bg-white/20 rounded-xl px-3 py-1">
+              <span className="text-white font-bold text-sm">{config.title}</span>
+            </div>
+            {level && (
+              <div className="rounded-lg px-2 py-0.5 text-white text-xs font-black"
+                style={{ background: `linear-gradient(135deg, ${LEVEL_CONFIG[level].glow}88, ${LEVEL_CONFIG[level].glow}55)` }}>
+                {LEVEL_CONFIG[level].emoji} {LEVEL_CONFIG[level].label} ×{LEVEL_CONFIG[level].multiplier}
+              </div>
+            )}
           </div>
 
           {streak >= 3 && (

@@ -1,3 +1,5 @@
+import type { Level } from '@/components/game/LevelPicker';
+
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 function randInt(min: number, max: number) {
@@ -10,21 +12,20 @@ function makeChoices(answer: number, min: number, max: number, count = 4): numbe
   while (set.size < count && tries < 200) {
     const delta = randInt(1, Math.max(1, Math.floor((max - min) / 3) + 2));
     const w = answer + (Math.random() > 0.5 ? delta : -delta);
-    // Allow outside [min,max] so we never get stuck in a tiny range
     if (w > 0 && !set.has(w)) set.add(w);
     tries++;
   }
   return Array.from(set).sort(() => Math.random() - 0.5);
 }
 
-// ─── Question type ─────────────────────────────────────────────────────────────
+// ─── Question type ────────────────────────────────────────────────────────────
 
 export interface Question {
-  displayText: string;       // e.g. "7 × 8"
-  answer: number;            // numeric answer used internally
-  choices: number[];         // numeric choices
-  formatChoice: (n: number) => string;   // how to display a choice button
-  hint?: string;             // e.g. "= ?/5" shown below question
+  displayText: string;
+  answer: number;
+  choices: number[];
+  formatChoice: (n: number) => string;
+  hint?: string;
 }
 
 // ─── Config type ──────────────────────────────────────────────────────────────
@@ -34,14 +35,14 @@ export interface GameConfig {
   title: string;
   description: string;
   emoji: string;
-  bgStyle: string;       // inline CSS gradient for full-screen bg
-  cardStyle: string;     // inline CSS gradient for hub card header
-  accentStyle: string;   // inline CSS gradient for buttons
+  bgStyle: string;
+  cardStyle: string;
+  accentStyle: string;
   duration: number;
-  generateQuestion: () => Question;
+  generateQuestion: (level?: Level) => Question;
 }
 
-// ─── Grade 2 — Addition & Subtraction ─────────────────────────────────────────
+// ─── Grade 2 — Addition & Subtraction ────────────────────────────────────────
 
 export const additionGame: GameConfig = {
   id: 'addition',
@@ -52,33 +53,26 @@ export const additionGame: GameConfig = {
   cardStyle:   'linear-gradient(135deg, #3b82f6, #06b6d4)',
   accentStyle: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
   duration: 60,
-  generateQuestion: () => {
-    const op = Math.random() > 0.45 ? '+' : '−';
+  generateQuestion: (level = 'medium') => {
+    // Easy: 1-10 addition only | Medium: 1-25 add+sub | Hard: 1-50 add+sub
+    const ranges = { easy: 10, medium: 25, hard: 50 };
+    const max = ranges[level];
+    const addOnly = level === 'easy';
+    const op = addOnly || Math.random() > 0.45 ? '+' : '−';
+
     if (op === '+') {
-      const a = randInt(1, 30);
-      const b = randInt(1, 30);
-      const answer = a + b;
-      return {
-        displayText: `${a} + ${b}`,
-        answer,
-        choices: makeChoices(answer, 1, 60),
-        formatChoice: n => String(n),
-      };
+      const a = randInt(1, max);
+      const b = randInt(1, max);
+      return { displayText: `${a} + ${b}`, answer: a + b, choices: makeChoices(a + b, 1, max * 2), formatChoice: n => String(n) };
     } else {
-      const b = randInt(1, 20);
-      const a = randInt(b + 1, 40);
-      const answer = a - b;
-      return {
-        displayText: `${a} − ${b}`,
-        answer,
-        choices: makeChoices(answer, 0, 39),
-        formatChoice: n => String(n),
-      };
+      const b = randInt(1, max - 1);
+      const a = randInt(b + 1, max);
+      return { displayText: `${a} − ${b}`, answer: a - b, choices: makeChoices(a - b, 0, max), formatChoice: n => String(n) };
     }
   },
 };
 
-// ─── Grade 3 — Multiplication (same engine, different config) ─────────────────
+// ─── Grade 3 — Multiplication ─────────────────────────────────────────────────
 
 export const multiplicationGame: GameConfig = {
   id: 'multiplication',
@@ -89,16 +83,13 @@ export const multiplicationGame: GameConfig = {
   cardStyle:   'linear-gradient(135deg, #7c3aed, #9333ea)',
   accentStyle: 'linear-gradient(135deg, #7c3aed, #9333ea)',
   duration: 60,
-  generateQuestion: () => {
-    const a = randInt(2, 10);
-    const b = randInt(1, 10);
-    const answer = a * b;
-    return {
-      displayText: `${a} × ${b}`,
-      answer,
-      choices: makeChoices(answer, 2, 100),
-      formatChoice: n => String(n),
-    };
+  generateQuestion: (level = 'medium') => {
+    // Easy: tables 2-5 | Medium: tables 2-9 | Hard: tables 2-12
+    const maxA = { easy: 5, medium: 9, hard: 12 }[level];
+    const maxB = { easy: 10, medium: 10, hard: 12 }[level];
+    const a = randInt(2, maxA);
+    const b = randInt(1, maxB);
+    return { displayText: `${a} × ${b}`, answer: a * b, choices: makeChoices(a * b, 2, maxA * maxB), formatChoice: n => String(n) };
   },
 };
 
@@ -113,22 +104,23 @@ export const divisionGame: GameConfig = {
   cardStyle:   'linear-gradient(135deg, #f97316, #f59e0b)',
   accentStyle: 'linear-gradient(135deg, #f97316, #f59e0b)',
   duration: 60,
-  generateQuestion: () => {
-    const divisor = randInt(2, 12);
-    const quotient = randInt(1, 12);
-    const dividend = divisor * quotient;
-    return {
-      displayText: `${dividend} ÷ ${divisor}`,
-      answer: quotient,
-      choices: makeChoices(quotient, 1, 12),
-      formatChoice: n => String(n),
-    };
+  generateQuestion: (level = 'medium') => {
+    // Easy: divisors 2-5 | Medium: divisors 2-9 | Hard: divisors 2-12
+    const maxDiv = { easy: 5, medium: 9, hard: 12 }[level];
+    const maxQ   = { easy: 10, medium: 10, hard: 12 }[level];
+    const divisor  = randInt(2, maxDiv);
+    const quotient = randInt(1, maxQ);
+    return { displayText: `${divisor * quotient} ÷ ${divisor}`, answer: quotient, choices: makeChoices(quotient, 1, maxQ), formatChoice: n => String(n) };
   },
 };
 
 // ─── Grade 5 — Fractions ──────────────────────────────────────────────────────
 
-const DENOMS = [2, 3, 4, 5, 6, 8, 10];
+const DENOMS: Record<Level, number[]> = {
+  easy:   [2, 3, 4],
+  medium: [2, 3, 4, 5, 6],
+  hard:   [2, 3, 4, 5, 6, 8, 10],
+};
 
 export const fractionGame: GameConfig = {
   id: 'fractions',
@@ -139,14 +131,16 @@ export const fractionGame: GameConfig = {
   cardStyle:   'linear-gradient(135deg, #ec4899, #f43f5e)',
   accentStyle: 'linear-gradient(135deg, #ec4899, #f43f5e)',
   duration: 60,
-  generateQuestion: () => {
-    const denom = DENOMS[randInt(0, DENOMS.length - 1)];
-    const op = Math.random() > 0.45 ? '+' : '−';
+  generateQuestion: (level = 'medium') => {
+    const pool = DENOMS[level];
+    const denom = pool[randInt(0, pool.length - 1)];
+    const addOnly = level === 'easy';
+    const op = addOnly || Math.random() > 0.45 ? '+' : '−';
     let num1: number, num2: number, answer: number;
 
     if (op === '+') {
       num1 = randInt(1, denom - 1);
-      num2 = randInt(1, denom - num1);   // keep sum ≤ denom
+      num2 = randInt(1, denom - num1);
       answer = num1 + num2;
     } else {
       num1 = randInt(2, denom);
@@ -164,7 +158,7 @@ export const fractionGame: GameConfig = {
   },
 };
 
-// ─── All games list (for hub) ─────────────────────────────────────────────────
+// ─── All games ────────────────────────────────────────────────────────────────
 
 export const ALL_GAMES: GameConfig[] = [
   additionGame,
