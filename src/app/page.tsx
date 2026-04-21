@@ -92,14 +92,15 @@ export default function Home() {
   }, [playerName, playerAvatar, screen]);
 
   const handleLogin = () => {
-    instance.loginPopup(loginRequest).catch(e => {
+    instance.loginRedirect(loginRequest).catch(e => {
       if (e?.errorCode !== 'interaction_in_progress') console.error(e);
     });
   };
 
   const handleLogout = () => {
-    instance.logoutPopup().then(() => setPlayerName(''));
+    setPlayerName('');
     setScreen('login');
+    instance.logoutRedirect({ postLogoutRedirectUri: window.location.origin });
   };
 
   const handleGameCardClick = (config: GameConfig) => {
@@ -144,7 +145,7 @@ export default function Home() {
           )}
 
           <div className="space-y-4">
-            <button onClick={() => { setDomainError(false); handleLogin(); }}
+            <button onClick={handleLogin}
               className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-xl border-2 border-slate-100 hover:border-brand-primary hover:bg-brand-primary/5 transition-all text-lg font-bold text-slate-700">
               <LogIn size={24} className="text-brand-primary" />
               Sign in with Microsoft
