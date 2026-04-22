@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { MultiplicationGame } from "@/components/game/MultiplayerGame";
 import { GameEngine } from "@/components/game/GameEngine";
 import { MemoryGame } from "@/components/game/MemoryGame";
+import { HangmanGame } from "@/components/game/HangmanGame";
 import { MultiplayerHub } from "@/components/multiplayer/MultiplayerHub";
 import { ProfileSetup } from "@/components/profile/ProfileSetup";
 import { RedeemPage } from "@/components/redeem/RedeemPage";
@@ -210,6 +211,9 @@ export default function Home() {
     }
     if (activeGame.id === 'memory') {
       return <MemoryGame onBack={backToHub} />;
+    }
+    if (activeGame.id === 'hangman') {
+      return <HangmanGame onBack={backToHub} />;
     }
     return <GameEngine config={activeGame} onBack={backToHub} />;
   }

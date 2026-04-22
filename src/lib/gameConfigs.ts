@@ -241,6 +241,20 @@ export const fractionGame: GameConfig = {
   },
 };
 
+// ─── Grade 5 — Hangman ────────────────────────────────────────────────────────
+
+export const hangmanGame: GameConfig = {
+  id: 'hangman',
+  title: 'Hangman',
+  description: 'Guess the word before the figure is complete!',
+  emoji: '🪢',
+  bgStyle:     'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
+  cardStyle:   'linear-gradient(135deg, #4f46e5, #7c3aed)',
+  accentStyle: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+  duration: 0,
+  generateQuestion: () => ({ displayText: '', answer: 0, choices: [], formatChoice: n => String(n) }),
+};
+
 // ─── Memory Game (standalone component — config only for hub card) ────────────
 
 export const memoryGame: GameConfig = {
@@ -262,5 +276,6 @@ export const ALL_GAMES: GameConfig[] = [
   multiplicationGame,
   divisionGame,
   fractionGame,
+  hangmanGame,
   memoryGame,
 ];
