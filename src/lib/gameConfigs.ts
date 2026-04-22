@@ -241,6 +241,20 @@ export const fractionGame: GameConfig = {
   },
 };
 
+// ─── Brain Logic game ─────────────────────────────────────────────────────────
+
+export const brainGame: GameConfig = {
+  id: 'brain',
+  title: 'Brain Logic',
+  description: 'Solve word problems step by step!',
+  emoji: '🧩',
+  bgStyle:     'linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95)',
+  cardStyle:   'linear-gradient(135deg, #4f46e5, #6d28d9)',
+  accentStyle: 'linear-gradient(135deg, #4f46e5, #6d28d9)',
+  duration: 0,
+  generateQuestion: () => ({ displayText: '', answer: 0, choices: [], formatChoice: n => String(n) }),
+};
+
 // ─── Grade 5 — Hangman ────────────────────────────────────────────────────────
 
 export const hangmanGame: GameConfig = {
@@ -276,6 +290,7 @@ export const ALL_GAMES: GameConfig[] = [
   multiplicationGame,
   divisionGame,
   fractionGame,
+  brainGame,
   hangmanGame,
   memoryGame,
 ];

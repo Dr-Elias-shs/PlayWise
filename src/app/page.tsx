@@ -8,6 +8,7 @@ import { MultiplicationGame } from "@/components/game/MultiplayerGame";
 import { GameEngine } from "@/components/game/GameEngine";
 import { MemoryGame } from "@/components/game/MemoryGame";
 import { HangmanGame } from "@/components/game/HangmanGame";
+import { BrainGame } from "@/components/game/BrainGame";
 import { MultiplayerHub } from "@/components/multiplayer/MultiplayerHub";
 import { ProfileSetup } from "@/components/profile/ProfileSetup";
 import { RedeemPage } from "@/components/redeem/RedeemPage";
@@ -214,6 +215,9 @@ export default function Home() {
     }
     if (activeGame.id === 'hangman') {
       return <HangmanGame onBack={backToHub} />;
+    }
+    if (activeGame.id === 'brain') {
+      return <BrainGame onBack={backToHub} />;
     }
     return <GameEngine config={activeGame} onBack={backToHub} />;
   }
