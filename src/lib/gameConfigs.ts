@@ -124,7 +124,7 @@ export const divisionGame: GameConfig = {
 
 const SAME_DENOMS: Record<'easy' | 'medium', number[]> = {
   easy:   [2, 3, 4],
-  medium: [2, 3, 4, 5, 6, 8],
+  medium: [6, 8, 10, 12],
 };
 
 // Friendly denominator pairs for Hard — LCD is always manageable
