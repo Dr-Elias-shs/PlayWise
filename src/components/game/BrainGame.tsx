@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, RotateCcw, Flame, Volume2, VolumeX } from 'lucide-react';
 import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
+import { OwlCharacter, OwlMood } from './OwlCharacter';
 import { playSound } from '@/lib/sounds';
 import { addCoins } from '@/lib/wallet';
 import { useGameStore } from '@/store/useGameStore';
@@ -26,7 +27,6 @@ interface Problem {
   finalMessage: string;
 }
 
-type OwlMood = 'idle' | 'correct' | 'wrong' | 'thinking' | 'celebrate';
 type StepState = 'idle' | 'correct' | 'wrong' | 'unlocking';
 
 // ─── Speech synthesis ─────────────────────────────────────────────────────────
@@ -76,59 +76,6 @@ function readQuestion(question: string, enabled: boolean) {
   if (!enabled || typeof window === 'undefined' || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(makeUtt(question));
-}
-
-// ─── Owl guide ────────────────────────────────────────────────────────────────
-
-const OWL_MESSAGES: Record<OwlMood, string | null> = {
-  idle:      "Let's solve this! 🧩",
-  thinking:  'Read the story carefully...',
-  correct:   'Good job! ⭐',
-  wrong:     'Try again! You can do it!',
-  celebrate: 'Amazing! Problem solved! 🎉',
-};
-
-function Owl({ mood }: { mood: OwlMood }) {
-  const msg = OWL_MESSAGES[mood];
-  return (
-    <div className="flex items-center gap-3">
-      <motion.img
-        src="/playwise-logo.png"
-        alt="Owl guide"
-        className="w-14 h-14 object-contain drop-shadow-lg"
-        animate={
-          mood === 'correct'   ? { scale: [1, 1.3, 1], rotate: [0, -12, 12, 0] } :
-          mood === 'celebrate' ? { scale: [1, 1.4, 0.9, 1.2, 1], rotate: [0, -15, 15, -8, 0] } :
-          mood === 'wrong'     ? { x: [0, -7, 7, -5, 5, 0] } :
-          mood === 'thinking'  ? { rotate: [0, 8, -8, 0] } :
-          { y: [0, -4, 0] }
-        }
-        transition={mood === 'idle' ? { repeat: Infinity, duration: 2.4, ease: 'easeInOut' } : { duration: 0.55 }}
-      />
-      <AnimatePresence mode="wait">
-        {msg && (
-          <motion.div
-            key={mood}
-            initial={{ scale: 0, opacity: 0, x: -10 }}
-            animate={{ scale: 1, opacity: 1, x: 0 }}
-            exit={{ scale: 0, opacity: 0, x: -10 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-            className={`relative px-4 py-2 rounded-2xl text-sm font-black shadow-lg border
-              ${mood === 'correct' || mood === 'celebrate' ? 'bg-emerald-500 text-white border-emerald-400/50' :
-                mood === 'wrong'   ? 'bg-red-500 text-white border-red-400/50' :
-                'bg-white text-slate-800 border-white/50'}`}
-          >
-            {/* speech bubble tail */}
-            <div className={`absolute -left-2 top-1/2 -translate-y-1/2 w-0 h-0
-              border-t-[6px] border-b-[6px] border-r-[10px] border-transparent
-              ${mood === 'correct' || mood === 'celebrate' ? 'border-r-emerald-500' :
-                mood === 'wrong'   ? 'border-r-red-500' : 'border-r-white'}`} />
-            {msg}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
 }
 
 // ─── Floating coin ────────────────────────────────────────────────────────────
@@ -648,7 +595,7 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
       {/* Owl + Scenario */}
       <div className="w-full max-w-md mb-4 relative z-10 space-y-3">
         <div className="flex items-center justify-between">
-          <Owl mood={owlMood} />
+          <OwlCharacter mood={owlMood} />
         </div>
 
         <motion.div key={problem.scenario}
@@ -695,9 +642,9 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
               className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 text-center max-w-xs mx-4 shadow-2xl"
               initial={{ scale: 0.7, y: 50, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 250, damping: 20, delay: 0.1 }}>
-              <motion.img src="/playwise-logo.png" className="w-20 h-20 object-contain mx-auto mb-3"
-                animate={{ scale: [1, 1.3, 0.9, 1.15, 1], rotate: [0, -15, 15, -8, 0] }}
-                transition={{ duration: 0.8, delay: 0.2 }} />
+              <div className="flex justify-center mb-1">
+                <OwlCharacter mood="celebrate" />
+              </div>
               <h2 className="text-3xl font-black text-white mb-1">Problem Solved! 🎉</h2>
               {mistakes === 0 && (
                 <motion.p initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5 }}
