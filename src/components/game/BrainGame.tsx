@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, RotateCcw, Flame } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Flame, Volume2, VolumeX } from 'lucide-react';
 import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 import { playSound } from '@/lib/sounds';
 import { addCoins } from '@/lib/wallet';
@@ -34,18 +34,48 @@ type StepState = 'idle' | 'correct' | 'wrong' | 'unlocking';
 const CORRECT_PHRASES = ['Good job!', 'Excellent!', "That's right!", 'Perfect!', 'Keep it up!'];
 const WRONG_PHRASES   = ['Try again!', 'Think carefully!', 'Almost there!', 'Check the story!'];
 
-function speak(phrases: string[]) {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const text = phrases[Math.floor(Math.random() * phrases.length)];
-  const utt  = new SpeechSynthesisUtterance(text);
-  utt.rate   = 0.92;
-  utt.pitch  = 1.25;
-  utt.volume = 0.9;
+function getBestVoice() {
+  if (typeof window === 'undefined') return null;
   const voices = window.speechSynthesis.getVoices();
-  const pick   = voices.find(v => v.name.includes('Samantha') || v.name.includes('Google UK English Female') || (v.lang === 'en-US' && v.name.includes('Female')));
-  if (pick) utt.voice = pick;
-  window.speechSynthesis.speak(utt);
+  return voices.find(v =>
+    v.name.includes('Samantha') ||
+    v.name.includes('Google UK English Female') ||
+    (v.lang === 'en-US' && v.name.toLowerCase().includes('female'))
+  ) ?? voices.find(v => v.lang === 'en-US') ?? null;
+}
+
+function makeUtt(text: string, rate = 0.88, pitch = 1.1): SpeechSynthesisUtterance {
+  const utt  = new SpeechSynthesisUtterance(text);
+  utt.rate   = rate;
+  utt.pitch  = pitch;
+  utt.volume = 0.9;
+  const v    = getBestVoice();
+  if (v) utt.voice = v;
+  return utt;
+}
+
+// Read feedback phrases (correct / wrong)
+function speak(phrases: string[], enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(
+    makeUtt(phrases[Math.floor(Math.random() * phrases.length)], 0.92, 1.25)
+  );
+}
+
+// Read scenario then question (chained — speechSynthesis queues them automatically)
+function readScenarioAndQuestion(scenario: string, question: string, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(makeUtt(scenario));
+  window.speechSynthesis.speak(makeUtt(question));
+}
+
+// Read just a question
+function readQuestion(question: string, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(makeUtt(question));
 }
 
 // ─── Owl guide ────────────────────────────────────────────────────────────────
@@ -121,12 +151,13 @@ function FloatingCoin({ amount, onDone }: { amount: number; onDone: () => void }
 
 function StepCard({
   step, stepIdx, totalSteps,
-  streak, onAnswer, onOwlMood,
+  streak, ttsEnabled, onAnswer, onOwlMood,
 }: {
   step: Step;
   stepIdx: number;
   totalSteps: number;
   streak: number;
+  ttsEnabled: boolean;
   onAnswer: (isCorrect: boolean) => void;
   onOwlMood: (mood: OwlMood) => void;
 }) {
@@ -142,7 +173,7 @@ function StepCard({
     if (correct) {
       setState('correct');
       playSound('correct');
-      speak(CORRECT_PHRASES);
+      speak(CORRECT_PHRASES, ttsEnabled);
       onOwlMood('correct');
       setShowCoin(true);
 
@@ -153,7 +184,7 @@ function StepCard({
     } else {
       setState('wrong');
       playSound('wrong');
-      speak(WRONG_PHRASES);
+      speak(WRONG_PHRASES, ttsEnabled);
       onOwlMood('wrong');
 
       setTimeout(() => {
@@ -494,7 +525,32 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
   const [streak, setStreak]     = useState(0);
   const [mistakes, setMistakes] = useState(0);
   const [coinsEarned, setCoinsEarned] = useState(0);
+  const [ttsEnabled, setTtsEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('brain_tts') !== 'false';
+  });
   const pendingCoins = useRef(0);
+
+  // Auto-read: scenario + first question when problem loads
+  useEffect(() => {
+    if (!problem) return;
+    readScenarioAndQuestion(problem.scenario, problem.steps[0].question, ttsEnabled);
+  }, [problem]); // eslint-disable-line
+
+  // Auto-read: just the question when advancing to later steps
+  useEffect(() => {
+    if (!problem || step === 0) return;
+    readQuestion(problem.steps[step].question, ttsEnabled);
+  }, [step]); // eslint-disable-line
+
+  const toggleTts = useCallback(() => {
+    setTtsEnabled(prev => {
+      const next = !prev;
+      localStorage.setItem('brain_tts', String(next));
+      if (!next && typeof window !== 'undefined') window.speechSynthesis?.cancel();
+      return next;
+    });
+  }, []);
 
   const startProblem = useCallback((lvl: Level) => {
     setLevel(lvl);
@@ -574,11 +630,18 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
           <p className="text-white font-black text-lg">🧩 Brain Logic</p>
           <p className="text-white/40 text-xs">{LEVEL_CONFIG[level].emoji} {LEVEL_CONFIG[level].label} · {problem.tag}</p>
         </div>
-        <div className="text-right">
-          <p className="text-yellow-300 font-black text-sm">🪙 {pendingCoins.current}</p>
-          {mistakes === 0 && step > 0 && (
-            <p className="text-emerald-400 text-xs font-bold">✨ Perfect!</p>
-          )}
+        <div className="flex items-center gap-2">
+          <div className="text-right">
+            <p className="text-yellow-300 font-black text-sm">🪙 {pendingCoins.current}</p>
+            {mistakes === 0 && step > 0 && (
+              <p className="text-emerald-400 text-xs font-bold">✨ Perfect!</p>
+            )}
+          </div>
+          <button onClick={toggleTts}
+            title={ttsEnabled ? 'Mute reading' : 'Enable reading'}
+            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-white/60 hover:text-white">
+            {ttsEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
         </div>
       </div>
 
@@ -607,6 +670,7 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
               stepIdx={step}
               totalSteps={problem.steps.length}
               streak={streak}
+              ttsEnabled={ttsEnabled}
               onAnswer={handleAnswer}
               onOwlMood={setOwlMood}
             />
