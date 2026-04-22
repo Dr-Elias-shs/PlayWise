@@ -146,66 +146,72 @@ export const fractionGame: GameConfig = {
   duration: 60,
   generateQuestion: (level = 'medium') => {
 
-    // ── Hard: different denominators ─────────────────────────────────────────
+    // ── Hard: different denominators (always generates a valid question) ────────
     if (level === 'hard') {
-      let tries = 0;
-      while (tries < 50) {
-        tries++;
-        const [d1, d2] = DIFF_PAIRS[randInt(0, DIFF_PAIRS.length - 1)];
-        const lcd = lcm(d1, d2);
-        const num1 = randInt(1, d1 - 1);
-        const num2 = randInt(1, d2 - 1);
-        const n1 = num1 * (lcd / d1);
-        const n2 = num2 * (lcd / d2);
-        const op = Math.random() > 0.45 ? '+' : '−';
+      const [da, db] = DIFF_PAIRS[randInt(0, DIFF_PAIRS.length - 1)];
+      const lcd = lcm(da, db);
+      const fa = lcd / da;  // scale factor: 1/da = fa/lcd
+      const fb = lcd / db;
+      const useAdd = Math.random() > 0.45;
 
-        let ansNum: number;
-        if (op === '+') {
-          ansNum = n1 + n2;
-          if (ansNum > lcd) continue; // keep sum proper fraction
+      let dN1: number, dD1: number, dN2: number, dD2: number, ansNum: number, op: string;
+
+      if (useAdd) {
+        op = '+';
+        dD1 = da; dD2 = db;
+        // Pick dN1, then pick dN2 so that n1 + n2 < lcd (proper fraction result)
+        dN1 = randInt(1, da - 1);
+        const n1 = dN1 * fa;
+        const maxN2 = Math.min(db - 1, Math.floor((lcd - n1 - 1) / fb));
+        dN2 = maxN2 >= 1 ? randInt(1, maxN2) : 1;
+        ansNum = n1 + dN2 * fb;
+      } else {
+        op = '−';
+        const na = randInt(1, da - 1);
+        const nb = randInt(1, db - 1);
+        const na_s = na * fa;
+        const nb_s = nb * fb;
+        if (na_s > nb_s) {
+          // a/da − b/db
+          dD1 = da; dN1 = na; dD2 = db; dN2 = nb;
+          ansNum = na_s - nb_s;
+        } else if (nb_s > na_s) {
+          // b/db − a/da (swap so result is positive)
+          dD1 = db; dN1 = nb; dD2 = da; dN2 = na;
+          ansNum = nb_s - na_s;
         } else {
-          if (n1 <= n2) continue;     // ensure positive result
-          ansNum = n1 - n2;
+          // Equal fractions — fall back to addition
+          op = '+';
+          dD1 = da; dN1 = na; dD2 = db; dN2 = nb;
+          ansNum = na_s + nb_s;
         }
-
-        const [sNum, sDen] = simplify(ansNum, lcd);
-
-        // Generate wrong choices by varying the simplified numerator
-        const wrongChoices = new Set<string>();
-        let offset = 1;
-        while (wrongChoices.size < 3 && offset < 10) {
-          const wNum = sNum + (wrongChoices.size % 2 === 0 ? offset : -offset);
-          if (wNum > 0 && wNum !== sNum) {
-            const [wS, wD] = simplify(wNum, sDen);
-            wrongChoices.add(`${wS}/${wD}`);
-          }
-          if (wrongChoices.size < 3) {
-            const wNum2 = sNum - (wrongChoices.size % 2 === 0 ? offset : -offset);
-            if (wNum2 > 0 && wNum2 !== sNum) {
-              const [wS2, wD2] = simplify(wNum2, sDen);
-              wrongChoices.add(`${wS2}/${wD2}`);
-            }
-          }
-          offset++;
-        }
-
-        const answerDisplay = `${sNum}/${sDen}`;
-        // Pack choices as indices: 0 = correct, 1..3 = wrongs
-        // We store answer as 0 and use formatChoice to map to strings
-        const allChoices = [answerDisplay, ...Array.from(wrongChoices).slice(0, 3)];
-        const shuffled = allChoices.sort(() => Math.random() - 0.5);
-        const correctIdx = shuffled.indexOf(answerDisplay);
-
-        return {
-          displayText: `${num1}/${d1}  ${op}  ${num2}/${d2}`,
-          answer: correctIdx,
-          choices: [0, 1, 2, 3],
-          formatChoice: n => shuffled[n] ?? '?',
-          hint: '= ?',
-        };
       }
-      // Fallback to medium if all tries fail
-      level = 'medium';
+
+      const [sNum, sDen] = simplify(ansNum, lcd);
+      const answerDisplay = `${sNum}/${sDen}`;
+
+      const wrongSet = new Set<string>();
+      for (let off = 1; wrongSet.size < 3 && off <= 12; off++) {
+        for (const delta of [off, -off]) {
+          const w = sNum + delta;
+          if (w > 0 && w !== sNum && wrongSet.size < 3) {
+            const [ws, wd] = simplify(w, sDen);
+            const s = `${ws}/${wd}`;
+            if (s !== answerDisplay) wrongSet.add(s);
+          }
+        }
+      }
+
+      const allChoices = [answerDisplay, ...Array.from(wrongSet).slice(0, 3)];
+      const shuffled = allChoices.sort(() => Math.random() - 0.5);
+
+      return {
+        displayText: `${dN1}/${dD1}  ${op}  ${dN2}/${dD2}`,
+        answer: shuffled.indexOf(answerDisplay),
+        choices: [0, 1, 2, 3],
+        formatChoice: n => shuffled[n] ?? '?',
+        hint: '= ?',
+      };
     }
 
     // ── Easy / Medium: same denominator ──────────────────────────────────────
