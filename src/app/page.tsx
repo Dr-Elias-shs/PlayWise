@@ -2,6 +2,7 @@
 import { useGameStore } from "@/store/useGameStore";
 import { Users, Trophy, LogIn, LogOut, Settings, Maximize, Minimize } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { motion } from "framer-motion";
 import { MultiplicationGame } from "@/components/game/MultiplayerGame";
@@ -17,6 +18,7 @@ import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { loginRequest } from "@/lib/msal";
 import { Leaderboard } from "@/components/hub/Leaderboard";
 import { ALL_GAMES, GameConfig } from "@/lib/gameConfigs";
+import { getGlobalConfig } from "@/lib/wallet";
 
 // ─── Hub game card ────────────────────────────────────────────────────────────
 
@@ -60,9 +62,11 @@ type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'mul
 export default function Home() {
   const { playerName, playerAvatar, setPlayerName, resetGame, loadStoredProfile } = useGameStore();
   const [screen, setScreen] = useState<Screen>('login');
+  const router = useRouter();
   const [activeGame, setActiveGame] = useState<GameConfig | null>(null);
   const [multiGameId, setMultiGameId] = useState<string>('multiplication');
   const [walletRefresh, setWalletRefresh] = useState(0);
+  const [gameSettings, setGameSettings] = useState<Record<string, boolean>>({});
   const [emailInput, setEmailInput] = useState('');
   const { isFullscreen, toggle: toggleFullscreen, enter: enterFullscreen } = useFullscreen();
   const msalConfigured = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID !== '00000000-0000-0000-0000-000000000000';
@@ -73,6 +77,10 @@ export default function Home() {
   useEffect(() => {
     loadStoredProfile();
   }, [loadStoredProfile]);
+
+  useEffect(() => {
+    getGlobalConfig('game_settings').then(cfg => { if (cfg) setGameSettings(cfg); });
+  }, []);
 
   // After MSAL login — set player name from account
   useEffect(() => {
@@ -290,7 +298,7 @@ export default function Home() {
           <div>
             <h2 className="text-xl font-black text-slate-700 mb-4">🎮 Choose Your Game</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {ALL_GAMES.map(config => (
+              {ALL_GAMES.filter(g => gameSettings[g.id] !== false).map(config => (
                 <HubGameCard
                   key={config.id}
                   config={config}
@@ -300,6 +308,25 @@ export default function Home() {
               ))}
             </div>
           </div>
+
+          {/* World Exploration */}
+          {gameSettings['world'] !== false && <section
+            className="rounded-3xl p-7 flex items-center gap-6 cursor-pointer hover:scale-[1.02] transition-transform shadow-lg"
+            style={{ background: 'linear-gradient(135deg, #1a3a1a 0%, #2d6e2d 100%)' }}
+            onClick={() => router.push('/world')}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/character/walk2.png" alt="Character" className="h-20 flex-shrink-0" draggable={false} />
+            <div className="flex-1">
+              <h2 className="text-xl font-black text-white">PlayWise World 🗺️</h2>
+              <p className="text-white/70 text-sm font-medium mt-1">
+                Walk the school, enter rooms, answer questions, earn PlayBits!
+              </p>
+              <button className="mt-3 bg-emerald-500 hover:bg-emerald-400 text-white font-black px-5 py-2 rounded-xl text-sm transition-colors">
+                Explore Now →
+              </button>
+            </div>
+          </section>}
 
           {/* Math Duels section */}
           <section className="bg-gradient-to-br from-violet-50 to-purple-50 border-2 border-violet-100 rounded-3xl p-7">

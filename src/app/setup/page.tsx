@@ -78,6 +78,114 @@ CREATE POLICY "all" ON public.shop_items FOR ALL USING (true) WITH CHECK (true);
 ALTER TABLE public.redemptions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "all" ON public.redemptions FOR ALL USING (true) WITH CHECK (true);`,
   },
+  {
+    name: "coin_transactions",
+    sql: `CREATE TABLE IF NOT EXISTS public.coin_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_name TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  source TEXT NOT NULL,
+  game_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.coin_transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.coin_transactions FOR ALL USING (true) WITH CHECK (true);`,
+  },
+  {
+    name: "game_sessions",
+    sql: `CREATE TABLE IF NOT EXISTS public.game_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_name TEXT NOT NULL,
+  game_id TEXT NOT NULL,
+  coins_earned INTEGER DEFAULT 0,
+  play_time_seconds INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.game_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.game_sessions FOR ALL USING (true) WITH CHECK (true);`,
+  },
+  {
+    name: "global_config",
+    sql: `CREATE TABLE IF NOT EXISTS public.global_config (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.global_config ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.global_config FOR ALL USING (true) WITH CHECK (true);`,
+  },
+  {
+    name: "table_progress",
+    sql: `CREATE TABLE IF NOT EXISTS public.table_progress (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_name TEXT NOT NULL,
+  table_number INT NOT NULL,
+  last_accuracy DECIMAL(5,4) DEFAULT NULL,
+  best_accuracy DECIMAL(5,4) DEFAULT 0,
+  sessions_today INT DEFAULT 0,
+  last_session_date DATE DEFAULT NULL,
+  mastered BOOLEAN DEFAULT false,
+  mastery_bonus_given BOOLEAN DEFAULT false,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(student_name, table_number)
+);
+ALTER TABLE public.table_progress ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.table_progress FOR ALL USING (true) WITH CHECK (true);`,
+  },
+  {
+    name: "student_daily",
+    sql: `CREATE TABLE IF NOT EXISTS public.student_daily (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_name TEXT NOT NULL,
+  date DATE NOT NULL,
+  variety_4_bonus_given BOOLEAN DEFAULT false,
+  variety_6_bonus_given BOOLEAN DEFAULT false,
+  UNIQUE(student_name, date)
+);
+ALTER TABLE public.student_daily ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.student_daily FOR ALL USING (true) WITH CHECK (true);`,
+  },
+  {
+    name: "game_performance",
+    sql: `CREATE TABLE IF NOT EXISTS public.game_performance (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_name TEXT NOT NULL,
+  game_id TEXT NOT NULL,
+  sessions_count INT DEFAULT 0,
+  avg_accuracy DECIMAL(5,4) DEFAULT 0,
+  best_accuracy DECIMAL(5,4) DEFAULT 0,
+  prev_accuracy DECIMAL(5,4) DEFAULT NULL,
+  last_accuracy DECIMAL(5,4) DEFAULT NULL,
+  mastered BOOLEAN DEFAULT false,
+  last_played_at TIMESTAMPTZ DEFAULT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(student_name, game_id)
+);
+ALTER TABLE public.game_performance ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.game_performance FOR ALL USING (true) WITH CHECK (true);`,
+  },
+  {
+    name: "learning_scores",
+    sql: `CREATE TABLE IF NOT EXISTS public.learning_scores (
+  student_name TEXT PRIMARY KEY,
+  grade TEXT DEFAULT '',
+  mastery_score DECIMAL(6,2) DEFAULT 0,
+  accuracy_score DECIMAL(6,2) DEFAULT 0,
+  progress_score DECIMAL(6,2) DEFAULT 0,
+  diversity_score DECIMAL(6,2) DEFAULT 0,
+  playbits_score DECIMAL(6,2) DEFAULT 0,
+  learning_score DECIMAL(6,2) DEFAULT 0,
+  games_distinct_14d INT DEFAULT 0,
+  avg_accuracy_all DECIMAL(5,4) DEFAULT 0,
+  improvement_delta DECIMAL(6,4) DEFAULT 0,
+  total_mastered INT DEFAULT 0,
+  total_playbits INT DEFAULT 0,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.learning_scores ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.learning_scores FOR ALL USING (true) WITH CHECK (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.learning_scores;`,
+  },
 ];
 
 const ALL_SQL = TABLES.map(t => t.sql).join("\n\n");

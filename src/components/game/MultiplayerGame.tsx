@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/useGameStore';
 import { playSound, speak } from '@/lib/sounds';
 import { saveScore } from '@/lib/supabase';
-import { addCoins, calcCoins } from '@/lib/wallet';
+import { awardTableCoins, RewardBreakdown } from '@/lib/tableRewards';
 import { StreakOverlay } from './StreakOverlay';
 import { CoinReward } from './CoinReward';
 import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
@@ -150,8 +150,9 @@ function TablePicker({ onSelect, onBack, soundEnabled, onToggleSound }: {
 
 // ─── Game Over ────────────────────────────────────────────────────────────────
 
-function GameOver({ score, maxStreak, correctCount, wrongCount, coinsEarned, players, playerName, onPlayAgain, onBack }: {
+function GameOver({ score, maxStreak, correctCount, wrongCount, coinsEarned, breakdown, players, playerName, onPlayAgain, onBack }: {
   score: number; maxStreak: number; correctCount: number; wrongCount: number; coinsEarned: number;
+  breakdown: RewardBreakdown | null;
   players: { name: string; score: number; streak: number }[];
   playerName: string;
   onPlayAgain: () => void; onBack: () => void;
@@ -271,6 +272,30 @@ function GameOver({ score, maxStreak, correctCount, wrongCount, coinsEarned, pla
           ))}
         </div>
 
+        {/* Reward breakdown */}
+        {breakdown && (
+          <div className="mb-5 bg-white/10 rounded-2xl p-4 border border-white/15 space-y-1.5">
+            <div className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-2">🪙 PlayBits Breakdown</div>
+            {[
+              { label: 'Base (difficulty × accuracy × freshness)', value: breakdown.base },
+              breakdown.accuracyBonus    > 0 && { label: `Accuracy bonus (${Math.round(breakdown.accuracy * 100)}%)`, value: breakdown.accuracyBonus },
+              breakdown.improvementBonus > 0 && { label: 'Improvement bonus 📈',  value: breakdown.improvementBonus },
+              breakdown.masteryBonus     > 0 && { label: 'Mastery unlocked! 🏆',  value: breakdown.masteryBonus },
+              breakdown.multiplayerBonus > 0 && { label: 'Multiplayer win ⚔️',    value: breakdown.multiplayerBonus },
+              breakdown.varietyBonus     > 0 && { label: 'Variety bonus 🌈',       value: breakdown.varietyBonus },
+            ].filter(Boolean).map((item: any) => (
+              <div key={item.label} className="flex justify-between text-sm">
+                <span className="text-white/70">{item.label}</span>
+                <span className="text-yellow-300 font-black">+{item.value}</span>
+              </div>
+            ))}
+            <div className="border-t border-white/20 pt-2 flex justify-between font-black">
+              <span className="text-white">Total</span>
+              <span className="text-yellow-300 text-lg">+{breakdown.total} 🪙</span>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-3">
           <button onClick={onBack}
             className="flex-1 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl transition-colors border border-white/20">
@@ -310,6 +335,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
   const [timeLeft, setTimeLeft] = useState(DURATION);
   const [isGameOver, setIsGameOver] = useState(false);
   const [coinsEarned, setCoinsEarned] = useState(0);
+  const [rewardBreakdown, setRewardBreakdown] = useState<RewardBreakdown | null>(null);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [isAnswering, setIsAnswering] = useState(false);
   const [particles, setParticles] = useState<{ id: number; color: string; angle: number }[]>([]);
@@ -351,8 +377,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
   useEffect(() => {
     if (!isGameOver || focusNumber === null) return;
 
-    // Read latest values directly from store to avoid stale closure
-    const { score: s, correctCount: cc, maxStreak: ms, roomData: rd, playerGrade } = useGameStore.getState();
+    const { score: s, correctCount: cc, wrongCount: wc, roomData: rd, playerGrade } = useGameStore.getState();
 
     saveScore(playerName, focusNumber, s)
       .then(({ error }: { error: any }) => {
@@ -363,15 +388,15 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
     const opponent = players.find((p: any) => p.name !== playerName);
     const won = opponent ? s > (opponent.score ?? 0) : false;
     const isMulti = players.length > 1;
-    const coins = calcCoins(cc, ms, won, isMulti);
-    setCoinsEarned(coins);
+    const total = cc + wc;
 
-    console.log(`₿ Awarding ${coins} coins to ${playerName} (correct: ${cc}, streak: ${ms})`);
-    addCoins(playerName, coins, DURATION, true, playerGrade)
-      .then(({ error }: any) => {
-        if (error) console.error('Coin save failed:', error.message);
-        else console.log(`₿ +${coins} PlayBits saved!`);
-      });
+    awardTableCoins(playerName, focusNumber, cc, total, won, isMulti, DURATION, playerGrade)
+      .then(breakdown => {
+        setCoinsEarned(breakdown.total);
+        setRewardBreakdown(breakdown);
+        if (breakdown.newMastered) console.log(`🏆 ${playerName} mastered ×${focusNumber}!`);
+      })
+      .catch(err => console.error('Reward save failed:', err));
   }, [isGameOver]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = useCallback((choice: number) => {
@@ -451,7 +476,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
     return (
       <GameOver
         score={score} maxStreak={maxStreak} correctCount={correctCount} wrongCount={wrongCount}
-        coinsEarned={coinsEarned}
+        coinsEarned={coinsEarned} breakdown={rewardBreakdown}
         players={roomData?.players ?? []}
         playerName={playerName}
         onPlayAgain={handlePlayAgain}

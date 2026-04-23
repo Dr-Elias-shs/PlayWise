@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, RotateCcw } from 'lucide-react';
 import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 import { playSound } from '@/lib/sounds';
 import { addCoins } from '@/lib/wallet';
+import { recordGameResult } from '@/lib/learningScore';
 import { useGameStore } from '@/store/useGameStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -165,6 +166,7 @@ export function HangmanGame({ onBack }: { onBack: () => void }) {
   const [guessed, setGuessed]     = useState<Set<string>>(new Set());
   const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>('playing');
   const [coinsEarned, setCoinsEarned] = useState(0);
+  const startRef = useRef<number>(Date.now());
 
   const wrongCount = Array.from(guessed).filter(l => !word.includes(l)).length;
   const isWon  = word.length > 0 && word.split('').every(l => guessed.has(l));
@@ -178,6 +180,7 @@ export function HangmanGame({ onBack }: { onBack: () => void }) {
     setGuessed(initial);
     setGameStatus('playing');
     setCoinsEarned(0);
+    startRef.current = Date.now();
   }, []);
 
   // Win / lose detection
@@ -188,11 +191,25 @@ export function HangmanGame({ onBack }: { onBack: () => void }) {
       const livesLeft = MAX_WRONG - wrongCount;
       const multiplier = level ? LEVEL_CONFIG[level].multiplier : 1;
       const coins = Math.round((10 + livesLeft * 8) * multiplier);
+      const elapsed = Math.round((Date.now() - startRef.current) / 1000);
+      const wordLen = word.length;
+      const lettersGuessedCorrect = wordLen;                     // won = all letters found
+      const totalLetters = wordLen + wrongCount;                 // correct + wrong guesses
       setCoinsEarned(coins);
-      if (playerName) addCoins(playerName, coins).catch(() => {});
+      if (playerName) {
+        addCoins(playerName, coins, elapsed, true, '', 'hangman').catch(() => {});
+        recordGameResult(playerName, 'hangman', lettersGuessedCorrect, totalLetters).catch(() => {});
+      }
       setGameStatus('won');
     } else if (isLost) {
       playSound('wrong');
+      const elapsed = Math.round((Date.now() - startRef.current) / 1000);
+      const guessedRight = word.split('').filter(l => guessed.has(l)).length;
+      const totalAttempts = guessedRight + wrongCount;
+      if (playerName) {
+        addCoins(playerName, 0, elapsed, false, '', 'hangman').catch(() => {});
+        recordGameResult(playerName, 'hangman', guessedRight, totalAttempts).catch(() => {});
+      }
       setGameStatus('lost');
     }
   }, [isWon, isLost]); // eslint-disable-line react-hooks/exhaustive-deps

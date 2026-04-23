@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX } from 'lucide-react';
 import { useGameStore } from '@/store/useGameStore';
 import { addCoins } from '@/lib/wallet';
+import { recordGameResult } from '@/lib/learningScore';
 import { playSound } from '@/lib/sounds';
 import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 
@@ -296,7 +297,10 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
     const bonus = Math.max(0, minFlips + 4 - flips);
     const earned = Math.round((totalPairs * 3 + bonus) * mult);
     setCoins(earned);
-    addCoins(playerName, earned, elapsed, true, playerGrade).catch(() => {});
+    addCoins(playerName, earned, elapsed, true, playerGrade, 'memory').catch(() => {});
+    // Accuracy = pairs found on first try / total pairs  (mismatches = flips/2 - matches)
+    const mismatches = Math.max(0, Math.floor(flips / 2) - matches);
+    recordGameResult(playerName, 'memory', matches, matches + mismatches, playerGrade).catch(() => {});
   }, [matches]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCardClick = useCallback((id: number) => {

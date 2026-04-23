@@ -1,3 +1,5 @@
+import { gameAudio } from './game-audio';
+
 // Singleton AudioContext
 let _ctx: AudioContext | null = null;
 
@@ -146,10 +148,38 @@ const SOUNDS: Record<string, () => void> = {
     [[400,0],[600,0.07],[900,0.14],[1200,0.21]].forEach(([f,d]) =>
       tone(f, 'square', 0.1, 0.15, d));
   },
+
+  // ─── Character Movement ─────────────────────────────────────────────────────
+  // "wsht wsht" footstep sound (short noise bursts)
+  walk: () => {
+    noise(0.04, 0.08, 0);
+  },
+
+  // ─── World Events ──────────────────────────────────────────────────────────
+  // Soft "whomb" when approaching a room
+  whomb: () => {
+    const ctx = getCtx();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(140, now);
+    osc.frequency.exponentialRampToValueAtTime(80, now + 0.5);
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.2, now + 0.1);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.7);
+  },
 };
 
 export function playSound(type: string) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || gameAudio.muted) return;
   try { SOUNDS[type]?.(); } catch {}
 }
 

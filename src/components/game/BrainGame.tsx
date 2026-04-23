@@ -7,6 +7,7 @@ import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 import { OwlCharacter, OwlMood } from './OwlCharacter';
 import { playSound } from '@/lib/sounds';
 import { addCoins } from '@/lib/wallet';
+import { recordGameResult } from '@/lib/learningScore';
 import { useGameStore } from '@/store/useGameStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -477,6 +478,7 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
     return localStorage.getItem('brain_tts') !== 'false';
   });
   const pendingCoins = useRef(0);
+  const startRef = useRef<number>(Date.now());
 
   // Auto-read: scenario + first question when problem loads
   useEffect(() => {
@@ -505,6 +507,7 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
     setStep(0); setDone(false);
     setOwlMood('idle'); setStreak(0); setMistakes(0);
     pendingCoins.current = 0; setCoinsEarned(0);
+    startRef.current = Date.now();
   }, []);
 
   const handleAnswer = useCallback((isCorrect: boolean) => {
@@ -523,8 +526,14 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
         const base        = level === 'easy' ? 6 : level === 'medium' ? 10 : 18;
         const perfectBonus= mistakes === 0 ? base : 0;
         const total       = Math.round((base + pendingCoins.current + perfectBonus) * multiplier);
+        const elapsed      = Math.round((Date.now() - startRef.current) / 1000);
+        const totalSteps   = problem.steps.length;
+        const correctSteps = totalSteps - mistakes;
         setCoinsEarned(total);
-        if (playerName) addCoins(playerName, total).catch(() => {});
+        if (playerName) {
+          addCoins(playerName, total, elapsed, true, '', 'brain').catch(() => {});
+          recordGameResult(playerName, 'brain', correctSteps, totalSteps).catch(() => {});
+        }
         setOwlMood('celebrate');
         setDone(true);
       } else {

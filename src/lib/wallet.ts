@@ -29,8 +29,29 @@ export async function addCoins(
   amount: number,
   playTimeSeconds = 0,
   incrementGames = true,
-  grade = ''
+  grade = '',
+  gameId = 'unknown'
 ) {
+  // Log transaction
+  if (amount > 0) {
+    supabase.from('coin_transactions').insert({
+      student_name: studentName,
+      amount,
+      source: 'game_play',
+      game_id: gameId,
+    }).then(); // fire and forget
+  }
+
+  // Log session
+  if (incrementGames) {
+    supabase.from('game_sessions').insert({
+      student_name: studentName,
+      game_id: gameId,
+      coins_earned: amount,
+      play_time_seconds: playTimeSeconds,
+    }).then(); // fire and forget
+  }
+
   const { data: existing } = await supabase
     .from('player_wallets')
     .select('*')
@@ -139,6 +160,58 @@ export async function getAllRedemptions() {
     .select('*')
     .order('redeemed_at', { ascending: false });
   return data ?? [];
+}
+
+export async function getAllScores() {
+  const { data } = await supabase
+    .from('scores')
+    .select('*')
+    .order('timestamp', { ascending: false });
+  return data ?? [];
+}
+
+export async function getAllTransactions() {
+  const { data } = await supabase
+    .from('coin_transactions')
+    .select('*')
+    .order('created_at', { ascending: false });
+  return data ?? [];
+}
+
+export async function getAllSessions() {
+  const { data } = await supabase
+    .from('game_sessions')
+    .select('*')
+    .order('created_at', { ascending: false });
+  return data ?? [];
+}
+
+export async function getGlobalConfig(key: string) {
+  const { data, error } = await supabase
+    .from('global_config')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+  if (error) console.error('getGlobalConfig error:', error.message);
+  return data?.value;
+}
+
+export async function setGlobalConfig(key: string, value: any) {
+  console.log(`Saving global config [${key}]:`, value);
+  const { data, error } = await supabase
+    .from('global_config')
+    .upsert(
+      { key, value, updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    )
+    .select();
+  
+  if (error) {
+    console.error('setGlobalConfig error:', error.message);
+  } else {
+    console.log('Global config saved successfully:', data);
+  }
+  return { error };
 }
 
 export async function updateRedemptionStatus(id: string, status: 'approved' | 'rejected') {
