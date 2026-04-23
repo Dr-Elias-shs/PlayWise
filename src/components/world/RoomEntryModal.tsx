@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RoomDef } from '@/lib/rooms';
 import { QUESTION_BANK, LeveledQuestion } from '@/lib/questionBank';
-import { useWorldStore } from '@/store/useWorldStore';
+import { useWorldStore, RoomKey } from '@/store/useWorldStore';
 import { addCoins } from '@/lib/wallet';
 import { gameAudio } from '@/lib/game-audio';
 import { playSound } from '@/lib/sounds';

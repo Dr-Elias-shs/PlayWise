@@ -15,7 +15,7 @@ import { gameAudio } from '@/lib/game-audio';
 
 const COLLISION_R = 4; // tight collision radius (map units) — keeps character flush with walls
 import type { RoomDef, WallDef } from '@/lib/rooms';
-import { useWorldStore } from '@/store/useWorldStore';
+import { useWorldStore, RoomKey } from '@/store/useWorldStore';
 import { getGlobalConfig } from '@/lib/wallet';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
