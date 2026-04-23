@@ -58,12 +58,13 @@ export function Shop({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* ── Character preview ─────────────────────────────────────────────── */}
-        <div className="flex justify-center items-end py-5 bg-gradient-to-b from-purple-50 to-white">
-          <div className="relative flex flex-col items-center">
-            {activeAcc && (
-              <span className="text-4xl leading-none mb-1">{activeAcc.emoji}</span>
-            )}
+        {/* ── Character preview — fixed height so accessory emoji never shifts layout ── */}
+        <div className="flex justify-center bg-gradient-to-b from-purple-50 to-white"
+          style={{ height: 140 }}>
+          <div className="relative flex flex-col items-center justify-end pb-4" style={{ height: 140 }}>
+            <span className="text-4xl leading-none mb-1" style={{ opacity: activeAcc ? 1 : 0, transition: 'opacity 0.15s' }}>
+              {activeAcc?.emoji ?? '　'}
+            </span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/character/walk2.png"
