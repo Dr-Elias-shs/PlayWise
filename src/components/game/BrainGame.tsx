@@ -45,8 +45,21 @@ function getBestVoice() {
   ) ?? voices.find(v => v.lang === 'en-US') ?? null;
 }
 
+// Convert math symbols to words so the speech engine reads them correctly
+function sanitizeForSpeech(text: string): string {
+  return text
+    .replace(/×/g, ' times ')
+    .replace(/÷/g, ' divided by ')
+    .replace(/−/g, ' minus ')
+    .replace(/\+/g, ' plus ')
+    .replace(/=/g, ' equals ')
+    .replace(/\?/g, '')           // question mark causes a weird pause on some voices
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function makeUtt(text: string, rate = 0.88, pitch = 1.1): SpeechSynthesisUtterance {
-  const utt  = new SpeechSynthesisUtterance(text);
+  const utt  = new SpeechSynthesisUtterance(sanitizeForSpeech(text));
   utt.rate   = rate;
   utt.pitch  = pitch;
   utt.volume = 0.9;
@@ -305,7 +318,7 @@ function buyProblem(priceR: [number,number], countR: [number,number]): Problem {
     steps: [
       { question: `How much does one ${item.name} cost?`, choices: numChoices(price, count), correct: String(price), explanation: `The story says each ${item.name} costs ${price} coins.`, wrongConsequence: `That's the number of ${item.plural} — not the price! Look for the cost in the story.` },
       { question: `How many ${item.plural} do you need?`, choices: numChoices(count, price), correct: String(count), explanation: `You need to buy ${count} ${item.plural}.`, wrongConsequence: `Check the story again — how many are you buying?` },
-      { question: 'Which operation should you use?', choices: shuffle(OPS), correct: 'Multiplication (×)', explanation: `You repeat the same price ${count} times — that's multiplication!`, wrongConsequence: `❌ If you used addition, you'd get ${price}+${count}=${price+count} — but that's not the total! You need ${count} groups of ${price} coins.` },
+      { question: `You need to buy ${count} ${item.plural} and each costs ${price} coins. Which operation finds the total cost?`, choices: shuffle(OPS), correct: 'Multiplication (×)', explanation: `You have ${count} equal groups of ${price} coins each — that's repeated addition, which is multiplication!`, wrongConsequence: `❌ Addition gives ${price}+${count}=${price+count} — that's wrong! You need ${count} groups of ${price} coins, which means ${price} × ${count}.` },
       { question: `Solve:  ${price} × ${count} = ?`, choices: numChoices(total, price + count), correct: String(total), explanation: `${price} × ${count} = ${total} 🎉` },
     ],
     finalMessage: `You need ${total} coins to buy ${count} ${item.plural}! ${item.emoji}`,
@@ -320,7 +333,7 @@ function shareProblem(friendsR: [number,number]): Problem {
     steps: [
       { question: `How many ${item.plural} are there in total?`, choices: numChoices(total, friends), correct: String(total), explanation: `There are ${total} ${item.plural} in total.`, wrongConsequence: `That's the number of friends — not the total items! Read the story again.` },
       { question: 'How many friends share them?', choices: numChoices(friends, each), correct: String(friends), explanation: `${friends} friends share the ${item.plural}.` },
-      { question: 'Which operation should you use?', choices: shuffle(OPS), correct: 'Division (÷)', explanation: `You split into equal groups — that's division!`, wrongConsequence: `❌ You already have all ${total} ${item.plural}. You need to split them — not multiply or add!` },
+      { question: `You have ${total} ${item.plural} and want to share them equally among ${friends} friends. Which operation splits a total into equal groups?`, choices: shuffle(OPS), correct: 'Division (÷)', explanation: `Splitting a total into equal groups is always division!`, wrongConsequence: `❌ You already have all ${total} ${item.plural} and just need to split them equally — not add or multiply. That's division!` },
       { question: `Solve:  ${total} ÷ ${friends} = ?`, choices: numChoices(each, friends), correct: String(each), explanation: `${total} ÷ ${friends} = ${each} each 🎉` },
     ],
     finalMessage: `Each friend gets ${each} ${item.plural}! ${item.emoji}`,
@@ -335,7 +348,7 @@ function addProblem(aR: [number,number], bR: [number,number]): Problem {
     steps: [
       { question: `How many ${item.plural} do you start with?`, choices: numChoices(a, b), correct: String(a), explanation: `You start with ${a} ${item.plural}.` },
       { question: `How many does your friend give you?`, choices: numChoices(b, a), correct: String(b), explanation: `Your friend gives you ${b} more.` },
-      { question: 'Which operation should you use?', choices: shuffle(OPS), correct: 'Addition (+)', explanation: `You're putting groups together — that's addition!`, wrongConsequence: `❌ You're not splitting or repeating. You're joining two groups — that calls for addition!` },
+      { question: `You start with ${a} ${item.plural} and receive ${b} more. Which operation combines two amounts into one total?`, choices: shuffle(OPS), correct: 'Addition (+)', explanation: `Joining two groups together is always addition!`, wrongConsequence: `❌ You're not splitting or repeating anything — you're joining two groups into one. That's addition!` },
       { question: `Solve:  ${a} + ${b} = ?`, choices: numChoices(total), correct: String(total), explanation: `${a} + ${b} = ${total} 🎉` },
     ],
     finalMessage: `You now have ${total} ${item.plural} in total! ${item.emoji}`,
@@ -350,7 +363,7 @@ function spendProblem(totalR: [number,number], spendR: [number,number]): Problem
     steps: [
       { question: 'How many coins do you start with?', choices: numChoices(total, spend), correct: String(total), explanation: `You start with ${total} coins.` },
       { question: `How much does the ${item.name} cost?`, choices: numChoices(spend, left), correct: String(spend), explanation: `The ${item.name} costs ${spend} coins.` },
-      { question: 'Which operation should you use?', choices: shuffle(OPS), correct: 'Subtraction (−)', explanation: `You're spending coins — taking away — that's subtraction!`, wrongConsequence: `❌ You're removing coins from your wallet, not adding or splitting. That means subtraction!` },
+      { question: `You have ${total} coins and spend ${spend} of them. Which operation finds how many coins remain after taking some away?`, choices: shuffle(OPS), correct: 'Subtraction (−)', explanation: `When you remove part of a total, you subtract!`, wrongConsequence: `❌ Spending means money LEAVES your wallet — you're taking away, not adding or multiplying. That's subtraction!` },
       { question: `Solve:  ${total} − ${spend} = ?`, choices: numChoices(left, total + spend), correct: String(left), explanation: `${total} − ${spend} = ${left} coins left 🎉` },
     ],
     finalMessage: `You have ${left} coins left after buying the ${item.name}! 🪙`,
@@ -366,7 +379,7 @@ function logicDouble(): Problem {
     steps: [
       { question: `How many ${item.plural} are in the bag?`, choices: numChoices(base, doubled), correct: String(base), explanation: `The bag has ${base} ${item.plural}.` },
       { question: '"Twice as many" means...?', choices: shuffle(['× 2', '+ 2', '− 2', '÷ 2']), correct: '× 2', explanation: '"Twice" always means multiply by 2!', wrongConsequence: '❌ "Twice" means two times as many — that\'s always multiplication by 2!' },
-      { question: 'Which operation gives us "twice"?', choices: shuffle(OPS), correct: 'Multiplication (×)', explanation: 'Twice = multiply by 2!', wrongConsequence: '❌ "Twice as many" = multiply by 2. No other operation gives you double!' },
+      { question: `The box has TWICE as many ${item.plural} as the bag. "Twice as many" means we use which operation on the bag's ${base}?`, choices: shuffle(OPS), correct: 'Multiplication (×)', explanation: '"Twice as many" always means multiply by 2 — you repeat the amount two times!', wrongConsequence: '❌ "Twice as many" means two times as much. Only multiplication gives you double the amount!' },
       { question: `Solve:  ${base} × 2 = ?`, choices: numChoices(doubled, base + 2), correct: String(doubled), explanation: `${base} × 2 = ${doubled} 🎉` },
     ],
     finalMessage: `The box has ${doubled} ${item.plural} — twice as many! ${item.emoji}`,
@@ -382,7 +395,7 @@ function scienceProblem(): Problem {
     steps: [
       { question: 'How many test tubes are there?', choices: numChoices(tubes, drops), correct: String(tubes), explanation: `There are ${tubes} test tubes.` },
       { question: 'How many drops does each test tube need?', choices: numChoices(drops, tubes), correct: String(drops), explanation: `Each test tube needs ${drops} drops.` },
-      { question: 'To find the total drops needed, you should...', choices: shuffle(OPS), correct: 'Multiplication (×)', explanation: `Same amount in each tube — multiply!`, wrongConsequence: `❌ Each of the ${tubes} tubes needs the SAME amount. Repeating equal groups = multiplication!` },
+      { question: `Each of the ${tubes} test tubes needs exactly ${drops} drops. To find the total drops for ALL the tubes, which operation do you use?`, choices: shuffle(OPS), correct: 'Multiplication (×)', explanation: `When every group has the same amount, you multiply — it's faster than adding ${drops} over and over ${tubes} times!`, wrongConsequence: `❌ Every tube needs the SAME ${drops} drops. Adding the same number ${tubes} times is exactly what multiplication does!` },
       { question: `Solve:  ${tubes} × ${drops} = ?`, choices: numChoices(total, tubes + drops), correct: String(total), explanation: `${tubes} × ${drops} = ${total} drops total 🎉` },
     ],
     finalMessage: `You need ${total} drops of liquid for the experiment! 🧪`,
@@ -399,7 +412,7 @@ function storyProblem(): Problem {
     steps: [
       { question: 'How many coins did you save?', choices: numChoices(saved, cost), correct: String(saved), explanation: `You saved ${saved} coins.` },
       { question: 'How much did you spend?', choices: numChoices(cost, saved - cost), correct: String(cost), explanation: `You spent ${cost} coins on ${item.plural}.` },
-      { question: 'What happens to your savings? Which operation?', choices: shuffle(OPS), correct: 'Subtraction (−)', explanation: `Spending reduces your savings — subtraction!`, wrongConsequence: `❌ When you spend, money leaves your wallet. That's always subtraction — taking away!` },
+      { question: `You saved ${saved} coins but spent ${cost} of them on ${item.plural}. Which operation finds how many coins you have left?`, choices: shuffle(OPS), correct: 'Subtraction (−)', explanation: `Spending reduces your total — you take away what you spent, which is subtraction!`, wrongConsequence: `❌ When money leaves your wallet, your total goes DOWN. Taking away from a total is always subtraction!` },
       { question: `Solve:  ${saved} − ${cost} = ?`, choices: numChoices(left, saved + cost), correct: String(left), explanation: `${saved} − ${cost} = ${left} coins left 🎉` },
     ],
     finalMessage: `After buying ${item.plural}, you have ${left} coins left. Nice saving! ${item.emoji}`,
