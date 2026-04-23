@@ -68,28 +68,51 @@ function makeUtt(text: string, rate = 0.88, pitch = 1.1): SpeechSynthesisUtteran
   return utt;
 }
 
+// Abort flag — set to true whenever we want to cancel a pending chained utterance
+let ttsChainAborted = false;
+
+function cancelTTS() {
+  ttsChainAborted = true;
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+}
+
 // Read feedback phrases (correct / wrong)
 function speak(phrases: string[], enabled: boolean) {
   if (!enabled || typeof window === 'undefined' || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(
-    makeUtt(phrases[Math.floor(Math.random() * phrases.length)], 0.92, 1.25)
-  );
+  cancelTTS();
+  setTimeout(() => {
+    window.speechSynthesis.speak(
+      makeUtt(phrases[Math.floor(Math.random() * phrases.length)], 0.92, 1.25)
+    );
+  }, 60);
 }
 
-// Read scenario then question (chained — speechSynthesis queues them automatically)
+// Reads scenario, then immediately starts question the moment scenario ends.
+// If readQuestion() is called before scenario finishes, the chain is aborted.
 function readScenarioAndQuestion(scenario: string, question: string, enabled: boolean) {
   if (!enabled || typeof window === 'undefined' || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(makeUtt(scenario));
-  window.speechSynthesis.speak(makeUtt(question));
+  cancelTTS();
+  ttsChainAborted = false;
+  const scenarioUtt = makeUtt(scenario);
+  scenarioUtt.onend = () => {
+    // Only play question if nothing cancelled us since we started
+    if (!ttsChainAborted) window.speechSynthesis.speak(makeUtt(question));
+  };
+  setTimeout(() => {
+    if (!ttsChainAborted) window.speechSynthesis.speak(scenarioUtt);
+  }, 60);
 }
 
-// Read just a question
+// Read just a question — cancels any in-progress scenario chain immediately
 function readQuestion(question: string, enabled: boolean) {
   if (!enabled || typeof window === 'undefined' || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(makeUtt(question));
+  cancelTTS();                      // sets abort flag + cancels browser queue
+  ttsChainAborted = false;          // reset so this new utterance can proceed
+  setTimeout(() => {
+    if (!ttsChainAborted) window.speechSynthesis.speak(makeUtt(question));
+  }, 60);                           // 60ms lets cancel() fully flush before new speak()
 }
 
 // ─── Floating coin ────────────────────────────────────────────────────────────
