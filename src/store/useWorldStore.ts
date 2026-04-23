@@ -23,6 +23,7 @@ interface WorldState {
   addPlayBits:    (amount: number) => void;
   markRoomComplete: (room: RoomKey) => void;
   advanceMission: () => void;
+  resetProgress:  () => void;
 }
 
 function load(): { playerName: string; playBits: number; completedRooms: Set<RoomKey>; currentMissionIndex: number } {
@@ -86,5 +87,12 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     set({ currentMissionIndex: nextIdx });
     const { playerName, playBits, completedRooms } = get();
     persist(playerName, playBits, completedRooms, nextIdx);
+  },
+
+  resetProgress() {
+    const { playerName, playBits } = get();
+    const empty = new Set<RoomKey>();
+    set({ completedRooms: empty, currentMissionIndex: 0 });
+    persist(playerName, playBits, empty, 0);
   },
 }));

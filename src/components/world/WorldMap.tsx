@@ -92,7 +92,7 @@ function WallOverlay({ walls, mw, mh, show }: {
 
 export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; mapId?: string }) {
   const activeMapId = mapIdProp ?? DEFAULT_MAP_ID;
-  const { playerName, playBits, completedRooms, currentMissionIndex } = useWorldStore();
+  const { playerName, playBits, completedRooms, currentMissionIndex, resetProgress } = useWorldStore();
 
   const MISSION_SEQUENCE: RoomKey[] = [
     'math', 'science', 'computer', 'robotics', 'library', 'history',
@@ -123,6 +123,7 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
   const [activeWalls, setActiveWalls] = useState<WallDef[]>(DEFAULT_WALLS);
   const [nearbyRoom, setNearbyRoom] = useState<RoomDef | null>(null);
   const [enteredRoom, setEnteredRoom] = useState<RoomDef | null>(null);
+  const [showCompletion, setShowCompletion] = useState(false);
   const [showWalls, setShowWalls] = useState(true);
   const [wallEditorEnabled, setWallEditorEnabled] = useState(false);
   const disabledRoomsRef = useRef<Set<string>>(new Set());
@@ -136,6 +137,13 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
     gameAudio.startMusic();
     return () => gameAudio.stopMusic();
   }, []);
+
+  // ── Show completion screen when all missions done ────────────────────────
+  useEffect(() => {
+    if (currentMissionIndex >= MISSION_SEQUENCE.length && completedRooms.size >= MISSION_SEQUENCE.length) {
+      setShowCompletion(true);
+    }
+  }, [currentMissionIndex, completedRooms.size]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Load map config — JSON file first, localStorage fallback ────────────────
   useEffect(() => {
@@ -474,6 +482,66 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
       {enteredRoom && (
         <RoomEntryModal room={enteredRoom} onClose={() => setEnteredRoom(null)} />
       )}
+
+      {/* ── All-done completion modal ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {showCompletion && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex items-center justify-center p-6"
+            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+          >
+            <motion.div
+              initial={{ scale: 0.85, y: 30, opacity: 0 }}
+              animate={{ scale: 1,    y: 0,  opacity: 1 }}
+              exit={{   scale: 0.85, y: 30,  opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm text-center overflow-hidden"
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-8">
+                <div className="text-7xl mb-2">🏆</div>
+                <h2 className="text-white font-black text-2xl">Adventure Complete!</h2>
+                <p className="text-white/80 text-sm mt-1">You explored all 12 rooms!</p>
+                <div className="flex items-center justify-center gap-2 mt-4 bg-white/20 rounded-2xl py-3">
+                  <span className="text-2xl">🪙</span>
+                  <span className="text-yellow-200 font-black text-2xl">{playBits}</span>
+                  <span className="text-white/70 text-sm font-semibold">PlayBits earned</span>
+                </div>
+              </div>
+
+              {/* Options */}
+              <div className="p-6 space-y-3">
+                <p className="text-slate-500 text-sm font-medium mb-4">What would you like to do?</p>
+
+                <button
+                  onClick={() => {
+                    resetProgress();
+                    setShowCompletion(false);
+                  }}
+                  className="w-full py-4 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-black rounded-2xl hover:scale-105 transition-transform shadow-lg text-sm"
+                >
+                  🔄 New Adventure — Reset & Play Again
+                </button>
+
+                <button
+                  onClick={() => setShowCompletion(false)}
+                  className="w-full py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-black rounded-2xl transition-colors text-sm border border-emerald-100"
+                >
+                  🗺️ Keep Exploring — Stay in the World
+                </button>
+
+                <button
+                  onClick={onBack}
+                  className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-colors text-sm"
+                >
+                  🏠 Back to Lobby
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
