@@ -79,7 +79,7 @@ export default function Home() {
   }, [loadStoredProfile]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') return; // dev: show everything
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) return; // dev: show everything
     getGlobalConfig('game_settings').then(cfg => { if (cfg) setGameSettings(cfg); });
   }, []);
 

@@ -350,7 +350,7 @@ export default function WorldPage() {
 
   useEffect(() => {
     // Always allow on localhost so you can test without affecting students
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
       setAllowed(true);
       return;
     }
