@@ -349,6 +349,11 @@ export default function WorldPage() {
   const [allowed, setAllowed] = useState<boolean | null>(null); // null = loading
 
   useEffect(() => {
+    // Always allow on localhost so you can test without affecting students
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      setAllowed(true);
+      return;
+    }
     getGlobalConfig('game_settings').then(cfg => {
       setAllowed(!cfg || cfg['world'] !== false);
     }).catch(() => setAllowed(true));
