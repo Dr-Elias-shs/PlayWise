@@ -12,8 +12,8 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { WALLS as DEFAULT_WALLS, ROOMS } from '@/lib/rooms';
-import type { WallDef } from '@/lib/rooms';
+import { WALLS as DEFAULT_WALLS, ROOMS, DEFAULT_HIDDEN_SPOTS } from '@/lib/rooms';
+import type { WallDef, HiddenSpotDef } from '@/lib/rooms';
 import { MAP_REGISTRY, DEFAULT_MAP_ID } from '@/lib/map-registry';
 import type { MapMeta } from '@/lib/map-registry';
 
@@ -35,7 +35,7 @@ function lsDoors(): DoorOverrides {
 const W = 900;   // editor canvas width  (matches MAP_W)
 const H = 600;   // editor canvas height (matches MAP_H)
 
-type Mode          = 'draw' | 'erase' | 'doors';
+type Mode          = 'draw' | 'erase' | 'doors' | 'secrets';
 type DoorOverrides = Record<string, { x: number; y: number }>;
 interface Draft    { sx: number; sy: number; cx: number; cy: number }
 
@@ -52,7 +52,7 @@ async function fetchMapConfig(mapId: string) {
   try {
     const r = await fetch(`/maps/${mapId}.json?t=${Date.now()}`);
     if (!r.ok) return null;
-    return await r.json() as { walls: WallDef[]; doors: DoorOverrides };
+    return await r.json() as { walls: WallDef[]; doors: DoorOverrides; hiddenSpots?: HiddenSpotDef[] };
   } catch { return null; }
 }
 
@@ -64,9 +64,11 @@ export default function WallEditorPage() {
   );
   const [walls,        setWalls]        = useState<WallDef[]>(DEFAULT_WALLS);
   const [doors,        setDoors]        = useState<DoorOverrides>({});
+  const [hiddenSpots,  setHiddenSpots]  = useState<HiddenSpotDef[]>(DEFAULT_HIDDEN_SPOTS);
   const [draft,        setDraft]        = useState<Draft | null>(null);
   const [mode,         setMode]         = useState<Mode>('draw');
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+  const [selectedSecret, setSelectedSecret] = useState<string | null>(null);
   const [prefix,       setPrefix]       = useState('');
   const [saveStatus,   setSaveStatus]   = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [copied,       setCopied]       = useState(false);
@@ -79,9 +81,9 @@ export default function WallEditorPage() {
   const loadMap = useCallback(async (meta: MapMeta) => {
     const data = await fetchMapConfig(meta.id);
     if (data) {
-      // Saved file exists — use it
       setWalls(data.walls ?? DEFAULT_WALLS);
       setDoors(data.doors ?? {});
+      setHiddenSpots(data.hiddenSpots ?? DEFAULT_HIDDEN_SPOTS);
     } else {
       // No saved file yet — recover from localStorage so nothing is lost
       setWalls(lsWalls());
@@ -124,6 +126,24 @@ export default function WallEditorPage() {
     // Erase mode — handled by onClick on individual walls for better precision
     if (mode === 'erase') return;
 
+    // Secrets mode — click to select/move, click empty to place new
+    if (mode === 'secrets') {
+      const { x, y } = frac(e);
+      const HIT = 0.04;
+      const hit = hiddenSpots.find(s => Math.hypot(s.x - x, (s.y - y) * (W / H)) < HIT);
+      if (hit) {
+        setSelectedSecret(k => k === hit.id ? null : hit.id);
+      } else if (selectedSecret) {
+        setHiddenSpots(ss => ss.map(s => s.id === selectedSecret ? { ...s, x, y } : s));
+        setSelectedSecret(null);
+      } else {
+        // Place a new spot
+        const newId = `secret_${Date.now()}`;
+        setHiddenSpots(ss => [...ss, { id: newId, x, y }]);
+      }
+      return;
+    }
+
     // Doors mode
     if (mode === 'doors') {
       const { x, y } = frac(e);
@@ -160,7 +180,7 @@ export default function WallEditorPage() {
       const res = await fetch('/api/save-map', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ mapId: currentMap.id, walls, doors }),
+        body:    JSON.stringify({ mapId: currentMap.id, walls, doors, hiddenSpots }),
       });
       setSaveStatus(res.ok ? 'saved' : 'error');
       if (res.ok) setTimeout(() => setSaveStatus('idle'), 3000);
@@ -222,11 +242,12 @@ export default function WallEditorPage() {
 
         {/* Mode buttons */}
         {([
-          ['draw',  '✏️ Draw',  '#2563eb'],
-          ['erase', '🗑 Erase', '#dc2626'],
-          ['doors', '🚪 Doors', '#d97706'],
+          ['draw',    '✏️ Draw',    '#2563eb'],
+          ['erase',   '🗑 Erase',   '#dc2626'],
+          ['doors',   '🚪 Doors',   '#d97706'],
+          ['secrets', '✨ Secrets', '#7c3aed'],
         ] as const).map(([m, label, activeColor]) => (
-          <button key={m} onClick={() => { setMode(m); setSelectedRoom(null); }} style={{
+          <button key={m} onClick={() => { setMode(m); setSelectedRoom(null); setSelectedSecret(null); }} style={{
             padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
             fontWeight: 700, fontSize: 13,
             background: mode === m ? activeColor : '#374151', color: '#fff',
@@ -242,7 +263,7 @@ export default function WallEditorPage() {
         )}
 
         <span style={{ marginLeft: 'auto', color: '#6b7280', fontSize: 12 }}>
-          {walls.length} walls
+          {walls.length} walls · {hiddenSpots.length} secrets
         </span>
 
         <button onClick={() => { setWalls(DEFAULT_WALLS); setDoors({}); }}
@@ -368,6 +389,38 @@ export default function WallEditorPage() {
                 );
               })}
 
+              {/* Hidden spots (Secrets mode — always visible in this mode) */}
+              {mode === 'secrets' && hiddenSpots.map(sp => {
+                const cx = sp.x * W, cy = sp.y * H;
+                const sel = selectedSecret === sp.id;
+                return (
+                  <g key={sp.id} style={{ cursor: 'pointer' }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (sel) {
+                        // deselect = remove
+                        setHiddenSpots(ss => ss.filter(s => s.id !== sp.id));
+                        setSelectedSecret(null);
+                      } else {
+                        setSelectedSecret(k => k === sp.id ? null : sp.id);
+                      }
+                    }}>
+                    <circle cx={cx} cy={cy} r={sel ? 14 : 10}
+                      fill={sel ? 'rgba(124,58,237,0.9)' : 'rgba(167,139,250,0.7)'}
+                      stroke="#fff" strokeWidth={sel ? 3 : 1.5}
+                      strokeDasharray={sel ? undefined : '4 2'} />
+                    <text x={cx} y={cy + 1} textAnchor="middle" fontSize={10}
+                      fill="#fff" style={{ pointerEvents: 'none', fontWeight: 900 }}>
+                      ✨
+                    </text>
+                    <text x={cx} y={cy - 17} textAnchor="middle" fontSize={8}
+                      fill="#e9d5ff" style={{ pointerEvents: 'none', fontWeight: 700 }}>
+                      {sp.id} {sel ? '(click again to delete)' : '(click to move)'}
+                    </text>
+                  </g>
+                );
+              })}
+
               {/* Live draw preview */}
               {live && (
                 <rect
@@ -404,9 +457,10 @@ export default function WallEditorPage() {
             <div style={{ position: 'absolute', top: 8, left: 8, pointerEvents: 'none',
               background: 'rgba(0,0,0,0.7)', color: '#d1d5db', fontSize: 11,
               padding: '4px 10px', borderRadius: 6 }}>
-              {mode === 'draw'  ? 'Click + drag to draw a wall'
-               : mode === 'erase' ? 'Click a red rectangle to delete'
-               : selectedRoom    ? 'Click anywhere to move the door'
+              {mode === 'draw'    ? 'Click + drag to draw a wall'
+               : mode === 'erase'   ? 'Click a red rectangle to delete'
+               : mode === 'secrets' ? (selectedSecret ? 'Click anywhere to move the selected spot · Click it again to delete' : 'Click anywhere to place a secret spot · Click a spot to select it')
+               : selectedRoom      ? 'Click anywhere to move the door'
                : 'Click a yellow circle to select a door'}
             </div>
           </div>

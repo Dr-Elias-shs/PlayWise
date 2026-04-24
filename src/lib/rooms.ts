@@ -13,6 +13,27 @@ export interface RoomBounds {
   x2: number; y2: number;   // bottom-right corner
 }
 
+// ── Hidden secret spots ───────────────────────────────────────────────────────
+// Discoverable only after all main missions complete, via whomb proximity sound.
+// Positions are in 0-1 fractions of MAP_W / MAP_H — editable in the wall editor.
+
+export interface HiddenSpotDef {
+  id:   string;
+  x:    number;   // 0-1 fraction of MAP_W
+  y:    number;   // 0-1 fraction of MAP_H
+}
+
+// Default positions — scattered through the corridors between rooms
+export const DEFAULT_HIDDEN_SPOTS: HiddenSpotDef[] = [
+  { id: 'secret_1', x: 0.50, y: 0.57 }, // corridor centre
+  { id: 'secret_2', x: 0.10, y: 0.57 }, // left corridor
+  { id: 'secret_3', x: 0.90, y: 0.57 }, // right corridor
+  { id: 'secret_4', x: 0.30, y: 0.80 }, // bottom corridor left
+  { id: 'secret_5', x: 0.70, y: 0.80 }, // bottom corridor right
+  { id: 'secret_6', x: 0.41, y: 0.91 }, // near entrance left
+  { id: 'secret_7', x: 0.59, y: 0.91 }, // near entrance right
+];
+
 export interface RoomDef {
   key: RoomKey;
   label: string;

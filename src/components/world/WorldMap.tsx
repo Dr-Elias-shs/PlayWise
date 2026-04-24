@@ -9,12 +9,14 @@ import { useAvatarStore } from '@/store/useAvatarStore';
 import { COLORS, ACCESSORIES } from '@/lib/avatar-items';
 import {
   ROOMS, WALLS as DEFAULT_WALLS, MAP_W, MAP_H, DOOR_RADIUS,
+  DEFAULT_HIDDEN_SPOTS, HiddenSpotDef,
 } from '@/lib/rooms';
 import { playSound } from '@/lib/sounds';
 import { gameAudio } from '@/lib/game-audio';
 
 const COLLISION_R = 4; // tight collision radius (map units) — keeps character flush with walls
 import type { RoomDef, WallDef } from '@/lib/rooms';
+import { HiddenSpotModal } from './HiddenSpotModal';
 import { useWorldStore, RoomKey } from '@/store/useWorldStore';
 import { getGlobalConfig } from '@/lib/wallet';
 
@@ -34,7 +36,7 @@ async function fetchMapConfig(mapId: string) {
   try {
     const r = await fetch(`/maps/${mapId}.json?t=${Date.now()}`);
     if (!r.ok) return null;
-    return await r.json() as { walls: WallDef[]; doors: DoorOverrides };
+    return await r.json() as { walls: WallDef[]; doors: DoorOverrides; hiddenSpots?: HiddenSpotDef[] };
   } catch { return null; }
 }
 
@@ -92,7 +94,7 @@ function WallOverlay({ walls, mw, mh, show }: {
 
 export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; mapId?: string }) {
   const activeMapId = mapIdProp ?? DEFAULT_MAP_ID;
-  const { playerName, playBits, completedRooms, currentMissionIndex, resetProgress } = useWorldStore();
+  const { playerName, playBits, completedRooms, currentMissionIndex, resetProgress, foundSecrets } = useWorldStore();
 
   const MISSION_SEQUENCE: RoomKey[] = [
     'math', 'science', 'computer', 'robotics', 'library', 'history',
@@ -124,6 +126,11 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
   const [nearbyRoom, setNearbyRoom] = useState<RoomDef | null>(null);
   const [enteredRoom, setEnteredRoom] = useState<RoomDef | null>(null);
   const [showCompletion, setShowCompletion] = useState(false);
+  const [activeSecret, setActiveSecret] = useState<HiddenSpotDef | null>(null);
+  const [nearbySecretId, setNearbySecretId] = useState<string>('');
+  const hiddenSpotsRef = useRef<HiddenSpotDef[]>(DEFAULT_HIDDEN_SPOTS);
+  const nearbySecretRef = useRef<string>(''); // id of spot currently in range
+  const allMissionsComplete = currentMissionIndex >= MISSION_SEQUENCE.length;
   const [showWalls, setShowWalls] = useState(true);
   const [wallEditorEnabled, setWallEditorEnabled] = useState(false);
   const disabledRoomsRef = useRef<Set<string>>(new Set());
@@ -166,6 +173,7 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
       if (data) {
         if (data.walls) { wallsRef.current = data.walls; setActiveWalls(data.walls); }
         if (data.doors) { doorsRef.current = data.doors; }
+        if (data.hiddenSpots) { hiddenSpotsRef.current = data.hiddenSpots; }
       } else {
         // JSON not saved yet — recover from localStorage
         try {
@@ -292,6 +300,22 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
         if (found) playSound('whomb');
         nearbyKey.current = fk;
         setNearbyRoom(found);
+      }
+
+      // Hidden spot proximity — only active after all missions complete
+      if (useWorldStore.getState().currentMissionIndex >= MISSION_SEQUENCE.length) {
+        const SECRET_R = 36;
+        const px = posRef.current.x, py = posRef.current.y;
+        const nearby = hiddenSpotsRef.current.find(sp => {
+          const dx = px - sp.x * MAP_W, dy = py - sp.y * MAP_H;
+          return dx * dx + dy * dy <= SECRET_R * SECRET_R;
+        });
+        const nearbyId = nearby?.id ?? '';
+        if (nearbyId !== nearbySecretRef.current) {
+          if (nearby) playSound('whomb');
+          nearbySecretRef.current = nearbyId;
+          setNearbySecretId(nearbyId);
+        }
       }
 
       raf = requestAnimationFrame(tick);
@@ -445,6 +469,15 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
               Find the {currentRoom.label} {currentRoom.emoji}
             </div>
           )}
+          {/* Secret spots hint bar */}
+          {allMissionsComplete && (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              className="text-[10px] font-black text-violet-200 bg-violet-900/60 border border-violet-500/30 px-4 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5">
+              <span>✨</span>
+              <span>{foundSecrets.size} / {hiddenSpotsRef.current.length} secrets found</span>
+              <span>— listen for the whomb sound!</span>
+            </motion.div>
+          )}
         </div>
       </div>
 
@@ -479,8 +512,26 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
         <Joystick onMove={handleJoystick} size={120} />
       </div>
 
+      {/* Secret spot entry prompt */}
+      {allMissionsComplete && nearbySecretId && !activeSecret && (
+        <div className="absolute bottom-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+          <button
+            onClick={() => {
+              const spot = hiddenSpotsRef.current.find(s => s.id === nearbySecretRef.current);
+              if (spot) setActiveSecret(spot);
+            }}
+            className="bg-gradient-to-r from-violet-600 to-purple-700 text-white font-black px-6 py-3 rounded-2xl shadow-xl text-base flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform border border-violet-400/30">
+            ✨ Investigate Secret Spot
+          </button>
+        </div>
+      )}
+
       {enteredRoom && (
         <RoomEntryModal room={enteredRoom} onClose={() => setEnteredRoom(null)} />
+      )}
+
+      {activeSecret && (
+        <HiddenSpotModal spot={activeSecret} onClose={() => setActiveSecret(null)} />
       )}
 
       {/* ── All-done completion modal ─────────────────────────────────────── */}
