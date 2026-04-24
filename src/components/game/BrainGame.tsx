@@ -8,6 +8,7 @@ import { OwlCharacter, OwlMood } from './OwlCharacter';
 import { playSound } from '@/lib/sounds';
 import { addCoins } from '@/lib/wallet';
 import { recordGameResult } from '@/lib/learningScore';
+import { applyDailyFreshness } from '@/lib/gameRewards';
 import { useGameStore } from '@/store/useGameStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -565,10 +566,13 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
         const elapsed      = Math.round((Date.now() - startRef.current) / 1000);
         const totalSteps   = problem.steps.length;
         const correctSteps = totalSteps - mistakes;
-        setCoinsEarned(total);
         if (playerName) {
-          addCoins(playerName, total, elapsed, true, '', 'brain', playerEmail).catch(() => {});
-          recordGameResult(playerName, 'brain', correctSteps, totalSteps).catch(() => {});
+          const dbKey = playerEmail || playerName;
+          applyDailyFreshness(dbKey, 'brain', total).then(capped => {
+            setCoinsEarned(capped);
+            addCoins(playerName, capped, elapsed, true, '', 'brain', playerEmail).catch(() => {});
+            recordGameResult(playerName, 'brain', correctSteps, totalSteps).catch(() => {});
+          });
         }
         setOwlMood('celebrate');
         setDone(true);

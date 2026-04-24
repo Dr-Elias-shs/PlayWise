@@ -5,6 +5,7 @@ import { Volume2, VolumeX } from 'lucide-react';
 import { useGameStore } from '@/store/useGameStore';
 import { addCoins } from '@/lib/wallet';
 import { recordGameResult } from '@/lib/learningScore';
+import { applyDailyFreshness } from '@/lib/gameRewards';
 import { playSound } from '@/lib/sounds';
 import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 
@@ -295,9 +296,12 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
     const mult = LEVEL_CONFIG[level].multiplier;
     const minFlips = totalPairs * 2;
     const bonus = Math.max(0, minFlips + 4 - flips);
-    const earned = Math.round((totalPairs * 3 + bonus) * mult);
-    setCoins(earned);
-    addCoins(playerName, earned, elapsed, true, playerGrade, 'memory', playerEmail).catch(() => {});
+    const rawEarned = Math.round((totalPairs * 3 + bonus) * mult);
+    const dbKey = playerEmail || playerName;
+    applyDailyFreshness(dbKey, 'memory', rawEarned).then(earned => {
+      setCoins(earned);
+      addCoins(playerName, earned, elapsed, true, playerGrade, 'memory', playerEmail).catch(() => {});
+    });
     // Accuracy = pairs found on first try / total pairs  (mismatches = flips/2 - matches)
     const mismatches = Math.max(0, Math.floor(flips / 2) - matches);
     recordGameResult(playerName, 'memory', matches, matches + mismatches, playerGrade).catch(() => {});

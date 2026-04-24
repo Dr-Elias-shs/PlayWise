@@ -7,6 +7,7 @@ import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 import { playSound } from '@/lib/sounds';
 import { addCoins } from '@/lib/wallet';
 import { recordGameResult } from '@/lib/learningScore';
+import { applyDailyFreshness } from '@/lib/gameRewards';
 import { useGameStore } from '@/store/useGameStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -292,17 +293,20 @@ export function HangmanGame({ onBack }: { onBack: () => void }) {
     if (!word || gameStatus !== 'playing') return;
     if (isWon) {
       playSound('correct');
-      const livesLeft = MAX_WRONG - wrongCount;
+      const livesLeft  = MAX_WRONG - wrongCount;
       const multiplier = level ? LEVEL_CONFIG[level].multiplier : 1;
-      const coins = Math.round((10 + livesLeft * 8) * multiplier);
-      const elapsed = Math.round((Date.now() - startRef.current) / 1000);
-      const wordLen = word.length;
-      const lettersGuessedCorrect = wordLen;                     // won = all letters found
-      const totalLetters = wordLen + wrongCount;                 // correct + wrong guesses
-      setCoinsEarned(coins);
+      const rawCoins   = Math.round((10 + livesLeft * 8) * multiplier);
+      const elapsed    = Math.round((Date.now() - startRef.current) / 1000);
+      const wordLen    = word.length;
+      const lettersGuessedCorrect = wordLen;
+      const totalLetters = wordLen + wrongCount;
       if (playerName) {
-        addCoins(playerName, coins, elapsed, true, '', 'hangman', playerEmail).catch(() => {});
-        recordGameResult(playerName, 'hangman', lettersGuessedCorrect, totalLetters).catch(() => {});
+        const dbKey = playerEmail || playerName;
+        applyDailyFreshness(dbKey, 'hangman', rawCoins).then(coins => {
+          setCoinsEarned(coins);
+          addCoins(playerName, coins, elapsed, true, '', 'hangman', playerEmail).catch(() => {});
+          recordGameResult(playerName, 'hangman', lettersGuessedCorrect, totalLetters).catch(() => {});
+        });
       }
       setGameStatus('won');
     } else if (isLost) {

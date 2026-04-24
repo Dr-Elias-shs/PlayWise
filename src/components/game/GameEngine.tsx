@@ -7,6 +7,7 @@ import { playSound, speak } from '@/lib/sounds';
 import { saveScore } from '@/lib/supabase';
 import { addCoins, calcCoins } from '@/lib/wallet';
 import { recordGameResult } from '@/lib/learningScore';
+import { applyDailyFreshness } from '@/lib/gameRewards';
 import { GameConfig, Question } from '@/lib/gameConfigs';
 import { StreakOverlay } from './StreakOverlay';
 import { CoinReward } from './CoinReward';
@@ -168,14 +169,16 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
           if (error) console.error('Score save failed:', error.message);
         });
 
-      const coins = calcCoins(cc, ms, false, false);
-      setCoinsEarned(coins);
-      console.log(`₿ Awarding ${coins} coins to ${playerName} (correct: ${cc}, streak: ${ms})`);
-      addCoins(playerName, coins, elapsed, true, playerGrade, config.id, playerEmail)
-        .then(({ error }: any) => {
-          if (error) console.error('Coin save failed:', error.message);
-        });
-      recordGameResult(playerName, config.id, cc, cc + (useGameStore.getState().wrongCount ?? 0), playerGrade).catch(() => {});
+      const rawCoins = calcCoins(cc, ms, false, false);
+      const dbKey    = playerEmail || playerName;
+      applyDailyFreshness(dbKey, config.id, rawCoins).then(coins => {
+        setCoinsEarned(coins);
+        addCoins(playerName, coins, elapsed, true, playerGrade, config.id, playerEmail)
+          .then(({ error }: any) => {
+            if (error) console.error('Coin save failed:', error.message);
+          });
+        recordGameResult(playerName, config.id, cc, cc + (useGameStore.getState().wrongCount ?? 0), playerGrade).catch(() => {});
+      });
     }
   }, [isGameOver]); // eslint-disable-line react-hooks/exhaustive-deps
 
