@@ -101,57 +101,161 @@ function LanguagePicker({ onSelect, onBack }: { onSelect: (l: Language) => void;
 // ─── Hangman SVG ──────────────────────────────────────────────────────────────
 
 function HangmanSVG({ wrongCount, shake }: { wrongCount: number; shake: boolean }) {
+  const dead = wrongCount >= 6;
+
+  // Rope swings when dead
+  const ropeAnim = dead
+    ? { rotate: [0, 6, -6, 4, -4, 2, -2, 0] }
+    : {};
+  const ropeTransition = dead
+    ? { duration: 1.2, repeat: Infinity, repeatType: 'mirror' as const, ease: 'easeInOut' }
+    : {};
+
   return (
-    <motion.svg viewBox="0 0 200 220" className="w-44 h-44 md:w-52 md:h-52 drop-shadow-xl"
+    <motion.svg viewBox="0 0 200 230" className="w-48 h-48 md:w-56 md:h-56 drop-shadow-xl"
       animate={shake ? { x: [0, -10, 10, -7, 7, -4, 4, 0] } : {}}
       transition={{ duration: 0.55 }}>
 
-      {/* Gallows */}
-      <line x1="10"  y1="212" x2="190" y2="212" stroke="white" strokeWidth="4" strokeLinecap="round" opacity="0.45" />
-      <line x1="48"  y1="212" x2="48"  y2="8"   stroke="white" strokeWidth="4" strokeLinecap="round" opacity="0.45" />
-      <line x1="48"  y1="8"   x2="130" y2="8"   stroke="white" strokeWidth="4" strokeLinecap="round" opacity="0.45" />
-      <line x1="130" y1="8"   x2="130" y2="36"  stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.45" />
+      {/* ── Gallows structure ─────────────────────────────────────────────── */}
+      {/* Ground */}
+      <line x1="10" y1="218" x2="190" y2="218" stroke="#94a3b8" strokeWidth="5" strokeLinecap="round"/>
+      {/* Vertical post */}
+      <line x1="50" y1="218" x2="50" y2="10" stroke="#94a3b8" strokeWidth="5" strokeLinecap="round"/>
+      {/* Horizontal beam */}
+      <line x1="50" y1="10" x2="135" y2="10" stroke="#94a3b8" strokeWidth="5" strokeLinecap="round"/>
+      {/* Support brace */}
+      <line x1="50" y1="38" x2="80" y2="10" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round"/>
+      {/* Rope */}
+      <line x1="135" y1="10" x2="135" y2="34" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round"/>
 
-      {/* 1 Head */}
-      <AnimatePresence>
+      {/* ── Hanged figure — pivots from rope tip ─────────────────────────── */}
+      <motion.g
+        style={{ originX: '135px', originY: '34px' }}
+        animate={ropeAnim}
+        transition={ropeTransition}
+      >
+        {/* 1 — HEAD with face */}
         {wrongCount >= 1 && (
-          <motion.circle key="head" cx="130" cy="53" r="17"
-            stroke="#f87171" strokeWidth="3" fill="transparent"
+          <motion.g key="head"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 12 }} />
+            transition={{ type: 'spring', stiffness: 280, damping: 14 }}>
+            {/* Head circle */}
+            <circle cx="135" cy="52" r="18" fill="#fde68a" stroke="#f59e0b" strokeWidth="2"/>
+            {/* Ears */}
+            <ellipse cx="117" cy="52" rx="4" ry="5" fill="#fcd34d"/>
+            <ellipse cx="153" cy="52" rx="4" ry="5" fill="#fcd34d"/>
+            {/* Eyes — X when dead, dots otherwise */}
+            {dead ? (
+              <>
+                <line x1="126" y1="47" x2="131" y2="52" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="131" y1="47" x2="126" y2="52" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="139" y1="47" x2="144" y2="52" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="144" y1="47" x2="139" y2="52" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
+              </>
+            ) : (
+              <>
+                <circle cx="128" cy="50" r="2.5" fill="#1e293b"/>
+                <circle cx="142" cy="50" r="2.5" fill="#1e293b"/>
+                {/* Pupils glint */}
+                <circle cx="129" cy="49" r="1" fill="white"/>
+                <circle cx="143" cy="49" r="1" fill="white"/>
+              </>
+            )}
+            {/* Mouth — frown when dead, neutral otherwise */}
+            {dead ? (
+              <path d="M 127 59 Q 135 55 143 59" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round"/>
+            ) : (
+              <line x1="128" y1="58" x2="142" y2="58" stroke="#92400e" strokeWidth="1.5" strokeLinecap="round"/>
+            )}
+            {/* Hair */}
+            {[126,130,135,140,144].map((x, i) => (
+              <line key={i} x1={x} y1="34" x2={x - 1} y2="28" stroke="#92400e" strokeWidth="2" strokeLinecap="round"/>
+            ))}
+          </motion.g>
         )}
-      </AnimatePresence>
 
-      {/* 2 Body */}
-      {wrongCount >= 2 && (
-        <motion.path d="M 130 70 L 130 138" stroke="#fbbf24" strokeWidth="3" strokeLinecap="round" fill="none"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.35 }} />
-      )}
+        {/* 2 — TORSO (shirt) */}
+        {wrongCount >= 2 && (
+          <motion.g key="body"
+            initial={{ scaleY: 0, opacity: 0 }}
+            animate={{ scaleY: 1, opacity: 1 }}
+            style={{ originX: '135px', originY: '70px' }}
+            transition={{ duration: 0.35 }}>
+            {/* Shirt body */}
+            <rect x="120" y="70" width="30" height="50" rx="6" fill="#6366f1" stroke="#4f46e5" strokeWidth="1.5"/>
+            {/* Collar */}
+            <path d="M 128 70 L 135 78 L 142 70" stroke="#4f46e5" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+            {/* Shirt pocket */}
+            <rect x="123" y="78" width="9" height="7" rx="2" fill="#4f46e5" opacity="0.5"/>
+            {/* Belly button / waist line */}
+            <line x1="120" y1="108" x2="150" y2="108" stroke="#4f46e5" strokeWidth="1.5"/>
+          </motion.g>
+        )}
 
-      {/* 3 Left arm */}
-      {wrongCount >= 3 && (
-        <motion.path d="M 130 90 L 100 118" stroke="#34d399" strokeWidth="3" strokeLinecap="round" fill="none"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.3 }} />
-      )}
+        {/* 3 — LEFT ARM (bent at elbow) */}
+        {wrongCount >= 3 && (
+          <motion.g key="larm"
+            initial={{ rotate: -90, opacity: 0 }}
+            animate={{ rotate: 0, opacity: 1 }}
+            style={{ originX: '120px', originY: '80px' }}
+            transition={{ type: 'spring', stiffness: 200, damping: 12 }}>
+            {/* Upper arm */}
+            <line x1="120" y1="80" x2="100" y2="102" stroke="#fde68a" strokeWidth="5" strokeLinecap="round"/>
+            {/* Lower arm */}
+            <line x1="100" y1="102" x2="92" y2="122" stroke="#fde68a" strokeWidth="4.5" strokeLinecap="round"/>
+            {/* Hand */}
+            <circle cx="90" cy="126" r="5" fill="#fde68a" stroke="#f59e0b" strokeWidth="1.5"/>
+          </motion.g>
+        )}
 
-      {/* 4 Right arm */}
-      {wrongCount >= 4 && (
-        <motion.path d="M 130 90 L 160 118" stroke="#34d399" strokeWidth="3" strokeLinecap="round" fill="none"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.3 }} />
-      )}
+        {/* 4 — RIGHT ARM (bent at elbow) */}
+        {wrongCount >= 4 && (
+          <motion.g key="rarm"
+            initial={{ rotate: 90, opacity: 0 }}
+            animate={{ rotate: 0, opacity: 1 }}
+            style={{ originX: '150px', originY: '80px' }}
+            transition={{ type: 'spring', stiffness: 200, damping: 12 }}>
+            <line x1="150" y1="80" x2="170" y2="102" stroke="#fde68a" strokeWidth="5" strokeLinecap="round"/>
+            <line x1="170" y1="102" x2="178" y2="122" stroke="#fde68a" strokeWidth="4.5" strokeLinecap="round"/>
+            <circle cx="180" cy="126" r="5" fill="#fde68a" stroke="#f59e0b" strokeWidth="1.5"/>
+          </motion.g>
+        )}
 
-      {/* 5 Left leg */}
-      {wrongCount >= 5 && (
-        <motion.path d="M 130 138 L 106 176" stroke="#818cf8" strokeWidth="3" strokeLinecap="round" fill="none"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.3 }} />
-      )}
+        {/* 5 — LEGS: trousers */}
+        {wrongCount >= 5 && (
+          <motion.g key="legs"
+            initial={{ scaleY: 0, opacity: 0 }}
+            animate={{ scaleY: 1, opacity: 1 }}
+            style={{ originX: '135px', originY: '120px' }}
+            transition={{ duration: 0.35 }}>
+            {/* Trouser waistband */}
+            <rect x="119" y="118" width="32" height="8" rx="3" fill="#374151"/>
+            {/* Left leg */}
+            <path d="M 120 126 L 115 170 L 122 170 L 128 126 Z" fill="#374151" stroke="#1f2937" strokeWidth="1"/>
+            {/* Right leg */}
+            <path d="M 150 126 L 155 170 L 148 170 L 142 126 Z" fill="#374151" stroke="#1f2937" strokeWidth="1"/>
+            {/* Left shoe */}
+            <ellipse cx="118" cy="173" rx="9" ry="5" fill="#1e293b"/>
+            {/* Right shoe */}
+            <ellipse cx="152" cy="173" rx="9" ry="5" fill="#1e293b"/>
+          </motion.g>
+        )}
 
-      {/* 6 Right leg */}
-      {wrongCount >= 6 && (
-        <motion.path d="M 130 138 L 154 176" stroke="#818cf8" strokeWidth="3" strokeLinecap="round" fill="none"
-          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.3 }} />
-      )}
+        {/* 6 — DEAD: red X eyes handled above, plus sweat drops on wrong guesses */}
+        {wrongCount >= 6 && (
+          <>
+            {/* Sweat drop left */}
+            <motion.ellipse cx="112" cy="58" rx="3" ry="5" fill="#bae6fd"
+              initial={{ opacity: 0, y: -4 }} animate={{ opacity: [0,1,0], y: [0, 8] }}
+              transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}/>
+            {/* Sweat drop right */}
+            <motion.ellipse cx="158" cy="56" rx="3" ry="5" fill="#bae6fd"
+              initial={{ opacity: 0, y: -4 }} animate={{ opacity: [0,1,0], y: [0, 8] }}
+              transition={{ duration: 1.2, repeat: Infinity, delay: 0.7 }}/>
+          </>
+        )}
+      </motion.g>
     </motion.svg>
   );
 }
