@@ -11,6 +11,12 @@ import {
 import { ALL_GAMES } from '@/lib/gameConfigs';
 import { MAP_REGISTRY } from '@/lib/map-registry';
 import { ROOMS } from '@/lib/rooms';
+import {
+  CURRICULUM_SUBJECTS, CurriculumQuestion, ParsedQuestion,
+  getTermsForGrade, setTermEnabled, getQuestions,
+  addQuestion, updateQuestion, deleteQuestion, toggleQuestion, bulkAddQuestions,
+  parseQuestionsWithOllama,
+} from '@/lib/curriculum';
 
 const ADMIN_PIN = 'astalabista'; // change this in production
 
@@ -29,7 +35,7 @@ function resolveGameName(id: string | null | undefined, focusTable?: number): st
   return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'settings';
+type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'settings';
 
 interface Wallet {
   student_name: string;  // email (DB key)
@@ -109,6 +115,25 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [wallEditorConfigs, setWallEditorConfigs] = useState<Record<string, boolean>>({});
   const [gameSettings, setGameSettings] = useState<Record<string, boolean>>({});
+
+  // Curriculum state
+  const [curGrade,      setCurGrade]      = useState('1');
+  const [curTerm,       setCurTerm]       = useState(1);
+  const [curSubject,    setCurSubject]    = useState(CURRICULUM_SUBJECTS[0].key);
+  const [curTerms,      setCurTerms]      = useState<{grade:string;term:number;enabled:boolean}[]>([]);
+  const [curQuestions,  setCurQuestions]  = useState<CurriculumQuestion[]>([]);
+  const [curLoading,    setCurLoading]    = useState(false);
+  // Question editor
+  const [editingQ,      setEditingQ]      = useState<CurriculumQuestion | null>(null);
+  const [newQ,          setNewQ]          = useState({ text:'', choices:['','','',''], answer:0 });
+  const [showAddForm,   setShowAddForm]   = useState(false);
+  // Ollama import
+  const [importText,    setImportText]    = useState('');
+  const [importParsed,  setImportParsed]  = useState<ParsedQuestion[]>([]);
+  const [importStream,  setImportStream]  = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError,   setImportError]   = useState('');
+  const [showImport,    setShowImport]    = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Student filters
@@ -146,6 +171,18 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   };
 
   useEffect(() => { if (unlocked) load(); }, [unlocked]);
+
+  // ── Curriculum helpers ──────────────────────────────────────────────────────
+  const loadCurriculum = async (grade = curGrade, term = curTerm, subject = curSubject) => {
+    setCurLoading(true);
+    const [terms, qs] = await Promise.all([
+      getTermsForGrade(grade),
+      getQuestions(grade, term, subject),
+    ]);
+    setCurTerms(terms);
+    setCurQuestions(qs);
+    setCurLoading(false);
+  };
 
   const handleAddItem = async () => {
     if (!form.name || !form.cost) return;
@@ -187,9 +224,10 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
           { id: 'shop',        label: '🏪 Shop Items',  badge: shopItems.length },
           { id: 'analytics',   label: '📊 Analytics' },
           { id: 'games',       label: '🎮 Games', badge: Object.values(gameSettings).filter(v => v === false).length || undefined },
+          { id: 'curriculum',  label: '📚 Curriculum' },
           { id: 'settings',    label: '⚙️ Settings' },
         ] as { id: Tab; label: string; badge?: number }[]).map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
+          <button key={t.id} onClick={() => { setTab(t.id); if (t.id === 'curriculum') loadCurriculum(); }}
             className={`px-4 py-2 font-bold text-sm rounded-t-xl transition-all relative ${
               tab === t.id ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'
             }`}>
@@ -856,6 +894,272 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                     </>
                   );
                 })()}
+              </motion.div>
+            )}
+
+            {/* ── Curriculum ── */}
+            {tab === 'curriculum' && (
+              <motion.div key="curriculum" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+
+                {/* Grade / Term / Subject selectors */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-wrap gap-3 items-end">
+
+                  {/* Grade */}
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Grade</label>
+                    <select value={curGrade} onChange={e => { setCurGrade(e.target.value); loadCurriculum(e.target.value, curTerm, curSubject); }}
+                      className="px-3 py-2 border-2 border-slate-200 focus:border-violet-400 rounded-xl text-sm font-bold outline-none bg-white cursor-pointer">
+                      {Array.from({length:12},(_,i)=>String(i+1)).map(g=>(
+                        <option key={g} value={g}>Grade {g}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Term */}
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Term</label>
+                    <div className="flex gap-1">
+                      {[1,2,3].map(t => (
+                        <button key={t} onClick={() => { setCurTerm(t); loadCurriculum(curGrade, t, curSubject); }}
+                          className={`px-4 py-2 rounded-xl font-black text-sm border-2 transition-all ${curTerm===t ? 'bg-violet-600 text-white border-violet-600' : 'border-slate-200 text-slate-500 hover:border-violet-300'}`}>
+                          T{t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Term enable/disable per grade */}
+                  <div className="flex items-center gap-2 ml-2">
+                    {curTerms.map(t => (
+                      <div key={t.term} className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-500">T{t.term}</span>
+                        <button
+                          onClick={async () => {
+                            await setTermEnabled(curGrade, t.term, !t.enabled);
+                            loadCurriculum();
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${t.enabled ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                          {t.enabled ? '✅ Active' : '❌ Off'}
+                        </button>
+                      </div>
+                    ))}
+                    <button onClick={() => loadCurriculum()} className="ml-2 text-xs text-slate-400 hover:text-slate-700">🔄</button>
+                  </div>
+
+                  <div className="ml-auto flex gap-2">
+                    <button onClick={() => { setShowImport(i => !i); setImportParsed([]); setImportStream(''); setImportError(''); }}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-sm transition-colors">
+                      🤖 Import with AI
+                    </button>
+                    <button onClick={() => { setShowAddForm(true); setEditingQ(null); setNewQ({text:'',choices:['','','',''],answer:0}); }}
+                      className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white font-black rounded-xl text-sm transition-colors">
+                      ➕ Add Question
+                    </button>
+                  </div>
+                </div>
+
+                {/* Subject tabs */}
+                <div className="flex flex-wrap gap-1.5">
+                  {CURRICULUM_SUBJECTS.map(s => (
+                    <button key={s.key}
+                      onClick={() => { setCurSubject(s.key); loadCurriculum(curGrade, curTerm, s.key); }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${curSubject===s.key ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                      {s.emoji} {s.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Ollama import panel */}
+                {showImport && (
+                  <motion.div initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-2xl">🤖</span>
+                      <h3 className="font-black text-indigo-900">AI Question Import (Ollama)</h3>
+                      <span className="ml-auto text-xs text-indigo-400 font-bold">Local AI — no data leaves your machine</span>
+                    </div>
+                    <p className="text-indigo-700 text-xs font-medium">
+                      Paste your exam/test text below. The AI will extract all MCQ questions automatically for <b>Grade {curGrade} · Term {curTerm} · {CURRICULUM_SUBJECTS.find(s=>s.key===curSubject)?.label}</b>.
+                    </p>
+                    <textarea
+                      value={importText} onChange={e=>setImportText(e.target.value)}
+                      placeholder="Paste your test questions here — any format works. The AI will detect questions and 4 answer choices automatically..."
+                      className="w-full h-36 p-3 border-2 border-indigo-200 rounded-xl text-sm outline-none focus:border-indigo-500 resize-none font-mono"
+                    />
+                    {importStream && !importParsed.length && (
+                      <div className="bg-white rounded-xl p-3 border border-indigo-100 max-h-28 overflow-y-auto">
+                        <p className="text-[10px] font-mono text-slate-400 whitespace-pre-wrap">{importStream.slice(-400)}</p>
+                      </div>
+                    )}
+                    {importError && <p className="text-red-500 text-xs font-bold">⚠️ {importError}</p>}
+
+                    {importParsed.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-emerald-700 font-black text-sm">✅ {importParsed.length} questions detected — review before saving:</p>
+                        <div className="max-h-64 overflow-y-auto space-y-2">
+                          {importParsed.map((q,i) => (
+                            <div key={i} className="bg-white rounded-xl p-3 border border-slate-100 text-sm">
+                              <p className="font-bold text-slate-700 mb-1">{i+1}. {q.question}</p>
+                              <div className="grid grid-cols-2 gap-1">
+                                {q.choices.map((c,ci) => (
+                                  <span key={ci} className={`px-2 py-0.5 rounded-lg text-xs font-bold ${ci===q.answer ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-50 text-slate-500'}`}>
+                                    {ci===q.answer ? '✓ ' : ''}{c}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={async () => {
+                            await bulkAddQuestions(importParsed.map(q => ({
+                              grade: curGrade, term: curTerm, subject: curSubject,
+                              question_text: q.question, choices: q.choices,
+                              correct_answer: q.answer, enabled: true,
+                            })));
+                            setImportParsed([]); setImportText(''); setShowImport(false);
+                            loadCurriculum();
+                          }} className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl text-sm transition-colors">
+                            💾 Save All {importParsed.length} Questions
+                          </button>
+                          <button onClick={() => setImportParsed([])} className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-sm">
+                            Discard
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {!importParsed.length && (
+                      <button
+                        onClick={async () => {
+                          if (!importText.trim()) return;
+                          setImportLoading(true); setImportError(''); setImportStream('');
+                          try {
+                            const subjectLabel = CURRICULUM_SUBJECTS.find(s=>s.key===curSubject)?.label ?? curSubject;
+                            const parsed = await parseQuestionsWithOllama(importText, subjectLabel, setImportStream);
+                            setImportParsed(parsed);
+                            if (parsed.length===0) setImportError('No valid MCQ questions found. Try pasting text with clear question numbers and answer choices.');
+                          } catch(e:any) {
+                            setImportError(e.message ?? 'Ollama error — make sure Ollama is running locally.');
+                          }
+                          setImportLoading(false);
+                        }}
+                        disabled={importLoading || !importText.trim()}
+                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black rounded-xl text-sm transition-colors">
+                        {importLoading ? '🤖 AI is reading your test…' : '🚀 Parse Questions with AI'}
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* Add / Edit form */}
+                {(showAddForm || editingQ) && (
+                  <motion.div initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}}
+                    className="bg-white rounded-2xl border border-violet-200 p-5 space-y-3 shadow-sm">
+                    <h3 className="font-black text-slate-800">{editingQ ? '✏️ Edit Question' : '➕ New Question'}</h3>
+                    <textarea
+                      value={editingQ ? editingQ.question_text : newQ.text}
+                      onChange={e => editingQ ? setEditingQ({...editingQ, question_text: e.target.value}) : setNewQ(q=>({...q, text:e.target.value}))}
+                      placeholder="Question text…"
+                      className="w-full p-3 border-2 border-slate-200 focus:border-violet-400 rounded-xl text-sm outline-none resize-none h-20"
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {(editingQ ? editingQ.choices : newQ.choices).map((c, i) => {
+                        const isCorrect = (editingQ ? editingQ.correct_answer : newQ.answer) === i;
+                        return (
+                          <div key={i} className={`flex items-center gap-2 p-2 rounded-xl border-2 ${isCorrect ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200'}`}>
+                            <button onClick={() => editingQ ? setEditingQ({...editingQ, correct_answer:i}) : setNewQ(q=>({...q, answer:i}))}
+                              className={`w-6 h-6 rounded-full border-2 flex-shrink-0 font-black text-xs flex items-center justify-center transition-all ${isCorrect ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 text-slate-400 hover:border-emerald-400'}`}>
+                              {String.fromCharCode(65+i)}
+                            </button>
+                            <input value={c}
+                              onChange={e => {
+                                if (editingQ) {
+                                  const ch=[...editingQ.choices]; ch[i]=e.target.value; setEditingQ({...editingQ,choices:ch});
+                                } else {
+                                  const ch=[...newQ.choices]; ch[i]=e.target.value; setNewQ(q=>({...q,choices:ch}));
+                                }
+                              }}
+                              placeholder={`Choice ${String.fromCharCode(65+i)}…`}
+                              className="flex-1 text-sm outline-none bg-transparent font-medium text-slate-700"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-bold">Click a letter (A/B/C/D) to mark it as the correct answer</p>
+                    <div className="flex gap-2">
+                      <button onClick={async () => {
+                        if (editingQ) {
+                          await updateQuestion(editingQ.id, { question_text: editingQ.question_text, choices: editingQ.choices, correct_answer: editingQ.correct_answer });
+                        } else {
+                          if (!newQ.text || newQ.choices.some(c=>!c)) return;
+                          await addQuestion({ grade:curGrade, term:curTerm, subject:curSubject, question_text:newQ.text, choices:newQ.choices, correct_answer:newQ.answer, enabled:true });
+                        }
+                        setEditingQ(null); setShowAddForm(false);
+                        loadCurriculum();
+                      }} className="flex-1 py-2 bg-violet-600 hover:bg-violet-500 text-white font-black rounded-xl text-sm transition-colors">
+                        💾 Save Question
+                      </button>
+                      <button onClick={() => { setEditingQ(null); setShowAddForm(false); }}
+                        className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-sm">
+                        Cancel
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Question list */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                  <div className="px-5 py-3 border-b border-slate-50 flex items-center justify-between">
+                    <h3 className="font-black text-slate-700 text-sm">
+                      Grade {curGrade} · Term {curTerm} · {CURRICULUM_SUBJECTS.find(s=>s.key===curSubject)?.emoji} {CURRICULUM_SUBJECTS.find(s=>s.key===curSubject)?.label}
+                      <span className="ml-2 text-slate-400 font-medium">({curQuestions.length} questions)</span>
+                    </h3>
+                  </div>
+                  {curLoading ? (
+                    <div className="flex justify-center py-10">
+                      <div className="w-8 h-8 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
+                    </div>
+                  ) : curQuestions.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400">
+                      <p className="text-3xl mb-2">📝</p>
+                      <p className="font-bold text-sm">No questions yet for this grade/term/subject.</p>
+                      <p className="text-xs mt-1">Add manually or use AI Import to extract from a test.</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-50">
+                      {curQuestions.map((q, i) => (
+                        <div key={q.id} className={`p-4 flex gap-3 ${!q.enabled ? 'opacity-50' : ''}`}>
+                          <span className="text-slate-400 font-black text-xs mt-1 w-5 shrink-0">{i+1}.</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-slate-800 text-sm mb-2">{q.question_text}</p>
+                            <div className="grid grid-cols-2 gap-1">
+                              {q.choices.map((c,ci) => (
+                                <span key={ci} className={`px-2 py-1 rounded-lg text-xs font-bold ${ci===q.correct_answer ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-50 text-slate-500'}`}>
+                                  {String.fromCharCode(65+ci)}. {c} {ci===q.correct_answer && '✓'}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1 shrink-0">
+                            <button onClick={() => toggleQuestion(q.id, !q.enabled).then(()=>loadCurriculum())}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-black ${q.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                              {q.enabled ? 'ON' : 'OFF'}
+                            </button>
+                            <button onClick={() => { setEditingQ(q); setShowAddForm(false); }}
+                              className="px-2 py-1 rounded-lg text-[10px] font-black bg-violet-100 text-violet-700">
+                              Edit
+                            </button>
+                            <button onClick={() => deleteQuestion(q.id).then(()=>loadCurriculum())}
+                              className="px-2 py-1 rounded-lg text-[10px] font-black bg-red-100 text-red-600">
+                              Del
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </motion.div>
             )}
 

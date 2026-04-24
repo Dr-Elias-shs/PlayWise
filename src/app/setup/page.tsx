@@ -264,6 +264,35 @@ $$;`,
 ALTER TABLE public.world_answers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "all" ON public.world_answers FOR ALL USING (true) WITH CHECK (true);`,
   },
+  {
+    name: "curriculum_questions",
+    sql: `CREATE TABLE IF NOT EXISTS public.curriculum_questions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  grade TEXT NOT NULL,
+  term INT NOT NULL DEFAULT 1,
+  subject TEXT NOT NULL,
+  question_text TEXT NOT NULL,
+  choices JSONB NOT NULL,
+  correct_answer INT NOT NULL DEFAULT 0,
+  enabled BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_curriculum_grade_term_subject
+  ON public.curriculum_questions(grade, term, subject);
+ALTER TABLE public.curriculum_questions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.curriculum_questions FOR ALL USING (true) WITH CHECK (true);`,
+  },
+  {
+    name: "curriculum_terms",
+    sql: `CREATE TABLE IF NOT EXISTS public.curriculum_terms (
+  grade TEXT NOT NULL,
+  term INT NOT NULL,
+  enabled BOOLEAN DEFAULT false,
+  PRIMARY KEY (grade, term)
+);
+ALTER TABLE public.curriculum_terms ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.curriculum_terms FOR ALL USING (true) WITH CHECK (true);`,
+  },
 ];
 
 const ALL_SQL = TABLES.map(t => t.sql).join("\n\n");

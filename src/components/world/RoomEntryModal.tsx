@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RoomDef } from '@/lib/rooms';
 import { QUESTION_BANK, LeveledQuestion } from '@/lib/questionBank';
+import { getCurriculumQuestionsForStudent } from '@/lib/curriculum';
 import { useWorldStore, RoomKey } from '@/store/useWorldStore';
 import { useGameStore } from '@/store/useGameStore';
 import { addCoins } from '@/lib/wallet';
@@ -21,7 +22,7 @@ type Phase = 'enter' | 'question' | 'correct' | 'wrong';
 
 export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }: Props) {
   const { playerName, addPlayBits, markRoomComplete, completedRooms, currentMissionIndex, advanceMission } = useWorldStore();
-  const { playerEmail } = useGameStore();
+  const { playerEmail, playerGrade } = useGameStore();
   const [phase, setPhase]       = useState<Phase>(multiplayer ? 'question' : 'enter');
   const [question, setQuestion] = useState<LeveledQuestion | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
@@ -36,17 +37,30 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
   const isCorrectRoom = multiplayer ? true  : room.key === currentMissionKey;
   const isAlreadyDone = multiplayer ? false : completedRooms.has(room.key);
 
-  // Pick a random question for this room each visit
+  // Pick a question: curriculum (grade-specific) first, fall back to static bank
   useEffect(() => {
-    const bank = QUESTION_BANK[room.key] || [];
-    const q = bank[Math.floor(Math.random() * bank.length)];
-    setQuestion(q || null);
-
-    // Solo: auto-skip enter prompt when this is the active mission room
-    if (!multiplayer && isCorrectRoom && !isAlreadyDone) {
-      setPhase('question');
+    let cancelled = false;
+    async function pickQuestion() {
+      // Try curriculum question for student's grade
+      if (playerGrade) {
+        const cq = await getCurriculumQuestionsForStudent(playerGrade, room.key);
+        if (!cancelled && cq) {
+          setQuestion({ text: cq.text, choices: cq.choices, answer: cq.answer, level: 'medium' });
+          if (!multiplayer && isCorrectRoom && !isAlreadyDone) setPhase('question');
+          return;
+        }
+      }
+      // Fall back to static question bank
+      if (!cancelled) {
+        const bank = QUESTION_BANK[room.key] || [];
+        const q = bank[Math.floor(Math.random() * bank.length)];
+        setQuestion(q || null);
+        if (!multiplayer && isCorrectRoom && !isAlreadyDone) setPhase('question');
+      }
     }
-  }, [room, isCorrectRoom, isAlreadyDone, multiplayer]);
+    pickQuestion();
+    return () => { cancelled = true; };
+  }, [room, isCorrectRoom, isAlreadyDone, multiplayer, playerGrade]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Switch music theme when question phase starts
   useEffect(() => {
