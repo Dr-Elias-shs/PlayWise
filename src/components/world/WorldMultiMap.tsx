@@ -448,7 +448,7 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
       room_label:   room.label,
       room_color:   room.color,
       room_emoji:   room.emoji,
-      question:     { text: q.text, choices: q.choices, answer: q.answer },
+      question:     { text: q.text, choices: q.choices, answer: q.answer, explanation: q.explanation },
       triggered_by: playerName,
       expires_at:   Date.now() + VOTE_SECS * 1000,
     };

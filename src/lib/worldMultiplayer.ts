@@ -207,14 +207,14 @@ export function assignSpecialties(
 // ─── Broadcast events ─────────────────────────────────────────────────────────
 
 export interface RoomTriggerEvent {
-  type:        'room_triggered';
-  room_key:    string;
-  room_label:  string;
-  room_color:  string;
-  room_emoji:  string;
-  question:    { text: string; choices: string[]; answer: number };
+  type:         'room_triggered';
+  room_key:     string;
+  room_label:   string;
+  room_color:   string;
+  room_emoji:   string;
+  question:     { text: string; choices: string[]; answer: number; explanation?: string };
   triggered_by: string;
-  expires_at:  number; // Date.now() + 15000
+  expires_at:   number;
 }
 
 export interface VoteEvent {
