@@ -232,10 +232,12 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
 
   const allMissionsComplete = solvedRooms.size >= ROOMS.length;
 
-  // Assign specialties on mount
+  // Assign specialties once we know the full player list
   useEffect(() => {
-    setSpecialties(assignSpecialties(playerName, roomCode));
-  }, [playerName, roomCode]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (players.length === 0) return;
+    const names = players.map(p => p.player_name);
+    setSpecialties(assignSpecialties(playerName, roomCode, names));
+  }, [players.length, playerName, roomCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Round timer
   useEffect(() => {

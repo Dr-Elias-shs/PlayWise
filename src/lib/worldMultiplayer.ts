@@ -177,13 +177,31 @@ const ALL_ROOM_KEYS = [
   'language_arts','reading','art','music','kitchen','cafeteria',
 ];
 
-export function assignSpecialties(playerName: string, roomCode: string): string[] {
-  // Deterministic shuffle from name+code so it's stable across reconnects
-  const seed = (playerName + roomCode).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const shuffled = [...ALL_ROOM_KEYS].sort((a, b) =>
-    ((seed * 1664525 + a.charCodeAt(0)) % 99991) - ((seed * 1664525 + b.charCodeAt(0)) % 99991)
-  );
-  return shuffled.slice(0, 2);
+export function assignSpecialties(
+  playerName: string,
+  roomCode: string,
+  allPlayerNames: string[],   // full sorted list of players in the room
+): string[] {
+  // 1. Shuffle the room list using ONLY the room code — every client agrees on this order
+  const seed = roomCode.split('').reduce((a, c, i) => a + c.charCodeAt(0) * (i + 1), 0);
+  const shuffled = [...ALL_ROOM_KEYS].sort((a, b) => {
+    // Use full string hash so neighbouring keys (math, music) don't cluster
+    const ha = a.split('').reduce((s, c) => s * 31 + c.charCodeAt(0), seed) % 99991;
+    const hb = b.split('').reduce((s, c) => s * 31 + c.charCodeAt(0), seed) % 99991;
+    return ha - hb;
+  });
+
+  // 2. Assign each player 2 consecutive rooms from the shuffled list,
+  //    based on their alphabetical position — guaranteed non-overlapping
+  const sorted = [...allPlayerNames].sort();
+  const idx    = sorted.indexOf(playerName);
+  if (idx === -1) return shuffled.slice(0, 2); // fallback (shouldn't happen)
+
+  const start = (idx * 2) % shuffled.length;
+  return [
+    shuffled[start],
+    shuffled[(start + 1) % shuffled.length],
+  ];
 }
 
 // ─── Broadcast events ─────────────────────────────────────────────────────────
