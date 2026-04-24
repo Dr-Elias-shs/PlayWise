@@ -119,7 +119,15 @@ export default function Home() {
     setEmailInput('');
     setScreen('login');
     if (isAuthenticated) {
-      instance.logoutRedirect({ postLogoutRedirectUri: window.location.origin });
+      // Use popup to match the popup-based login — avoids full page redirect
+      // which interferes with the next loginPopup call
+      instance.logoutPopup({
+        postLogoutRedirectUri: window.location.origin,
+        mainWindowRedirectUri: window.location.origin,
+      }).catch(() => {
+        // If popup fails (e.g. blocked), clear local MSAL state silently
+        instance.clearCache();
+      });
     }
   };
 
