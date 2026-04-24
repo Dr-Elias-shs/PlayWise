@@ -23,8 +23,9 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
   const [error, setError]  = useState('');
 
   const handleSave = () => {
-    // Strip emojis and non-printable characters — letters, numbers, spaces, hyphens only
-    const trimmed = name.trim().replace(/[^\p{L}\p{N}\s\-'.]/gu, '').trim();
+    // Strip emojis (U+1F000 and above) and keep only letters/numbers/spaces/punctuation
+    const stripped = name.trim().split('').filter(c => c.codePointAt(0)! < 0x1F000).join('');
+    const trimmed  = stripped.replace(/[^\w\sÀ-öø-ÿ؀-ۿ\-'.]/g, '').trim();
     if (trimmed.length < 2)  { setError('Name must be at least 2 characters'); return; }
     if (trimmed.length > 20) { setError('Name must be 20 characters or less');  return; }
     if (!grade)              { setError('Please select your grade');             return; }
