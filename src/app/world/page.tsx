@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WorldMap } from '@/components/world/WorldMap';
+import { WorldMultiLobby } from '@/components/world/WorldMultiLobby';
+import { WorldMultiMap } from '@/components/world/WorldMultiMap';
 import { Shop } from '@/components/world/Shop';
 import { useWorldStore } from '@/store/useWorldStore';
 import { useAvatarStore } from '@/store/useAvatarStore';
@@ -94,7 +96,7 @@ function MapCard({ map, onSelect, locked }: { map: MapMeta; onSelect: () => void
 
 // ── Lobby ──────────────────────────────────────────────────────────────────────
 
-function WorldLobby({ onEnter }: { onEnter: (mapId: string) => void }) {
+function WorldLobby({ onEnter, onMultiplayer }: { onEnter: (mapId: string) => void; onMultiplayer?: (mapId: string) => void }) {
   const { playerName, setPlayerName, playBits, completedRooms } = useWorldStore();
   const { colorId } = useAvatarStore();
 
@@ -306,7 +308,26 @@ function WorldLobby({ onEnter }: { onEnter: (mapId: string) => void }) {
                   onSelect={() => readyToPlay && onEnter(map.id)}
                 />
               ))}
+            </div>
 
+            {/* Multiplayer CTA */}
+            {onMultiplayer && (
+              <button
+                onClick={() => readyToPlay && onMultiplayer(MAP_REGISTRY[0].id)}
+                disabled={!readyToPlay}
+                className="w-full rounded-3xl p-5 flex items-center gap-5 transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed border border-violet-400/30"
+                style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(147,51,234,0.2))', backdropFilter: 'blur(12px)' }}
+              >
+                <span className="text-4xl">⚔️</span>
+                <div className="text-left flex-1">
+                  <div className="text-white font-black text-base">Multiplayer World</div>
+                  <div className="text-white/50 text-xs font-medium mt-0.5">Explore together · Answer as a team · Earn more PlayBits</div>
+                </div>
+                <span className="text-violet-400 font-black text-sm">Play →</span>
+              </button>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Placeholder "Coming Soon" maps */}
               {[
                 { id: 'hospital', name: 'Hospital', image: '/maps/floor_map.png' },
@@ -345,7 +366,9 @@ function WorldLobby({ onEnter }: { onEnter: (mapId: string) => void }) {
 
 export default function WorldPage() {
   const router = useRouter();
-  const [selectedMap, setSelectedMap] = useState<string | null>(null);
+  const [selectedMap,  setSelectedMap]  = useState<string | null>(null);
+  const [multiMode,    setMultiMode]    = useState(false);
+  const [multiRoomCode,setMultiRoomCode]= useState<string | null>(null);
   const [allowed, setAllowed] = useState<boolean | null>(null); // null = loading
 
   useEffect(() => {
@@ -387,9 +410,30 @@ export default function WorldPage() {
     );
   }
 
-  if (selectedMap) {
+  // Multiplayer game in progress
+  if (multiRoomCode && selectedMap) {
+    return <WorldMultiMap
+      roomCode={multiRoomCode} mapId={selectedMap}
+      onBack={() => { setMultiRoomCode(null); setMultiMode(false); setSelectedMap(null); }}
+    />;
+  }
+
+  // Multiplayer lobby
+  if (multiMode && selectedMap) {
+    return <WorldMultiLobby
+      mapId={selectedMap}
+      onStart={(code) => setMultiRoomCode(code)}
+      onBack={() => { setMultiMode(false); setSelectedMap(null); }}
+    />;
+  }
+
+  // Solo game
+  if (selectedMap && !multiMode) {
     return <WorldMap onBack={() => setSelectedMap(null)} mapId={selectedMap} />;
   }
 
-  return <WorldLobby onEnter={setSelectedMap} />;
+  return <WorldLobby
+    onEnter={setSelectedMap}
+    onMultiplayer={(mapId) => { setSelectedMap(mapId); setMultiMode(true); }}
+  />;
 }

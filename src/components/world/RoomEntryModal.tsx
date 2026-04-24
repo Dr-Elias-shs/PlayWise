@@ -12,11 +12,12 @@ import { playSound } from '@/lib/sounds';
 interface Props {
   room: RoomDef;
   onClose: () => void;
+  onCorrect?: () => void; // optional multiplayer hook
 }
 
 type Phase = 'enter' | 'question' | 'correct' | 'wrong';
 
-export function RoomEntryModal({ room, onClose }: Props) {
+export function RoomEntryModal({ room, onClose, onCorrect }: Props) {
   const { playerName, addPlayBits, markRoomComplete, completedRooms, currentMissionIndex, advanceMission } = useWorldStore();
   const [phase, setPhase]       = useState<Phase>('enter');
   const [question, setQuestion] = useState<LeveledQuestion | null>(null);
@@ -70,6 +71,7 @@ export function RoomEntryModal({ room, onClose }: Props) {
         if (playerName && playerName !== 'Player') {
           addCoins(playerName, 0, elapsed, false, '', room.key).catch(() => {});
         }
+        onCorrect?.();
         setPhase('correct');
       }, 600);
     } else {
