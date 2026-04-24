@@ -1,37 +1,44 @@
-/**
- * Zustand store for World Multiplayer state.
- * Keeps remote player positions with linear interpolation data.
- */
-
 import { create } from 'zustand';
-import type { WorldRoom, WorldPlayer, PositionTick } from '@/lib/worldMultiplayer';
+import type { WorldRoom, WorldPlayer, PositionTick, RoomTriggerEvent } from '@/lib/worldMultiplayer';
 
 export interface RemotePlayer extends PositionTick {
-  // Interpolation targets
-  targetX:    number;
-  targetY:    number;
-  renderX:    number;
-  renderY:    number;
+  targetX: number; targetY: number;
+  renderX: number; renderY: number;
   lastUpdate: number;
 }
 
+export interface ActiveVote {
+  trigger:    RoomTriggerEvent;
+  votes:      Record<string, { choice: number; isSpecialist: boolean }>;
+  expiresAt:  number;
+}
+
 interface WorldMultiState {
-  room:          WorldRoom | null;
-  players:       WorldPlayer[];          // lobby / DB list
-  remotePos:     Record<string, RemotePlayer>; // live position map
-  myRoomCode:    string;
-  countdown:     number;                 // seconds left in lobby countdown
-  roundTimeLeft: number;                 // seconds left in round
-  teamScore:     number;
+  room:           WorldRoom | null;
+  players:        WorldPlayer[];
+  remotePos:      Record<string, RemotePlayer>;
+  myRoomCode:     string;
+  roundTimeLeft:  number;
+  teamScore:      number;
+  // Collaboration state
+  specialties:    string[];          // my 2 expert room keys
+  solvedRooms:    Set<string>;       // rooms answered correctly this round
+  activeVote:     ActiveVote | null; // live voting session
+  myVote:         number | null;     // choice index I submitted
+  lastResult:     { roomKey: string; correct: boolean; answer: number } | null;
 
   setRoom:          (r: WorldRoom | null) => void;
   setPlayers:       (p: WorldPlayer[]) => void;
   upsertRemotePos:  (tick: PositionTick) => void;
-  removeRemotePos:  (name: string) => void;
   setMyRoomCode:    (code: string) => void;
-  setCountdown:     (n: number) => void;
   setRoundTimeLeft: (n: number) => void;
   setTeamScore:     (n: number) => void;
+  setSpecialties:   (s: string[]) => void;
+  markRoomSolved:   (key: string) => void;
+  openVote:         (trigger: RoomTriggerEvent) => void;
+  addVote:          (playerName: string, choice: number, isSpecialist: boolean) => void;
+  closeVote:        (result: { roomKey: string; correct: boolean; answer: number }) => void;
+  setMyVote:        (v: number | null) => void;
   reset:            () => void;
 }
 
@@ -40,16 +47,48 @@ export const useWorldMultiStore = create<WorldMultiState>((set, get) => ({
   players:       [],
   remotePos:     {},
   myRoomCode:    '',
-  countdown:     0,
   roundTimeLeft: 0,
   teamScore:     0,
+  specialties:   [],
+  solvedRooms:   new Set(),
+  activeVote:    null,
+  myVote:        null,
+  lastResult:    null,
 
-  setRoom(r)     { set({ room: r, teamScore: r?.team_score ?? 0 }); },
-  setPlayers(p)  { set({ players: p }); },
-  setMyRoomCode(code) { set({ myRoomCode: code }); },
-  setCountdown(n)     { set({ countdown: n }); },
-  setRoundTimeLeft(n) { set({ roundTimeLeft: n }); },
-  setTeamScore(n)     { set({ teamScore: n }); },
+  setRoom(r)           { set({ room: r, teamScore: r?.team_score ?? 0 }); },
+  setPlayers(p)        { set({ players: p }); },
+  setMyRoomCode(code)  { set({ myRoomCode: code }); },
+  setRoundTimeLeft(n)  { set({ roundTimeLeft: n }); },
+  setTeamScore(n)      { set({ teamScore: n }); },
+  setSpecialties(s)    { set({ specialties: s }); },
+  setMyVote(v)         { set({ myVote: v }); },
+
+  markRoomSolved(key) {
+    set(s => { const next = new Set(s.solvedRooms); next.add(key); return { solvedRooms: next }; });
+  },
+
+  openVote(trigger) {
+    set({ activeVote: { trigger, votes: {}, expiresAt: trigger.expires_at }, myVote: null, lastResult: null });
+  },
+
+  addVote(playerName, choice, isSpecialist) {
+    set(s => {
+      if (!s.activeVote) return s;
+      return {
+        activeVote: {
+          ...s.activeVote,
+          votes: { ...s.activeVote.votes, [playerName]: { choice, isSpecialist } },
+        },
+      };
+    });
+  },
+
+  closeVote(result) {
+    set({ activeVote: null, myVote: null, lastResult: result });
+    if (result.correct) get().markRoomSolved(result.roomKey);
+    // Clear result after 3s
+    setTimeout(() => set(s => s.lastResult?.roomKey === result.roomKey ? { lastResult: null } : s), 3000);
+  },
 
   upsertRemotePos(tick) {
     set(s => {
@@ -59,10 +98,9 @@ export const useWorldMultiStore = create<WorldMultiState>((set, get) => ({
           ...s.remotePos,
           [tick.player_name]: {
             ...tick,
-            targetX:    tick.x,
-            targetY:    tick.y,
-            renderX:    existing?.renderX ?? tick.x,
-            renderY:    existing?.renderY ?? tick.y,
+            targetX: tick.x, targetY: tick.y,
+            renderX: existing?.renderX ?? tick.x,
+            renderY: existing?.renderY ?? tick.y,
             lastUpdate: Date.now(),
           },
         },
@@ -70,18 +108,11 @@ export const useWorldMultiStore = create<WorldMultiState>((set, get) => ({
     });
   },
 
-  removeRemotePos(name) {
-    set(s => {
-      const next = { ...s.remotePos };
-      delete next[name];
-      return { remotePos: next };
-    });
-  },
-
   reset() {
     set({
       room: null, players: [], remotePos: {}, myRoomCode: '',
-      countdown: 0, roundTimeLeft: 0, teamScore: 0,
+      roundTimeLeft: 0, teamScore: 0, specialties: [],
+      solvedRooms: new Set(), activeVote: null, myVote: null, lastResult: null,
     });
   },
 }));

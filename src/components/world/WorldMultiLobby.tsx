@@ -44,7 +44,7 @@ function PlayerChip({ p }: { p: WorldPlayer }) {
 export function WorldMultiLobby({ mapId, onStart, onBack }: Props) {
   const { playerName } = useWorldStore();
   const { colorId, equippedId } = useAvatarStore();
-  const { setRoom, setPlayers, setMyRoomCode, setCountdown, countdown, room, players } = useWorldMultiStore();
+  const { setRoom, setPlayers, setMyRoomCode, room, players } = useWorldMultiStore();
 
   const [openRooms,    setOpenRooms]    = useState<WorldRoom[]>([]);
   const [joinCode,     setJoinCode]     = useState('');

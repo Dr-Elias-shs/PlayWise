@@ -169,16 +169,65 @@ export async function recordWorldAnswer(
   }
 }
 
+// ─── Specialist roles ─────────────────────────────────────────────────────────
+// Each player is randomly assigned 2 "expert" rooms. Their vote counts ×2 there.
+
+const ALL_ROOM_KEYS = [
+  'math','science','computer','robotics','library','history',
+  'language_arts','reading','art','music','kitchen','cafeteria',
+];
+
+export function assignSpecialties(playerName: string, roomCode: string): string[] {
+  // Deterministic shuffle from name+code so it's stable across reconnects
+  const seed = (playerName + roomCode).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const shuffled = [...ALL_ROOM_KEYS].sort((a, b) =>
+    ((seed * 1664525 + a.charCodeAt(0)) % 99991) - ((seed * 1664525 + b.charCodeAt(0)) % 99991)
+  );
+  return shuffled.slice(0, 2);
+}
+
+// ─── Broadcast events ─────────────────────────────────────────────────────────
+
+export interface RoomTriggerEvent {
+  type:        'room_triggered';
+  room_key:    string;
+  room_label:  string;
+  room_color:  string;
+  room_emoji:  string;
+  question:    { text: string; choices: string[]; answer: number };
+  triggered_by: string;
+  expires_at:  number; // Date.now() + 15000
+}
+
+export interface VoteEvent {
+  type:        'vote';
+  room_key:    string;
+  player_name: string;
+  choice:      number;
+  is_specialist: boolean;
+}
+
+export interface RoomResolvedEvent {
+  type:       'room_resolved';
+  room_key:   string;
+  correct:    boolean;
+  answer:     number;
+  team_score: number;
+}
+
+export type GameEvent = RoomTriggerEvent | VoteEvent | RoomResolvedEvent;
+
 // ─── Realtime channel factory ─────────────────────────────────────────────────
 
-let posChannel: ReturnType<typeof supabase.channel> | null = null;
+let gameChannel: ReturnType<typeof supabase.channel> | null = null;
 let lastPosSent = 0;
 
 export function subscribeToRoom(
   roomCode: string,
-  onRoomChange: (room: WorldRoom) => void,
+  onRoomChange:    (room: WorldRoom) => void,
   onPlayersChange: (players: WorldPlayer[]) => void,
-  onPosition: (tick: PositionTick) => void,
+  onPosition:      (tick: PositionTick) => void,
+  onGameEvent?:    (evt: GameEvent) => void,
 ) {
   // ── 1. Postgres Changes — room status + player list ────────────────────────
   const dbChannel = supabase.channel(`world-db-${roomCode}`)
@@ -192,31 +241,37 @@ export function subscribeToRoom(
       event: '*', schema: 'public', table: 'world_players',
       filter: `room_code=eq.${roomCode}`,
     }, async () => {
-      // Refetch full list on any player change
       const players = await getWorldPlayers(roomCode);
       onPlayersChange(players);
     })
     .subscribe();
 
-  // ── 2. Broadcast — position ticks (no DB write) ────────────────────────────
-  posChannel = supabase.channel(`world-pos-${roomCode}`, {
+  // ── 2. Broadcast — positions + game events on one channel ─────────────────
+  gameChannel = supabase.channel(`world-game-${roomCode}`, {
     config: { broadcast: { self: false } },
   })
     .on('broadcast', { event: 'pos' }, ({ payload }) => {
       onPosition(payload as PositionTick);
     })
+    .on('broadcast', { event: 'game' }, ({ payload }) => {
+      onGameEvent?.(payload as GameEvent);
+    })
     .subscribe();
 
   return () => {
     supabase.removeChannel(dbChannel);
-    if (posChannel) supabase.removeChannel(posChannel);
-    posChannel = null;
+    if (gameChannel) supabase.removeChannel(gameChannel);
+    gameChannel = null;
   };
 }
 
 export function broadcastPosition(roomCode: string, tick: PositionTick): void {
   const now = Date.now();
-  if (now - lastPosSent < POSITION_THROTTLE_MS) return; // throttle
+  if (now - lastPosSent < POSITION_THROTTLE_MS) return;
   lastPosSent = now;
-  posChannel?.send({ type: 'broadcast', event: 'pos', payload: tick });
+  gameChannel?.send({ type: 'broadcast', event: 'pos', payload: tick });
+}
+
+export function broadcastGameEvent(event: GameEvent): void {
+  gameChannel?.send({ type: 'broadcast', event: 'game', payload: event });
 }

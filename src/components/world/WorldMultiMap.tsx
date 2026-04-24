@@ -1,20 +1,11 @@
 "use client";
 
-/**
- * WorldMultiMap — the solo WorldMap extended with:
- *   - Remote player rendering (interpolated)
- *   - Position broadcasting (throttled to 80ms)
- *   - Round timer HUD
- *   - Team score HUD
- *   - Cooperative room entry (records answer to DB for rewards)
- */
-
 import { useRef, useEffect, useState, useCallback, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Joystick } from './Joystick';
 import { WalkingCharacter, CHAR_H, CHAR_HW } from './WalkingCharacter';
-import { RoomEntryModal } from './RoomEntryModal';
 import { HiddenSpotModal } from './HiddenSpotModal';
+import { VotingOverlay, ResultFlash } from './VotingOverlay';
 import { useAvatarStore } from '@/store/useAvatarStore';
 import { COLORS, ACCESSORIES } from '@/lib/avatar-items';
 import {
@@ -26,21 +17,25 @@ import { gameAudio } from '@/lib/game-audio';
 import type { RoomDef, WallDef } from '@/lib/rooms';
 import { useWorldStore, RoomKey } from '@/store/useWorldStore';
 import { useWorldMultiStore, RemotePlayer } from '@/store/useWorldMultiStore';
-import { getGlobalConfig } from '@/lib/wallet';
+import { getGlobalConfig, addCoins } from '@/lib/wallet';
 import { DEFAULT_MAP_ID } from '@/lib/map-registry';
+import { QUESTION_BANK } from '@/lib/questionBank';
 import {
-  subscribeToRoom, broadcastPosition, finishWorldRoom,
-  recordWorldAnswer, ROUND_DURATION_SEC,
+  subscribeToRoom, broadcastPosition, broadcastGameEvent,
+  recordWorldAnswer, assignSpecialties,
+  RoomTriggerEvent, VoteEvent, RoomResolvedEvent,
 } from '@/lib/worldMultiplayer';
-import { addCoins } from '@/lib/wallet';
 
-const COLLISION_R = 4;
-const ZOOM = 2;
-const SPEED = 0.7;
-const FRAME_MS = 160;
-const SPAWN_X = MAP_W * 0.50;
-const SPAWN_Y = MAP_H * 0.54;
-const INTERP_SPEED = 0.18; // lerp factor per frame (0–1)
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const COLLISION_R  = 4;
+const ZOOM         = 2;
+const SPEED        = 0.7;
+const FRAME_MS     = 160;
+const SPAWN_X      = MAP_W * 0.50;
+const SPAWN_Y      = MAP_H * 0.54;
+const INTERP_SPEED = 0.18;
+const VOTE_SECS    = 15;
 
 type DoorOverrides = Record<string, { x: number; y: number }>;
 
@@ -62,6 +57,7 @@ function findNearbyRoom(x: number, y: number, overrides: DoorOverrides): RoomDef
 }
 
 function clamp(v: number, lo: number, hi: number) { return v < lo ? lo : v > hi ? hi : v; }
+function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 
 function checkCollision(x: number, y: number, walls: WallDef[]): boolean {
   for (const w of walls) {
@@ -74,16 +70,59 @@ function checkCollision(x: number, y: number, walls: WallDef[]): boolean {
   return false;
 }
 
-function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
-
 function formatTime(sec: number) {
   const m = Math.floor(sec / 60), s = sec % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+// ── Off-screen teammate arrow ─────────────────────────────────────────────────
+
+function TeammateArrow({ rp, viewport, myX, myY, scale }: {
+  rp: RemotePlayer; viewport: { w: number; h: number };
+  myX: number; myY: number; scale: number;
+}) {
+  const color = COLORS.find(c => c.id === rp.color_id);
+  // Convert remote world coords → screen coords
+  const camX = clamp(viewport.w / 2 - myX * scale * ZOOM, viewport.w - MAP_W * scale * ZOOM, 0);
+  const camY = clamp(viewport.h / 2 - myY * scale * ZOOM, viewport.h - MAP_H * scale * ZOOM, 0);
+  const screenX = rp.renderX * scale * ZOOM + camX;
+  const screenY = rp.renderY * scale * ZOOM + camY;
+
+  const onScreen = screenX > 0 && screenX < viewport.w && screenY > 0 && screenY < viewport.h;
+  if (onScreen) return null;
+
+  // Arrow pointing toward teammate
+  const angle = Math.atan2(screenY - viewport.h / 2, screenX - viewport.w / 2);
+  const margin = 40;
+  const arrowX = clamp(viewport.w / 2 + Math.cos(angle) * (viewport.w / 2 - margin), margin, viewport.w - margin);
+  const arrowY = clamp(viewport.h / 2 + Math.sin(angle) * (viewport.h / 2 - margin), margin, viewport.h - margin);
+
+  return (
+    <div style={{
+      position: 'absolute', left: arrowX, top: arrowY,
+      transform: `translate(-50%,-50%) rotate(${angle}rad)`,
+      zIndex: 40, pointerEvents: 'none',
+    }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: '50%',
+        background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        border: '2px solid rgba(255,255,255,0.3)',
+      }}>
+        <img src="/character/walk2.png" alt="" draggable={false}
+          style={{ height: 18, filter: color?.filter ?? '' }} />
+      </div>
+      <div style={{
+        position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+        whiteSpace: 'nowrap', background: 'rgba(0,0,0,0.7)', color: '#fff',
+        fontSize: 8, fontWeight: 900, padding: '1px 5px', borderRadius: 4, marginTop: 2,
+      }}>{rp.player_name}</div>
+    </div>
+  );
+}
+
 // ── Remote player sprite ──────────────────────────────────────────────────────
 
-function RemoteSprite({ p, scale }: { p: RemotePlayer; scale: number }) {
+function RemoteSprite({ p, scale, isSpecialist }: { p: RemotePlayer; scale: number; isSpecialist: boolean }) {
   const color = COLORS.find(c => c.id === p.color_id);
   const acc   = ACCESSORIES.find(a => a.id === p.equipped_id);
   const px = p.renderX * scale * ZOOM;
@@ -91,51 +130,68 @@ function RemoteSprite({ p, scale }: { p: RemotePlayer; scale: number }) {
 
   return (
     <div style={{
-      position: 'absolute',
-      left: px - CHAR_HW,
-      top:  py - CHAR_H,
-      transform: `scaleX(${p.dir})`,
-      pointerEvents: 'none',
-      zIndex: 4,
+      position: 'absolute', left: px - CHAR_HW, top: py - CHAR_H,
+      transform: `scaleX(${p.dir})`, pointerEvents: 'none', zIndex: 4,
     }}>
-      {/* Name tag */}
       <div style={{
         position: 'absolute', bottom: '100%', left: '50%',
         transform: 'translateX(-50%)',
-        whiteSpace: 'nowrap', background: 'rgba(0,0,0,0.65)',
+        whiteSpace: 'nowrap', background: 'rgba(0,0,0,0.7)',
         color: '#fff', fontSize: 9, fontWeight: 900,
         padding: '2px 6px', borderRadius: 8, marginBottom: 2,
-        backdropFilter: 'blur(4px)',
       }}>
-        {acc?.emoji ?? ''} {p.player_name}
+        {acc?.emoji ?? ''} {p.player_name} {isSpecialist ? '⭐' : ''}
       </div>
-      {/* Character */}
-      <img
-        src={`/character/walk${p.frame + 1}.png`}
-        alt={p.player_name}
-        draggable={false}
-        style={{ height: CHAR_H, filter: color?.filter ?? '', opacity: 0.92 }}
-      />
+      <img src={`/character/walk${p.frame + 1}.png`} alt={p.player_name} draggable={false}
+        style={{ height: CHAR_H, filter: color?.filter ?? '', opacity: 0.92 }} />
     </div>
+  );
+}
+
+// ── Solved room glow overlay (on top of map image) ───────────────────────────
+
+function SolvedRoomsOverlay({ solvedRooms, scale, doorsOverrides }: {
+  solvedRooms: Set<string>; scale: number; doorsOverrides: DoorOverrides;
+}) {
+  return (
+    <>
+      {ROOMS.filter(r => solvedRooms.has(r.key)).map(r => {
+        const door = doorsOverrides[r.key] ?? r.door;
+        const cx = door.x * MAP_W * scale * ZOOM;
+        const cy = door.y * MAP_H * scale * ZOOM;
+        return (
+          <div key={r.key} style={{
+            position: 'absolute', left: cx - 36, top: cy - 36,
+            width: 72, height: 72, borderRadius: '50%',
+            background: 'rgba(16,185,129,0.25)',
+            border: '2px solid rgba(16,185,129,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 24, zIndex: 3, pointerEvents: 'none',
+            boxShadow: '0 0 20px rgba(16,185,129,0.4)',
+          }}>
+            ✅
+          </div>
+        );
+      })}
+    </>
   );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-interface Props {
-  roomCode: string;
-  mapId?:   string;
-  onBack:   () => void;
-}
+interface Props { roomCode: string; mapId?: string; onBack: () => void; }
 
 export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
   const activeMapId = mapIdProp ?? DEFAULT_MAP_ID;
-  const { playerName, playBits, completedRooms, currentMissionIndex, foundSecrets } = useWorldStore();
+  const { playerName, foundSecrets } = useWorldStore();
   const { colorId, equippedId } = useAvatarStore();
   const color = COLORS.find(c => c.id === colorId);
   const {
     remotePos, upsertRemotePos, teamScore, setTeamScore,
     roundTimeLeft, setRoundTimeLeft, room, setRoom,
+    specialties, setSpecialties, solvedRooms,
+    activeVote, openVote, addVote, closeVote, setMyVote, myVote,
+    players,
   } = useWorldMultiStore();
 
   const MISSION_SEQUENCE: RoomKey[] = [
@@ -149,44 +205,46 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
   const charRef         = useRef<HTMLDivElement>(null);
 
   // Game state refs
-  const posRef       = useRef({ x: SPAWN_X, y: SPAWN_Y });
-  const joyRef       = useRef({ x: 0, y: 0 });
-  const frameIdx     = useRef(1);
-  const lastFrameTs  = useRef(0);
-  const dirRef       = useRef(1);
-  const nearbyKey    = useRef('');
-  const scaleRef     = useRef(1);
-  const viewportRef  = useRef({ w: 800, h: 600 });
-  const wallsRef     = useRef<WallDef[]>(DEFAULT_WALLS);
-  const doorsRef     = useRef<DoorOverrides>({});
-  const hiddenSpotsRef = useRef<HiddenSpotDef[]>(DEFAULT_HIDDEN_SPOTS);
+  const posRef           = useRef({ x: SPAWN_X, y: SPAWN_Y });
+  const joyRef           = useRef({ x: 0, y: 0 });
+  const frameIdx         = useRef(1);
+  const lastFrameTs      = useRef(0);
+  const dirRef           = useRef(1);
+  const nearbyKey        = useRef('');
+  const scaleRef         = useRef(1);
+  const viewportRef      = useRef({ w: 800, h: 600 });
+  const wallsRef         = useRef<WallDef[]>(DEFAULT_WALLS);
+  const doorsRef         = useRef<DoorOverrides>({});
+  const hiddenSpotsRef   = useRef<HiddenSpotDef[]>(DEFAULT_HIDDEN_SPOTS);
   const disabledRoomsRef = useRef<Set<string>>(new Set());
-  const nearbySecretRef = useRef('');
+  const nearbySecretRef  = useRef('');
+  const triggererRef     = useRef(''); // who triggered the active vote
 
   // React state
-  const [scale,        setScale]        = useState(1);
-  const [activeWalls,  setActiveWalls]  = useState<WallDef[]>(DEFAULT_WALLS);
-  const [nearbyRoom,   setNearbyRoom]   = useState<RoomDef | null>(null);
-  const [enteredRoom,  setEnteredRoom]  = useState<RoomDef | null>(null);
-  const [activeSecret, setActiveSecret] = useState<HiddenSpotDef | null>(null);
-  const [nearbySecretId, setNearbySecretId] = useState('');
-  const [muted,        setMuted]        = useState(false);
-  const [showResults,  setShowResults]  = useState(false);
-  const allMissionsComplete = currentMissionIndex >= MISSION_SEQUENCE.length;
+  const [scale,          setScale]          = useState(1);
+  const [activeWalls,    setActiveWalls]     = useState<WallDef[]>(DEFAULT_WALLS);
+  const [nearbyRoom,     setNearbyRoom]      = useState<RoomDef | null>(null);
+  const [activeSecret,   setActiveSecret]    = useState<HiddenSpotDef | null>(null);
+  const [nearbySecretId, setNearbySecretId]  = useState('');
+  const [showResults,    setShowResults]     = useState(false);
+  const [muted,          setMuted]           = useState(false);
+  const [doorsSnapshot,  setDoorsSnapshot]   = useState<DoorOverrides>({});
+
+  const allMissionsComplete = solvedRooms.size >= ROOMS.length;
+
+  // Assign specialties on mount
+  useEffect(() => {
+    setSpecialties(assignSpecialties(playerName, roomCode));
+  }, [playerName, roomCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Round timer
   useEffect(() => {
     if (!room?.end_time) return;
-    const tick = () => {
+    const interval = setInterval(() => {
       const left = Math.max(0, Math.round((new Date(room.end_time!).getTime() - Date.now()) / 1000));
       setRoundTimeLeft(left);
-      if (left === 0) {
-        clearInterval(interval);
-        setShowResults(true);
-      }
-    };
-    tick();
-    const interval = setInterval(tick, 1000);
+      if (left === 0) { clearInterval(interval); setShowResults(true); }
+    }, 1000);
     return () => clearInterval(interval);
   }, [room?.end_time]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -196,17 +254,17 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
     return () => gameAudio.stopMusic();
   }, []);
 
-  // Load map + game settings
+  // Load map
   useEffect(() => {
     getGlobalConfig('game_settings').then(cfg => {
       if (cfg) disabledRoomsRef.current = new Set(
-        Object.entries(cfg).filter(([,v]) => v === false).map(([k]) => k)
+        Object.entries(cfg).filter(([, v]) => v === false).map(([k]) => k)
       );
     });
     fetchMapConfig(activeMapId).then(data => {
       if (data) {
         if (data.walls)       { wallsRef.current = data.walls; setActiveWalls(data.walls); }
-        if (data.doors)       { doorsRef.current = data.doors; }
+        if (data.doors)       { doorsRef.current = data.doors; setDoorsSnapshot(data.doors); }
         if (data.hiddenSpots) { hiddenSpotsRef.current = data.hiddenSpots; }
       }
     });
@@ -221,15 +279,33 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
         if (updatedRoom.team_score !== undefined) setTeamScore(updatedRoom.team_score);
         if (updatedRoom.status === 'finished') setShowResults(true);
       },
-      () => {},      // players list changes — not needed in-game
-      tick => {
-        if (tick.player_name !== playerName) upsertRemotePos(tick);
+      () => {},
+      tick => { if (tick.player_name !== playerName) upsertRemotePos(tick); },
+      // Game events handler
+      evt => {
+        if (evt.type === 'room_triggered') {
+          triggererRef.current = evt.triggered_by;
+          openVote(evt as RoomTriggerEvent);
+          gameAudio.setTheme('challenging');
+        }
+        if (evt.type === 'vote') {
+          const v = evt as VoteEvent;
+          if (v.player_name !== playerName) {
+            addVote(v.player_name, v.choice, v.is_specialist);
+          }
+        }
+        if (evt.type === 'room_resolved') {
+          const r = evt as RoomResolvedEvent;
+          closeVote({ roomKey: r.room_key, correct: r.correct, answer: r.answer });
+          if (r.correct) setTeamScore(r.team_score);
+          gameAudio.setTheme('peaceful');
+        }
       },
     );
     return unsub;
   }, [roomCode, playerName]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Viewport resize
+  // Viewport
   useEffect(() => {
     function update() {
       const el = outerRef.current; if (!el) return;
@@ -274,111 +350,187 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
         y: (keys.has('ArrowDown') ||keys.has('s')?1:0)-(keys.has('ArrowUp')  ||keys.has('w')?1:0),
       };
     }
-    const dn=(e:KeyboardEvent)=>{keys.add(e.key);sync();};
-    const up=(e:KeyboardEvent)=>{keys.delete(e.key);sync();};
-    window.addEventListener('keydown',dn); window.addEventListener('keyup',up);
-    return ()=>{window.removeEventListener('keydown',dn);window.removeEventListener('keyup',up);};
+    const dn = (e: KeyboardEvent) => { keys.add(e.key); sync(); };
+    const up = (e: KeyboardEvent) => { keys.delete(e.key); sync(); };
+    window.addEventListener('keydown', dn); window.addEventListener('keyup', up);
+    return () => { window.removeEventListener('keydown', dn); window.removeEventListener('keyup', up); };
   }, []);
 
-  // RAF loop — movement + interpolation
+  // RAF game loop
   useEffect(() => {
     let raf: number;
     function tick(ts: number) {
       const { x: jx, y: jy } = joyRef.current;
-      const moving = Math.abs(jx)>0.05||Math.abs(jy)>0.05;
+      const moving = Math.abs(jx) > 0.05 || Math.abs(jy) > 0.05;
       const s = scaleRef.current;
 
       if (moving) {
-        if (jx>0.08) dirRef.current=1; if (jx<-0.08) dirRef.current=-1;
-        const len=Math.sqrt(jx*jx+jy*jy), nx=len>1?jx/len:jx, ny=len>1?jy/len:jy;
-        const ox=posRef.current.x, oy=posRef.current.y;
-        const walls=wallsRef.current;
-        const newX=checkCollision(ox+nx*SPEED,oy,walls)?ox:ox+nx*SPEED;
-        const newY=checkCollision(newX,oy+ny*SPEED,walls)?oy:oy+ny*SPEED;
-        posRef.current.x=clamp(newX,COLLISION_R,MAP_W-COLLISION_R);
-        posRef.current.y=clamp(newY,COLLISION_R,MAP_H-COLLISION_R);
-        if (ts-lastFrameTs.current>FRAME_MS) {
-          frameIdx.current=(frameIdx.current+1)%3; lastFrameTs.current=ts; playSound('walk');
+        if (jx > 0.08) dirRef.current = 1; if (jx < -0.08) dirRef.current = -1;
+        const len = Math.sqrt(jx*jx+jy*jy), nx = len>1?jx/len:jx, ny = len>1?jy/len:jy;
+        const ox = posRef.current.x, oy = posRef.current.y;
+        const walls = wallsRef.current;
+        const newX = checkCollision(ox+nx*SPEED, oy, walls) ? ox : ox+nx*SPEED;
+        const newY = checkCollision(newX, oy+ny*SPEED, walls) ? oy : oy+ny*SPEED;
+        posRef.current.x = clamp(newX, COLLISION_R, MAP_W-COLLISION_R);
+        posRef.current.y = clamp(newY, COLLISION_R, MAP_H-COLLISION_R);
+        if (ts-lastFrameTs.current > FRAME_MS) {
+          frameIdx.current = (frameIdx.current+1)%3; lastFrameTs.current = ts; playSound('walk');
         }
-      } else { frameIdx.current=1; }
+      } else { frameIdx.current = 1; }
 
-      positionChar(posRef.current.x,posRef.current.y,frameIdx.current,dirRef.current,s);
+      positionChar(posRef.current.x, posRef.current.y, frameIdx.current, dirRef.current, s);
 
-      // Broadcast my position (throttled inside broadcastPosition)
+      // Broadcast position
       broadcastPosition(roomCode, {
         player_name: playerName, color_id: colorId, equipped_id: equippedId,
         x: posRef.current.x, y: posRef.current.y,
         dir: dirRef.current, frame: frameIdx.current,
       });
 
-      // Interpolate remote players
+      // Interpolate remote players + stale cleanup
       useWorldMultiStore.setState(state => {
         const next = { ...state.remotePos };
         let changed = false;
         for (const name in next) {
           const rp = next[name];
-          const newRx = lerp(rp.renderX, rp.targetX, INTERP_SPEED);
-          const newRy = lerp(rp.renderY, rp.targetY, INTERP_SPEED);
-          if (Math.abs(newRx-rp.renderX)>0.01||Math.abs(newRy-rp.renderY)>0.01) {
-            next[name] = { ...rp, renderX: newRx, renderY: newRy };
-            changed = true;
+          const rx = lerp(rp.renderX, rp.targetX, INTERP_SPEED);
+          const ry = lerp(rp.renderY, rp.targetY, INTERP_SPEED);
+          if (Math.abs(rx-rp.renderX)>0.01 || Math.abs(ry-rp.renderY)>0.01) {
+            next[name] = { ...rp, renderX: rx, renderY: ry }; changed = true;
           }
-          // Remove stale players (>8s no update)
-          if (Date.now()-rp.lastUpdate>8000) { delete next[name]; changed=true; }
+          if (Date.now()-rp.lastUpdate > 8000) { delete next[name]; changed = true; }
         }
         return changed ? { remotePos: next } : state;
       });
 
       // Door proximity
-      const rawFound=findNearbyRoom(posRef.current.x,posRef.current.y,doorsRef.current);
-      const found=rawFound&&!disabledRoomsRef.current.has(rawFound.key)?rawFound:null;
-      const fk=found?.key??'';
-      if (fk!==nearbyKey.current) { if(found)playSound('whomb'); nearbyKey.current=fk; setNearbyRoom(found); }
+      const rawFound = findNearbyRoom(posRef.current.x, posRef.current.y, doorsRef.current);
+      const found = rawFound && !disabledRoomsRef.current.has(rawFound.key) ? rawFound : null;
+      const fk = found?.key ?? '';
+      if (fk !== nearbyKey.current) {
+        if (found) playSound('whomb');
+        nearbyKey.current = fk;
+        setNearbyRoom(found);
+      }
 
       // Hidden spots
       if (allMissionsComplete) {
-        const SECRET_R=36,px=posRef.current.x,py=posRef.current.y;
-        const nearby=hiddenSpotsRef.current.find(sp=>{const dx=px-sp.x*MAP_W,dy=py-sp.y*MAP_H;return dx*dx+dy*dy<=SECRET_R*SECRET_R;});
-        const nid=nearby?.id??'';
-        if (nid!==nearbySecretRef.current){if(nearby)playSound('whomb');nearbySecretRef.current=nid;setNearbySecretId(nid);}
+        const SECRET_R = 36, px = posRef.current.x, py = posRef.current.y;
+        const nearby = hiddenSpotsRef.current.find(sp => {
+          const dx = px-sp.x*MAP_W, dy = py-sp.y*MAP_H;
+          return dx*dx+dy*dy <= SECRET_R*SECRET_R;
+        });
+        const nid = nearby?.id ?? '';
+        if (nid !== nearbySecretRef.current) {
+          if (nearby) playSound('whomb');
+          nearbySecretRef.current = nid; setNearbySecretId(nid);
+        }
       }
 
-      raf=requestAnimationFrame(tick);
+      raf = requestAnimationFrame(tick);
     }
-    raf=requestAnimationFrame(tick);
-    return ()=>cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [positionChar, roomCode, playerName, colorId, equippedId, allMissionsComplete]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleJoystick = useCallback((x:number,y:number)=>{ joyRef.current={x,y}; },[]);
-  const mapDisplayW=MAP_W*scale*ZOOM, mapDisplayH=MAP_H*scale*ZOOM;
+  // ── Trigger a room question (broadcast to all) ────────────────────────────
+  function handleTriggerRoom(room: RoomDef) {
+    // Don't trigger if already solved or vote in progress
+    if (solvedRooms.has(room.key) || activeVote) return;
+    const bank = QUESTION_BANK[room.key] || [];
+    if (!bank.length) return;
+    const q = bank[Math.floor(Math.random() * bank.length)];
+    const evt: RoomTriggerEvent = {
+      type:         'room_triggered',
+      room_key:     room.key,
+      room_label:   room.label,
+      room_color:   room.color,
+      room_emoji:   room.emoji,
+      question:     { text: q.text, choices: q.choices, answer: q.answer },
+      triggered_by: playerName,
+      expires_at:   Date.now() + VOTE_SECS * 1000,
+    };
+    // Open locally first (self: false on channel so we handle our own)
+    triggererRef.current = playerName;
+    openVote(evt);
+    broadcastGameEvent(evt);
+    gameAudio.setTheme('challenging');
+    setNearbyRoom(null);
+  }
 
-  // Results screen
+  // ── Cast my vote ─────────────────────────────────────────────────────────
+  function handleVote(choice: number) {
+    if (!activeVote || myVote !== null) return;
+    const isSpecialist = specialties.includes(activeVote.trigger.room_key);
+    setMyVote(choice);
+    addVote(playerName, choice, isSpecialist);
+    const evt: VoteEvent = {
+      type: 'vote', room_key: activeVote.trigger.room_key,
+      player_name: playerName, choice, is_specialist: isSpecialist,
+    };
+    broadcastGameEvent(evt);
+  }
+
+  // ── Resolve vote (only called by triggerer after timer/all voted) ─────────
+  async function handleResolve(correct: boolean, answer: number) {
+    if (!activeVote) return;
+    const roomKey = activeVote.trigger.room_key;
+    let newTeamScore = teamScore;
+    if (correct) {
+      await recordWorldAnswer(roomCode, playerName, roomKey, true);
+      newTeamScore = teamScore + 10;
+    }
+    const evt: RoomResolvedEvent = {
+      type: 'room_resolved', room_key: roomKey,
+      correct, answer, team_score: newTeamScore,
+    };
+    closeVote({ roomKey, correct, answer });
+    broadcastGameEvent(evt);
+    if (correct) {
+      setTeamScore(newTeamScore);
+      await addCoins(playerName, 10, 0, false, '', roomKey).catch(() => {});
+    }
+    gameAudio.setTheme('peaceful');
+  }
+
+  const handleJoystick = useCallback((x: number, y: number) => { joyRef.current = { x, y }; }, []);
+  const mapDisplayW = MAP_W * scale * ZOOM;
+  const mapDisplayH = MAP_H * scale * ZOOM;
+
+  // Results
   if (showResults) {
-    const myPlayer = useWorldMultiStore.getState().players.find(p=>p.player_name===playerName);
+    const myPlayer = players.find(p => p.player_name === playerName);
+    const sorted = [...players].sort((a, b) => b.rooms_solved - a.rooms_solved);
     return (
       <div className="min-h-screen flex items-center justify-center p-6"
         style={{ background: 'linear-gradient(160deg,#0d1f0d,#1a3a1a)' }}>
-        <motion.div initial={{scale:0.85,opacity:0}} animate={{scale:1,opacity:1}}
+        <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
           className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden">
           <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-8 text-center">
             <div className="text-6xl mb-2">🏆</div>
             <h2 className="text-white font-black text-2xl">Round Over!</h2>
-            <div className="mt-4 bg-white/20 rounded-2xl py-3">
-              <div className="text-white/70 text-xs font-bold uppercase tracking-widest">Team Score</div>
-              <div className="text-yellow-200 font-black text-4xl">{teamScore}</div>
+            <div className="mt-4 bg-white/20 rounded-2xl py-3 flex justify-center gap-8">
+              <div><div className="text-white/70 text-xs font-bold">Team Score</div>
+                <div className="text-yellow-200 font-black text-3xl">⭐ {teamScore}</div></div>
+              <div><div className="text-white/70 text-xs font-bold">Rooms Solved</div>
+                <div className="text-white font-black text-3xl">{solvedRooms.size}/{ROOMS.length}</div></div>
             </div>
           </div>
           <div className="p-6 space-y-3">
-            <div className="bg-slate-50 rounded-2xl p-4 flex justify-between">
-              <span className="text-slate-600 font-bold text-sm">Your contributions</span>
-              <span className="text-violet-600 font-black">{myPlayer?.rooms_solved ?? 0} rooms</span>
-            </div>
-            <div className="bg-slate-50 rounded-2xl p-4 flex justify-between">
-              <span className="text-slate-600 font-bold text-sm">Your PlayBits earned</span>
-              <span className="text-amber-600 font-black">₿ {myPlayer?.coins_earned ?? 0}</span>
-            </div>
+            <h3 className="font-black text-slate-700 text-sm uppercase tracking-widest">Player Contributions</h3>
+            {sorted.map((p, i) => {
+              const c = COLORS.find(x => x.id === p.color_id);
+              return (
+                <div key={p.player_name} className="flex items-center gap-3 bg-slate-50 rounded-2xl px-4 py-3">
+                  <span className="text-lg">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`}</span>
+                  <img src="/character/walk2.png" alt="" draggable={false} style={{ height: 24, filter: c?.filter ?? '' }} />
+                  <span className="flex-1 font-bold text-slate-700 text-sm">{p.player_name}</span>
+                  <span className="text-violet-600 font-black text-sm">{p.rooms_solved} rooms</span>
+                </div>
+              );
+            })}
             <button onClick={onBack}
-              className="w-full py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-black rounded-2xl hover:scale-105 transition-transform">
+              className="w-full py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-black rounded-2xl hover:scale-105 transition-transform mt-2">
               🏠 Back to Lobby
             </button>
           </div>
@@ -387,64 +539,91 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
     );
   }
 
+  const remoteList = Object.values(remotePos);
+  const totalPlayers = Math.max(1, players.length);
+
   return (
-    <div ref={outerRef} className="relative w-full h-screen overflow-hidden" style={{background:'#1a2e1a'}}
-      onPointerDown={()=>gameAudio.resume()}>
+    <div ref={outerRef} className="relative w-full h-screen overflow-hidden"
+      style={{ background: '#1a2e1a' }} onPointerDown={() => gameAudio.resume()}>
 
       {/* Map container */}
       <div ref={mapContainerRef} style={{
-        position:'absolute',top:0,left:0,
-        width:mapDisplayW,height:mapDisplayH,willChange:'transform',
+        position: 'absolute', top: 0, left: 0,
+        width: mapDisplayW, height: mapDisplayH, willChange: 'transform',
       }}>
         <img src="/maps/floor_map.png" alt="" draggable={false}
-          style={{position:'absolute',inset:0,width:'100%',height:'100%',display:'block',userSelect:'none'}} />
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', userSelect: 'none' }} />
+
+        {/* Solved room overlays */}
+        <SolvedRoomsOverlay solvedRooms={solvedRooms} scale={scale} doorsOverrides={doorsSnapshot} />
 
         {/* Remote players */}
-        {Object.values(remotePos).map(rp => (
-          <RemoteSprite key={rp.player_name} p={rp} scale={scale} />
+        {remoteList.map(rp => (
+          <RemoteSprite key={rp.player_name} p={rp} scale={scale}
+            isSpecialist={specialties.includes(activeVote?.trigger.room_key ?? '')} />
         ))}
 
         {/* My character */}
-        <WalkingCharacter ref={charRef} playerName={playerName} colorFilter={color?.filter??''} accessoryEmoji={ACCESSORIES.find(a=>a.id===equippedId)?.emoji} />
+        <WalkingCharacter ref={charRef} playerName={playerName}
+          colorFilter={color?.filter ?? ''}
+          accessoryEmoji={ACCESSORIES.find(a => a.id === equippedId)?.emoji} />
       </div>
+
+      {/* Off-screen teammate arrows */}
+      {remoteList.map(rp => (
+        <TeammateArrow key={rp.player_name} rp={rp}
+          viewport={viewportRef.current}
+          myX={posRef.current.x} myY={posRef.current.y}
+          scale={scale} />
+      ))}
 
       {/* HUD */}
       <div className="absolute inset-x-0 top-0 z-30 flex justify-between items-start p-4 pointer-events-none">
-        {/* Left: Back + mute */}
+        {/* Left */}
         <div className="flex gap-2 pointer-events-auto">
           <button onClick={onBack}
-            className="bg-black/50 text-white font-black px-3 py-2 rounded-xl text-sm backdrop-blur-sm hover:bg-black/70 transition-colors">
+            className="bg-black/50 text-white font-black px-3 py-2 rounded-xl text-sm backdrop-blur-sm hover:bg-black/70">
             ← Exit
           </button>
-          <button onClick={()=>{ setMuted(m=>!m); gameAudio.toggleMute(); }}
+          <button onClick={() => { setMuted(m => !m); gameAudio.toggleMute(); }}
             className="bg-black/50 text-white px-3 py-2 rounded-xl text-sm backdrop-blur-sm">
-            {muted?'🔇':'🔊'}
+            {muted ? '🔇' : '🔊'}
           </button>
         </div>
 
-        {/* Centre: round timer + team score */}
+        {/* Centre: timer + team score + progress */}
         <div className="flex flex-col items-center gap-1">
           <div className="bg-black/55 backdrop-blur-md rounded-2xl px-5 py-2 text-center border border-white/10">
             <div className="text-[9px] text-white/50 font-black uppercase tracking-widest">Round</div>
-            <div className={`font-black text-2xl ${roundTimeLeft<30?'text-red-400':'text-white'}`}>
+            <div className={`font-black text-2xl ${roundTimeLeft < 30 ? 'text-red-400' : 'text-white'}`}>
               {formatTime(roundTimeLeft)}
             </div>
           </div>
-          <div className="bg-emerald-900/70 backdrop-blur-md rounded-xl px-4 py-1.5 flex items-center gap-2 border border-emerald-500/20">
-            <span className="text-emerald-400 text-xs font-black">TEAM</span>
+          <div className="bg-emerald-900/70 backdrop-blur-md rounded-xl px-4 py-1.5 flex items-center gap-3 border border-emerald-500/20">
             <span className="text-yellow-300 font-black text-sm">⭐ {teamScore}</span>
+            <span className="text-white/30 text-xs">|</span>
+            <span className="text-emerald-400 text-xs font-black">{solvedRooms.size}/{ROOMS.length} rooms</span>
           </div>
+          {/* My specialties hint */}
+          {specialties.length > 0 && (
+            <div className="bg-yellow-900/60 border border-yellow-500/30 backdrop-blur-md rounded-xl px-3 py-1 text-center">
+              <span className="text-yellow-300 text-[9px] font-black">⭐ Your expertise: </span>
+              {specialties.map(k => {
+                const r = ROOMS.find(x => x.key === k);
+                return <span key={k} className="text-yellow-200 text-[9px] font-bold">{r?.emoji} {r?.label} </span>;
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Right: player list mini */}
+        {/* Right: mini player list */}
         <div className="flex flex-col gap-1 pointer-events-none">
-          {Object.values(remotePos).slice(0,4).map(rp=>{
-            const c=COLORS.find(x=>x.id===rp.color_id);
+          {remoteList.slice(0, 4).map(rp => {
+            const c = COLORS.find(x => x.id === rp.color_id);
             return (
               <div key={rp.player_name}
                 className="bg-black/50 backdrop-blur-sm rounded-xl px-2 py-1 flex items-center gap-1.5">
-                <img src="/character/walk2.png" alt="" draggable={false}
-                  style={{height:18,filter:c?.filter??''}} />
+                <img src="/character/walk2.png" alt="" draggable={false} style={{ height: 18, filter: c?.filter ?? '' }} />
                 <span className="text-white text-[10px] font-bold">{rp.player_name}</span>
               </div>
             );
@@ -452,22 +631,39 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
         </div>
       </div>
 
-      {/* Room entry prompt */}
-      {nearbyRoom && !enteredRoom && (
-        <div className="absolute bottom-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
-          <button onClick={()=>{ setEnteredRoom(nearbyRoom); gameAudio.setTheme('challenging'); }}
-            className={`bg-gradient-to-r ${nearbyRoom.color} text-white font-black px-6 py-3 rounded-2xl shadow-xl text-base flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform`}>
-            <span className="text-xl">{nearbyRoom.emoji}</span> Enter {nearbyRoom.label}
-          </button>
-        </div>
-      )}
+      {/* Room entry prompt — triggers shared vote */}
+      <AnimatePresence>
+        {nearbyRoom && !activeVote && !solvedRooms.has(nearbyRoom.key) && (
+          <motion.div key="entry" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
+            className="absolute bottom-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto text-center">
+            <button
+              onClick={() => handleTriggerRoom(nearbyRoom)}
+              className={`bg-gradient-to-r ${nearbyRoom.color} text-white font-black px-6 py-3 rounded-2xl shadow-xl text-base flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform`}>
+              <span className="text-xl">{nearbyRoom.emoji}</span> Enter {nearbyRoom.label}
+            </button>
+            {specialties.includes(nearbyRoom.key) && (
+              <div className="mt-2 bg-yellow-400 text-yellow-900 font-black text-xs px-3 py-1 rounded-full inline-block">
+                ⭐ You're the expert here! Your vote counts double!
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Already solved */}
+        {nearbyRoom && solvedRooms.has(nearbyRoom.key) && (
+          <motion.div key="solved" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute bottom-36 left-1/2 -translate-x-1/2 z-30 bg-emerald-600/90 backdrop-blur-sm text-white font-black px-6 py-3 rounded-2xl text-sm border border-emerald-400/40">
+            ✅ {nearbyRoom.label} — Team solved this!
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Secret spot prompt */}
       {allMissionsComplete && nearbySecretId && !activeSecret && (
         <div className="absolute bottom-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
-          <button onClick={()=>{
-            const spot=hiddenSpotsRef.current.find(s=>s.id===nearbySecretId);
-            if(spot) setActiveSecret(spot);
+          <button onClick={() => {
+            const spot = hiddenSpotsRef.current.find(s => s.id === nearbySecretId);
+            if (spot) setActiveSecret(spot);
           }}
             className="bg-gradient-to-r from-violet-600 to-purple-700 text-white font-black px-6 py-3 rounded-2xl shadow-xl text-base flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform border border-violet-400/30">
             ✨ Investigate Secret Spot
@@ -482,20 +678,24 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
         <Joystick onMove={handleJoystick} size={120} />
       </div>
 
-      {/* Room modal — records answer to DB in multiplayer */}
-      {enteredRoom && (
-        <RoomEntryModal
-          room={enteredRoom}
-          multiplayer
-          onClose={()=>setEnteredRoom(null)}
-          onCorrect={async()=>{
-            await recordWorldAnswer(roomCode, playerName, enteredRoom.key, true);
-          }}
-        />
-      )}
+      {/* Shared voting overlay */}
+      <AnimatePresence>
+        {activeVote && (
+          <VotingOverlay
+            myName={playerName}
+            totalPlayers={totalPlayers}
+            onVote={handleVote}
+            onResolve={handleResolve}
+            isTriggerer={triggererRef.current === playerName}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Result flash */}
+      <ResultFlash />
 
       {activeSecret && (
-        <HiddenSpotModal spot={activeSecret} onClose={()=>setActiveSecret(null)} />
+        <HiddenSpotModal spot={activeSecret} onClose={() => setActiveSecret(null)} />
       )}
     </div>
   );
