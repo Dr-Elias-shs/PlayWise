@@ -60,7 +60,7 @@ function HubGameCard({ config, onClick, multiplayerBadge }: {
 type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer' | 'redeem';
 
 export default function Home() {
-  const { playerName, playerEmail, playerAvatar, setPlayerName, resetGame, loadStoredProfile } = useGameStore();
+  const { playerName, playerEmail, playerAvatar, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
   const [screen, setScreen] = useState<Screen>('login');
   const router = useRouter();
   const [activeGame, setActiveGame] = useState<GameConfig | null>(null);
@@ -88,10 +88,7 @@ export default function Home() {
     if (!isAuthenticated || accounts.length === 0) return;
     const email       = (accounts[0].username ?? '').toLowerCase().trim();
     const displayName = accounts[0].name || email.split('@')[0];
-    // Only update if email changed (prevents overwriting on re-render)
-    if (email && email !== playerEmail) {
-      setPlayerName(displayName, email);
-    }
+    if (email) setPlayerName(displayName, email); // always set — no guard
   }, [isAuthenticated, accounts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Determine initial screen once playerName/avatar known
@@ -117,7 +114,8 @@ export default function Home() {
   };
 
   const handleLogout = () => {
-    setPlayerName('');
+    // Clear full profile including email so re-login works cleanly
+    setProfile('', '', '', '');
     setEmailInput('');
     setScreen('login');
     if (isAuthenticated) {
