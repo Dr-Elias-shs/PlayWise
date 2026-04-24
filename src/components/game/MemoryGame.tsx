@@ -263,7 +263,7 @@ function GameOver({ level, matches, flips, elapsed, coins, onPlayAgain, onBack }
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function MemoryGame({ onBack }: { onBack: () => void }) {
-  const { playerName, playerGrade, soundEnabled, setSoundEnabled } = useGameStore();
+  const { playerName, playerEmail, playerGrade, soundEnabled, setSoundEnabled } = useGameStore();
 
   const [level, setLevel] = useState<Level | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
@@ -297,7 +297,7 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
     const bonus = Math.max(0, minFlips + 4 - flips);
     const earned = Math.round((totalPairs * 3 + bonus) * mult);
     setCoins(earned);
-    addCoins(playerName, earned, elapsed, true, playerGrade, 'memory').catch(() => {});
+    addCoins(playerName, earned, elapsed, true, playerGrade, 'memory', playerEmail).catch(() => {});
     // Accuracy = pairs found on first try / total pairs  (mismatches = flips/2 - matches)
     const mismatches = Math.max(0, Math.floor(flips / 2) - matches);
     recordGameResult(playerName, 'memory', matches, matches + mismatches, playerGrade).catch(() => {});

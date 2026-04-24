@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function ProfileSetup({ onDone, isEditing = false }: Props) {
-  const { playerName, playerAvatar, playerGrade, setProfile } = useGameStore();
+  const { playerName, playerEmail, playerAvatar, playerGrade, setProfile } = useGameStore();
   const [name, setName]   = useState(playerName  || '');
   const [avatar, setAvatar] = useState(playerAvatar || AVATARS[0]);
   const [grade, setGrade]  = useState(playerGrade  || '');
@@ -27,7 +27,7 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
     if (trimmed.length < 2)  { setError('Name must be at least 2 characters'); return; }
     if (trimmed.length > 20) { setError('Name must be 20 characters or less');  return; }
     if (!grade)              { setError('Please select your grade');             return; }
-    setProfile(trimmed, avatar, grade);
+    setProfile(trimmed, playerEmail, avatar, grade);
     onDone();
   };
 

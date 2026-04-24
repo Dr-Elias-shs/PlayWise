@@ -25,57 +25,55 @@ export async function getWallet(studentName: string) {
 }
 
 export async function addCoins(
-  studentName: string,
+  studentName: string,   // display name (UI only)
   amount: number,
   playTimeSeconds = 0,
   incrementGames = true,
   grade = '',
-  gameId = 'unknown'
+  gameId = 'unknown',
+  studentEmail = '',     // stable DB key — falls back to studentName if not set
 ) {
-  // Log transaction
+  // Use email as DB identifier when available, otherwise fall back to name
+  const dbKey      = studentEmail.trim().toLowerCase() || studentName;
+  const displayName = studentName;
+
   if (amount > 0) {
     supabase.from('coin_transactions').insert({
-      student_name: studentName,
-      amount,
-      source: 'game_play',
-      game_id: gameId,
-    }).then(); // fire and forget
+      student_name: dbKey,
+      amount, source: 'game_play', game_id: gameId,
+    }).then();
   }
 
-  // Log session
   if (incrementGames) {
     supabase.from('game_sessions').insert({
-      student_name: studentName,
-      game_id: gameId,
-      coins_earned: amount,
-      play_time_seconds: playTimeSeconds,
-    }).then(); // fire and forget
+      student_name: dbKey,
+      game_id: gameId, coins_earned: amount, play_time_seconds: playTimeSeconds,
+    }).then();
   }
 
   const { data: existing } = await supabase
-    .from('player_wallets')
-    .select('*')
-    .eq('student_name', studentName)
-    .single();
+    .from('player_wallets').select('*').eq('student_name', dbKey).single();
 
   if (existing) {
     return supabase.from('player_wallets').update({
-      coins: existing.coins + amount,
-      total_earned: existing.total_earned + amount,
+      display_name:      displayName,
+      coins:             existing.coins + amount,
+      total_earned:      existing.total_earned + amount,
       play_time_seconds: existing.play_time_seconds + playTimeSeconds,
-      games_played: existing.games_played + (incrementGames ? 1 : 0),
+      games_played:      existing.games_played + (incrementGames ? 1 : 0),
       ...(grade ? { grade } : {}),
-      updated_at: new Date().toISOString(),
-    }).eq('student_name', studentName);
+      updated_at:        new Date().toISOString(),
+    }).eq('student_name', dbKey);
   }
 
   return supabase.from('player_wallets').insert({
-    student_name: studentName,
-    coins: amount,
-    total_earned: amount,
-    total_redeemed: 0,
+    student_name:      dbKey,
+    display_name:      displayName,
+    coins:             amount,
+    total_earned:      amount,
+    total_redeemed:    0,
     play_time_seconds: playTimeSeconds,
-    games_played: incrementGames ? 1 : 0,
+    games_played:      incrementGames ? 1 : 0,
     grade,
   });
 }

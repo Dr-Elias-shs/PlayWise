@@ -32,9 +32,15 @@ function resolveGameName(id: string | null | undefined, focusTable?: number): st
 type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'settings';
 
 interface Wallet {
-  student_name: string; coins: number; total_earned: number;
+  student_name: string;  // email (DB key)
+  display_name: string;  // friendly name for display
+  coins: number; total_earned: number;
   total_redeemed: number; play_time_seconds: number; games_played: number;
   grade: string;
+}
+
+function walletLabel(w: Wallet) {
+  return w.display_name || w.student_name;
 }
 interface Redemption {
   id: string; student_name: string; item_name: string;
@@ -254,7 +260,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                       {(() => {
                         const filtered = wallets
                           .filter(w =>
-                            (!search || w.student_name.toLowerCase().includes(search.toLowerCase())) &&
+                            (!search || walletLabel(w).toLowerCase().includes(search.toLowerCase())) &&
                             (!gradeFilter || w.grade === gradeFilter)
                           )
                           .sort((a, b) => {
@@ -278,7 +284,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                             className="hover:bg-slate-50 transition-colors cursor-pointer group">
                             <td className="px-4 py-3 text-slate-400 font-bold text-xs">{i + 1}</td>
                             <td className="px-4 py-3 font-bold text-slate-800 group-hover:text-violet-600 transition-colors">
-                              {w.student_name}
+                              {walletLabel(w)}
                               <span className="ml-2 opacity-0 group-hover:opacity-100 text-[10px] uppercase text-violet-400">View Details →</span>
                             </td>
                             <td className="px-4 py-3">
@@ -960,11 +966,11 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                       <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/20 blur-[100px] -mr-20 -mt-20" />
                       <div className="relative flex items-end gap-6">
                         <div className="w-24 h-24 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-3xl flex items-center justify-center text-5xl shadow-xl">
-                          {w.student_name[0].toUpperCase()}
+                          {walletLabel(w)[0].toUpperCase()}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-1">
-                            <h2 className="text-3xl font-black">{w.student_name}</h2>
+                            <h2 className="text-3xl font-black">{walletLabel(w)}</h2>
                             {w.grade && <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-bold">Grade {w.grade}</span>}
                           </div>
                           <p className="text-slate-400 font-medium">Player Profile & Statistics</p>

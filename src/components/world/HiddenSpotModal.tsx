@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWorldStore } from '@/store/useWorldStore';
+import { useGameStore } from '@/store/useGameStore';
 import { playSound } from '@/lib/sounds';
 import { addCoins } from '@/lib/wallet';
 import type { HiddenSpotDef } from '@/lib/rooms';
@@ -66,6 +67,7 @@ interface Props {
 
 export function HiddenSpotModal({ spot, onClose }: Props) {
   const { playerName, addPlayBits, markSecretFound, foundSecrets } = useWorldStore();
+  const { playerEmail } = useGameStore();
   const [selected, setSelected] = useState<number | null>(null);
   const [phase, setPhase] = useState<'question' | 'correct' | 'wrong'>('question');
 
@@ -81,7 +83,7 @@ export function HiddenSpotModal({ spot, onClose }: Props) {
         addPlayBits(15);
         markSecretFound(spot.id);
         if (playerName && playerName !== 'Player') {
-          addCoins(playerName, 15, 0, false, '', 'world-secret').catch(() => {});
+          addCoins(playerName, 15, 0, false, '', 'world-secret', playerEmail).catch(() => {});
         }
         setPhase('correct');
       }, 500);

@@ -60,7 +60,7 @@ function HubGameCard({ config, onClick, multiplayerBadge }: {
 type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer' | 'redeem';
 
 export default function Home() {
-  const { playerName, playerAvatar, setPlayerName, resetGame, loadStoredProfile } = useGameStore();
+  const { playerName, playerEmail, playerAvatar, setPlayerName, resetGame, loadStoredProfile } = useGameStore();
   const [screen, setScreen] = useState<Screen>('login');
   const router = useRouter();
   const [activeGame, setActiveGame] = useState<GameConfig | null>(null);
@@ -83,11 +83,14 @@ export default function Home() {
     getGlobalConfig('game_settings').then(cfg => { if (cfg) setGameSettings(cfg); });
   }, []);
 
-  // After MSAL login — set player name from account
+  // After MSAL login — use email as stable ID, display name for UI
   useEffect(() => {
     if (!isAuthenticated || accounts.length === 0) return;
-    if (!playerName) {
-      setPlayerName(accounts[0].name || accounts[0].username);
+    const email       = (accounts[0].username ?? '').toLowerCase().trim();
+    const displayName = accounts[0].name || email.split('@')[0];
+    // Only update if email changed (prevents overwriting on re-render)
+    if (email && email !== playerEmail) {
+      setPlayerName(displayName, email);
     }
   }, [isAuthenticated, accounts]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -107,9 +110,9 @@ export default function Home() {
   const handleEmailLogin = () => {
     const email = emailInput.trim().toLowerCase();
     if (!email.includes('@')) return;
-    const prefix = email.split('@')[0];
+    const prefix      = email.split('@')[0];
     const displayName = prefix.split(/[._-]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    setPlayerName(displayName);
+    setPlayerName(displayName, email); // email is the stable DB key
     setScreen('profile-setup');
   };
 

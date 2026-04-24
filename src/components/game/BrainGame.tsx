@@ -500,7 +500,7 @@ function generateProblem(level: Level): Problem {
 // ─── Main game ────────────────────────────────────────────────────────────────
 
 export function BrainGame({ onBack }: { onBack: () => void }) {
-  const { playerName }  = useGameStore();
+  const { playerName, playerEmail }  = useGameStore();
   const [level, setLevel]       = useState<Level | null>(null);
   const [problem, setProblem]   = useState<Problem | null>(null);
   const [step, setStep]         = useState(0);
@@ -567,7 +567,7 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
         const correctSteps = totalSteps - mistakes;
         setCoinsEarned(total);
         if (playerName) {
-          addCoins(playerName, total, elapsed, true, '', 'brain').catch(() => {});
+          addCoins(playerName, total, elapsed, true, '', 'brain', playerEmail).catch(() => {});
           recordGameResult(playerName, 'brain', correctSteps, totalSteps).catch(() => {});
         }
         setOwlMood('celebrate');

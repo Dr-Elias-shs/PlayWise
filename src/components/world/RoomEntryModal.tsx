@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { RoomDef } from '@/lib/rooms';
 import { QUESTION_BANK, LeveledQuestion } from '@/lib/questionBank';
 import { useWorldStore, RoomKey } from '@/store/useWorldStore';
+import { useGameStore } from '@/store/useGameStore';
 import { addCoins } from '@/lib/wallet';
 import { gameAudio } from '@/lib/game-audio';
 import { playSound } from '@/lib/sounds';
@@ -20,6 +21,7 @@ type Phase = 'enter' | 'question' | 'correct' | 'wrong';
 
 export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }: Props) {
   const { playerName, addPlayBits, markRoomComplete, completedRooms, currentMissionIndex, advanceMission } = useWorldStore();
+  const { playerEmail } = useGameStore();
   const [phase, setPhase]       = useState<Phase>(multiplayer ? 'question' : 'enter');
   const [question, setQuestion] = useState<LeveledQuestion | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
@@ -73,7 +75,7 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
           if (isCorrectRoom) advanceMission();
         }
         if (playerName && playerName !== 'Player') {
-          addCoins(playerName, 0, elapsed, false, '', room.key).catch(() => {});
+          addCoins(playerName, 0, elapsed, false, '', room.key, playerEmail).catch(() => {});
         }
         onCorrect?.();
         setPhase('correct');

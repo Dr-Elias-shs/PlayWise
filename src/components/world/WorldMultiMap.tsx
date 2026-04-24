@@ -16,6 +16,7 @@ import { playSound } from '@/lib/sounds';
 import { gameAudio } from '@/lib/game-audio';
 import type { RoomDef, WallDef } from '@/lib/rooms';
 import { useWorldStore, RoomKey } from '@/store/useWorldStore';
+import { useGameStore } from '@/store/useGameStore';
 import { useWorldMultiStore, RemotePlayer } from '@/store/useWorldMultiStore';
 import { getGlobalConfig, addCoins } from '@/lib/wallet';
 import { DEFAULT_MAP_ID } from '@/lib/map-registry';
@@ -490,7 +491,8 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
     broadcastGameEvent(evt);
     if (correct) {
       setTeamScore(newTeamScore);
-      await addCoins(playerName, 10, 0, false, '', roomKey).catch(() => {});
+      const { playerEmail } = useGameStore.getState();
+      await addCoins(playerName, 10, 0, false, '', roomKey, playerEmail).catch(() => {});
     }
     gameAudio.setTheme('peaceful');
   }

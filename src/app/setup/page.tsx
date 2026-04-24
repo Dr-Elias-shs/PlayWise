@@ -37,6 +37,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.game_rooms;`,
     name: "player_wallets",
     sql: `CREATE TABLE IF NOT EXISTS public.player_wallets (
   student_name TEXT PRIMARY KEY,
+  display_name TEXT DEFAULT '',
   coins INTEGER DEFAULT 0,
   total_earned INTEGER DEFAULT 0,
   total_redeemed INTEGER DEFAULT 0,
@@ -45,6 +46,8 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.game_rooms;`,
   grade TEXT DEFAULT '',
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- Add display_name if upgrading existing table
+ALTER TABLE public.player_wallets ADD COLUMN IF NOT EXISTS display_name TEXT DEFAULT '';
 ALTER TABLE public.player_wallets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "all" ON public.player_wallets FOR ALL USING (true) WITH CHECK (true);
 ALTER PUBLICATION supabase_realtime ADD TABLE public.player_wallets;`,

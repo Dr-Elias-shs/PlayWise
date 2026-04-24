@@ -1,77 +1,96 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 
-const STORAGE_KEY = 'playwise_profile_v2'; // bumped → clears all email-bypass sessions
+// v3 — now stores email as stable identifier
+const STORAGE_KEY = 'playwise_profile_v3';
 
-function loadProfile(): { name: string; avatar: string; grade: string } {
-  if (typeof window === 'undefined') return { name: '', avatar: '', grade: '' };
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : { name: '', avatar: '', grade: '' };
-  } catch { return { name: '', avatar: '', grade: '' }; }
+interface StoredProfile {
+  name: string;
+  email: string;
+  avatar: string;
+  grade: string;
 }
 
-function saveProfile(name: string, avatar: string, grade: string) {
+function loadProfile(): StoredProfile {
+  if (typeof window === 'undefined') return { name: '', email: '', avatar: '', grade: '' };
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+    // Migrate from v2 (no email) — keep name, email will be set on next SSO login
+    const v2 = localStorage.getItem('playwise_profile_v2');
+    if (v2) return { ...JSON.parse(v2), email: '' };
+    return { name: '', email: '', avatar: '', grade: '' };
+  } catch { return { name: '', email: '', avatar: '', grade: '' }; }
+}
+
+function saveProfile(p: StoredProfile) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ name, avatar, grade }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
 }
 
 interface GameState {
   // Profile
-  playerName: string;
+  playerName:   string;  // display name (for UI only)
+  playerEmail:  string;  // stable DB identifier (email)
   playerAvatar: string;
-  playerGrade: string;
-  setProfile: (name: string, avatar: string, grade: string) => void;
-  setPlayerName: (name: string) => void;
+  playerGrade:  string;
+
+  setProfile:      (name: string, email: string, avatar: string, grade: string) => void;
+  setPlayerName:   (name: string, email?: string) => void;
   loadStoredProfile: () => void;
 
   // Sound
-  soundEnabled: boolean;
+  soundEnabled:    boolean;
   setSoundEnabled: (enabled: boolean) => void;
 
   // Game
-  focusNumber: number | null;
-  setFocusNumber: (num: number | null) => void;
-  score: number;
-  streak: number;
-  maxStreak: number;
-  correctCount: number;
-  wrongCount: number;
-  scoreMultiplier: number;
-  incrementScore: (points: number) => void;
-  incrementWrong: () => void;
-  setScoreMultiplier: (m: number) => void;
-  resetGame: () => void;
+  focusNumber:       number | null;
+  setFocusNumber:    (num: number | null) => void;
+  score:             number;
+  streak:            number;
+  maxStreak:         number;
+  correctCount:      number;
+  wrongCount:        number;
+  scoreMultiplier:   number;
+  incrementScore:    (points: number) => void;
+  incrementWrong:    () => void;
+  setScoreMultiplier:(m: number) => void;
+  resetGame:         () => void;
 
   // Multiplayer
-  socket: Socket | null;
-  roomId: string | null;
-  roomData: any | null;
-  connectSocket: () => void;
-  joinRoom: (roomId: string) => void;
-  startGameMultiplayer: (config: any) => void;
-  clearRoom: () => void;
+  socket:              Socket | null;
+  roomId:              string | null;
+  roomData:            any | null;
+  connectSocket:       () => void;
+  joinRoom:            (roomId: string) => void;
+  startGameMultiplayer:(config: any) => void;
+  clearRoom:           () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
-  playerName: '',
+  playerName:   '',
+  playerEmail:  '',
   playerAvatar: '',
-  playerGrade: '',
+  playerGrade:  '',
 
-  setProfile: (name, avatar, grade) => {
-    saveProfile(name, avatar, grade);
-    set({ playerName: name, playerAvatar: avatar, playerGrade: grade });
+  setProfile(name, email, avatar, grade) {
+    const p = { name, email: email.toLowerCase().trim(), avatar, grade };
+    saveProfile(p);
+    set({ playerName: p.name, playerEmail: p.email, playerAvatar: avatar, playerGrade: grade });
   },
 
-  setPlayerName: (name) => {
-    const { playerAvatar, playerGrade } = get();
-    saveProfile(name, playerAvatar, playerGrade);
-    set({ playerName: name });
+  setPlayerName(name, email) {
+    const { playerAvatar, playerGrade, playerEmail } = get();
+    const resolvedEmail = (email ?? playerEmail ?? '').toLowerCase().trim();
+    saveProfile({ name, email: resolvedEmail, avatar: playerAvatar, grade: playerGrade });
+    set({ playerName: name, playerEmail: resolvedEmail });
   },
 
-  loadStoredProfile: () => {
-    const { name, avatar, grade } = loadProfile();
-    if (name) set({ playerName: name, playerAvatar: avatar, playerGrade: grade });
+  loadStoredProfile() {
+    const { name, email, avatar, grade } = loadProfile();
+    if (name || email) {
+      set({ playerName: name, playerEmail: email, playerAvatar: avatar, playerGrade: grade });
+    }
   },
 
   soundEnabled: true,
@@ -91,33 +110,28 @@ export const useGameStore = create<GameState>((set, get) => ({
     };
   }),
 
-  incrementWrong: () => set((s) => ({ streak: 0, wrongCount: s.wrongCount + 1 })),
-  setScoreMultiplier: (m) => set({ scoreMultiplier: m }),
-  resetGame: () => set({ score: 0, streak: 0, maxStreak: 0, correctCount: 0, wrongCount: 0, scoreMultiplier: 1 }),
+  incrementWrong:    () => set((s) => ({ streak: 0, wrongCount: s.wrongCount + 1 })),
+  setScoreMultiplier:(m) => set({ scoreMultiplier: m }),
+  resetGame:         () => set({ score: 0, streak: 0, maxStreak: 0, correctCount: 0, wrongCount: 0, scoreMultiplier: 1 }),
 
-  socket: null,
-  roomId: null,
-  roomData: null,
+  socket: null, roomId: null, roomData: null,
 
-  connectSocket: () => {
+  connectSocket() {
     if (!get().socket) {
       const socket = io();
-      socket.on('room_update', (data) => set({ roomData: data }));
-      socket.on('game_started', (data) => set({ roomData: data, focusNumber: data.config.focusNumber }));
-      socket.on('leaderboard_update', (players) => set((s) => ({ roomData: { ...s.roomData, players } })));
+      socket.on('room_update',       (data)    => set({ roomData: data }));
+      socket.on('game_started',      (data)    => set({ roomData: data, focusNumber: data.config.focusNumber }));
+      socket.on('leaderboard_update',(players) => set((s) => ({ roomData: { ...s.roomData, players } })));
       set({ socket });
     }
   },
 
-  joinRoom: (roomId) => {
+  joinRoom(roomId) {
     const { socket, playerName, playerAvatar } = get();
-    if (socket) {
-      socket.emit('join_room', { roomId, playerName, playerAvatar });
-      set({ roomId });
-    }
+    if (socket) { socket.emit('join_room', { roomId, playerName, playerAvatar }); set({ roomId }); }
   },
 
-  startGameMultiplayer: (config) => {
+  startGameMultiplayer(config) {
     const { socket, roomId } = get();
     if (socket && roomId) socket.emit('start_game', { roomId, config });
   },

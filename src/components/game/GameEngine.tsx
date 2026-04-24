@@ -160,7 +160,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
 
   useEffect(() => {
     if (isGameOver) {
-      const { score: s, correctCount: cc, maxStreak: ms, playerGrade } = useGameStore.getState();
+      const { score: s, correctCount: cc, maxStreak: ms, playerGrade, playerEmail } = useGameStore.getState();
       const elapsed = config.duration - timeLeft;
 
       saveScore(playerName, 0, s, config.id)
@@ -171,7 +171,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
       const coins = calcCoins(cc, ms, false, false);
       setCoinsEarned(coins);
       console.log(`₿ Awarding ${coins} coins to ${playerName} (correct: ${cc}, streak: ${ms})`);
-      addCoins(playerName, coins, elapsed, true, playerGrade, config.id)
+      addCoins(playerName, coins, elapsed, true, playerGrade, config.id, playerEmail)
         .then(({ error }: any) => {
           if (error) console.error('Coin save failed:', error.message);
         });
