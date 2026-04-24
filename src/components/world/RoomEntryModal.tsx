@@ -12,25 +12,27 @@ import { playSound } from '@/lib/sounds';
 interface Props {
   room: RoomDef;
   onClose: () => void;
-  onCorrect?: () => void; // optional multiplayer hook
+  onCorrect?: () => void;
+  multiplayer?: boolean; // skip solo mission/completion checks
 }
 
 type Phase = 'enter' | 'question' | 'correct' | 'wrong';
 
-export function RoomEntryModal({ room, onClose, onCorrect }: Props) {
+export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }: Props) {
   const { playerName, addPlayBits, markRoomComplete, completedRooms, currentMissionIndex, advanceMission } = useWorldStore();
-  const [phase, setPhase]       = useState<Phase>('enter');
+  const [phase, setPhase]       = useState<Phase>(multiplayer ? 'question' : 'enter');
   const [question, setQuestion] = useState<LeveledQuestion | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const questionStartRef = useRef<number>(Date.now());
 
   const MISSION_SEQUENCE: RoomKey[] = [
-    'math', 'science', 'computer', 'robotics', 'library', 'history', 
+    'math', 'science', 'computer', 'robotics', 'library', 'history',
     'language_arts', 'reading', 'art', 'music', 'kitchen', 'cafeteria'
   ];
   const currentMissionKey = MISSION_SEQUENCE[currentMissionIndex] || null;
-  const isCorrectRoom = room.key === currentMissionKey;
-  const isAlreadyDone = completedRooms.has(room.key);
+  // In multiplayer: ignore solo progress — every room is always open
+  const isCorrectRoom = multiplayer ? true  : room.key === currentMissionKey;
+  const isAlreadyDone = multiplayer ? false : completedRooms.has(room.key);
 
   // Pick a random question for this room each visit
   useEffect(() => {
@@ -38,11 +40,11 @@ export function RoomEntryModal({ room, onClose, onCorrect }: Props) {
     const q = bank[Math.floor(Math.random() * bank.length)];
     setQuestion(q || null);
 
-    // Auto-skip to question if it's the correct room and not done
-    if (isCorrectRoom && !isAlreadyDone) {
+    // Solo: auto-skip enter prompt when this is the active mission room
+    if (!multiplayer && isCorrectRoom && !isAlreadyDone) {
       setPhase('question');
     }
-  }, [room, isCorrectRoom, isAlreadyDone]);
+  }, [room, isCorrectRoom, isAlreadyDone, multiplayer]);
 
   // Switch music theme when question phase starts
   useEffect(() => {
@@ -66,8 +68,10 @@ export function RoomEntryModal({ room, onClose, onCorrect }: Props) {
       const elapsed = Math.round((Date.now() - questionStartRef.current) / 1000);
       setTimeout(() => {
         addPlayBits(10);
-        markRoomComplete(room.key);
-        if (isCorrectRoom) advanceMission();
+        if (!multiplayer) {
+          markRoomComplete(room.key);
+          if (isCorrectRoom) advanceMission();
+        }
         if (playerName && playerName !== 'Player') {
           addCoins(playerName, 0, elapsed, false, '', room.key).catch(() => {});
         }

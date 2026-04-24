@@ -486,6 +486,7 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
       {enteredRoom && (
         <RoomEntryModal
           room={enteredRoom}
+          multiplayer
           onClose={()=>setEnteredRoom(null)}
           onCorrect={async()=>{
             await recordWorldAnswer(roomCode, playerName, enteredRoom.key, true);
