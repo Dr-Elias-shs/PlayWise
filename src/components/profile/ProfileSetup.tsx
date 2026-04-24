@@ -23,7 +23,8 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
   const [error, setError]  = useState('');
 
   const handleSave = () => {
-    const trimmed = name.trim();
+    // Strip emojis and non-printable characters — letters, numbers, spaces, hyphens only
+    const trimmed = name.trim().replace(/[^\p{L}\p{N}\s\-'.]/gu, '').trim();
     if (trimmed.length < 2)  { setError('Name must be at least 2 characters'); return; }
     if (trimmed.length > 20) { setError('Name must be 20 characters or less');  return; }
     if (!grade)              { setError('Please select your grade');             return; }
