@@ -6,6 +6,94 @@ import { useWorldStore } from '@/store/useWorldStore';
 import { useWorldMultiStore } from '@/store/useWorldMultiStore';
 import { useAvatarStore } from '@/store/useAvatarStore';
 import { COLORS, ACCESSORIES } from '@/lib/avatar-items';
+
+// ── Animated lobby scene ──────────────────────────────────────────────────────
+
+const SCENE_CHARS = [
+  { colorId: 'blue',   accEmoji: '👑',  startX: 8,  speed: 38, size: 56, delay: 0    },
+  { colorId: 'red',    accEmoji: '🎩',  startX: 55, speed: 52, size: 48, delay: 1.2  },
+  { colorId: 'purple', accEmoji: '⭐',  startX: 30, speed: 44, size: 60, delay: 0.5  },
+  { colorId: 'yellow', accEmoji: '🎓',  startX: 70, speed: 35, size: 52, delay: 2.1  },
+  { colorId: 'pink',   accEmoji: '🎀',  startX: 20, speed: 48, size: 44, delay: 0.8  },
+  { colorId: 'teal',   accEmoji: '⚡',  startX: 82, speed: 40, size: 50, delay: 1.7  },
+  { colorId: 'orange', accEmoji: '🕶️', startX: 45, speed: 56, size: 46, delay: 3.0  },
+  { colorId: 'green',  accEmoji: null,  startX: 62, speed: 42, size: 54, delay: 1.4  },
+];
+
+function LobbyScene() {
+  const [frame, setFrame] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setFrame(f => (f + 1) % 3), 160);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="relative w-full overflow-hidden rounded-2xl border border-white/10"
+      style={{ height: 130, background: 'linear-gradient(180deg, #1a3a1a 0%, #0f2a0f 60%, #0a1a0a 100%)' }}>
+
+      {/* Ground line */}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-white/10" />
+
+      {/* Map thumbnail in background */}
+      <img src="/maps/floor_map.png" alt="" draggable={false}
+        className="absolute inset-0 w-full h-full object-cover opacity-[0.07] pointer-events-none" />
+
+      {/* Walking characters */}
+      {SCENE_CHARS.map((ch, i) => {
+        const color = COLORS.find(c => c.id === ch.colorId);
+        return (
+          <motion.div
+            key={i}
+            initial={{ x: `${ch.startX}%` }}
+            animate={{ x: [`${ch.startX}%`, `${(ch.startX + 70) % 110 - 10}%`] }}
+            transition={{
+              duration: ch.speed,
+              repeat: Infinity,
+              repeatType: 'reverse',
+              ease: 'linear',
+              delay: ch.delay,
+            }}
+            style={{
+              position: 'absolute',
+              bottom: 8,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+          >
+            {ch.accEmoji && (
+              <span style={{ fontSize: ch.size * 0.35, lineHeight: 1, marginBottom: 1 }}>
+                {ch.accEmoji}
+              </span>
+            )}
+            <img
+              src={`/character/walk${frame + 1}.png`}
+              alt=""
+              draggable={false}
+              style={{
+                height: ch.size,
+                filter: color?.filter ?? '',
+                imageRendering: 'pixelated',
+              }}
+            />
+          </motion.div>
+        );
+      })}
+
+      {/* Overlay text */}
+      <div className="absolute inset-0 flex items-start justify-center pt-3 pointer-events-none">
+        <motion.div
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="bg-black/50 backdrop-blur-sm rounded-full px-4 py-1.5 text-white/80 text-xs font-black uppercase tracking-widest"
+        >
+          🌍 PlayWise World — Gathering Players…
+        </motion.div>
+      </div>
+    </div>
+  );
+}
 import {
   createWorldRoom, getOpenWorldRooms, getOrCreateAutoRoom,
   joinWorldRoom, leaveWorldRoom, startWorldRoom,
@@ -195,6 +283,8 @@ export function WorldMultiLobby({ mapId, onStart, onBack }: Props) {
           <h1 className="text-white font-black text-xl flex-1">🌍 World Multiplayer</h1>
         </div>
 
+        <LobbyScene />
+
         {joinError && (
           <div className="bg-red-500/20 border border-red-400/30 rounded-2xl px-4 py-2 text-red-300 text-sm font-bold">
             ⚠️ {joinError}
@@ -274,13 +364,33 @@ export function WorldMultiLobby({ mapId, onStart, onBack }: Props) {
         </div>
       </div>
 
-      {/* Countdown banner */}
-      <AnimatePresence>
-        {countdownLive > 0 && (
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }}
-            className="bg-emerald-500/20 border border-emerald-400/40 rounded-2xl p-4 text-center">
-            <div className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1">Game starting in</div>
-            <div className="text-emerald-400 font-black text-5xl">{countdownLive}</div>
+      {/* Animated scene — shrinks to make room for countdown */}
+      <AnimatePresence mode="wait">
+        {countdownLive > 0 ? (
+          <motion.div key="countdown"
+            initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }}
+            className="rounded-2xl overflow-hidden border border-emerald-400/40 relative"
+            style={{ background: 'linear-gradient(180deg, #064e3b 0%, #052e16 100%)' }}>
+            {/* Scene still plays but dimmed behind the countdown */}
+            <div className="opacity-40 pointer-events-none">
+              <LobbyScene />
+            </div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="text-white/70 text-xs font-black uppercase tracking-widest mb-1">Game starting in</div>
+              <motion.div
+                key={countdownLive}
+                initial={{ scale: 1.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-emerald-400 font-black"
+                style={{ fontSize: 72, lineHeight: 1 }}
+              >
+                {countdownLive}
+              </motion.div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div key="scene" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <LobbyScene />
           </motion.div>
         )}
       </AnimatePresence>
