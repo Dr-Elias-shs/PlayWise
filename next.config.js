@@ -8,6 +8,10 @@ const withPWA = require('next-pwa')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    // Keep these heavy native/ESM modules out of the webpack bundle
+    serverComponentsExternalPackages: ['pdf-parse', 'mammoth', 'officeparser', 'file-type'],
+  },
 };
 
 module.exports = withPWA(nextConfig);
