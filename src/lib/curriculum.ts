@@ -121,12 +121,19 @@ export async function getCurriculumQuestionsForStudent(
   grade: string,
   subject: string,
 ): Promise<{ text: string; choices: string[]; answer: number } | null> {
-  if (!grade) return null;
+  if (!grade) {
+    console.warn('[Curriculum] No grade — falling back to static bank');
+    return null;
+  }
   const term = await getActiveTerm(grade);
-  if (!term) return null;
+  if (!term) {
+    console.warn(`[Curriculum] No active term for grade ${grade} — enable a term in Admin › Curriculum`);
+    return null;
+  }
 
   const qs = await getQuestions(grade, term, subject);
   const enabled = qs.filter(q => q.enabled);
+  console.log(`[Curriculum] grade=${grade} term=${term} subject=${subject} → ${qs.length} questions (${enabled.length} enabled)`);
   if (enabled.length === 0) return null;
 
   const q = enabled[Math.floor(Math.random() * enabled.length)];
