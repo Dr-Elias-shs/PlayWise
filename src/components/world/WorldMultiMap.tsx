@@ -31,7 +31,7 @@ import {
 
 const COLLISION_R  = 4;
 const ZOOM         = 2;
-const SPEED        = 0.7;
+const SPEED        = 1.1;
 const FRAME_MS     = 160;
 const SPAWN_X      = MAP_W * 0.50;
 const SPAWN_Y      = MAP_H * 0.54;
@@ -299,6 +299,14 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
         }
         if (evt.type === 'room_resolved') {
           const r = evt as RoomResolvedEvent;
+          // Non-triggerers record their own answer contribution here.
+          // (The triggerer already records inside handleResolve.)
+          if (triggererRef.current !== playerName) {
+            const myVote = useWorldMultiStore.getState().myVote;
+            if (myVote !== null) {
+              recordWorldAnswer(roomCode, playerName, r.room_key, myVote === r.answer);
+            }
+          }
           closeVote({ roomKey: r.room_key, correct: r.correct, answer: r.answer });
           if (r.correct) setTeamScore(r.team_score);
           gameAudio.setTheme('peaceful');
@@ -675,10 +683,10 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
         </div>
       )}
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs z-30 pointer-events-none">
+      <div className="absolute bottom-4 left-6 text-white/30 text-xs z-30 pointer-events-none">
         WASD / arrows or joystick
       </div>
-      <div className="absolute bottom-6 right-6 z-30">
+      <div className="absolute bottom-20 left-6 z-30">
         <Joystick onMove={handleJoystick} size={120} />
       </div>
 
