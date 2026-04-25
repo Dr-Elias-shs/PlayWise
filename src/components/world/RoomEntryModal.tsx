@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RoomDef } from '@/lib/rooms';
 import { QUESTION_BANK, LeveledQuestion } from '@/lib/questionBank';
-import { getCurriculumQuestionsForStudent } from '@/lib/curriculum';
+import { getCurriculumQuestionsForStudent, advanceCurriculumQuestion } from '@/lib/curriculum';
 import { useWorldStore, RoomKey } from '@/store/useWorldStore';
 import { useGameStore } from '@/store/useGameStore';
 import { addCoins } from '@/lib/wallet';
@@ -81,6 +81,7 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
     setSelected(idx);
     if (idx === question.answer) {
       playSound('correct');
+      advanceCurriculumQuestion(playerGrade, room.key);
       const elapsed = Math.round((Date.now() - questionStartRef.current) / 1000);
       setTimeout(() => {
         addPlayBits(10);

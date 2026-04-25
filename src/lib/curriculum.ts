@@ -117,9 +117,9 @@ export async function bulkAddQuestions(
 
 // ── Runtime: get questions for a student ─────────────────────────────────────
 
-// Module-level rotation counters — persist for the browser session, reset on page reload.
-// Keyed by "grade_term_subject".
-const _rotation: Record<string, number> = {};
+// Module-level rotation — persists for the browser session, resets on page reload.
+const _rotation: Record<string, number> = {};  // "grade_term_subject" → next index
+const _lastTerm:  Record<string, number> = {};  // grade → last active term (cached)
 
 export async function getCurriculumQuestionsForStudent(
   grade: string,
@@ -134,18 +134,27 @@ export async function getCurriculumQuestionsForStudent(
     console.warn(`[Curriculum] No active term for grade ${grade} — enable a term in Admin › Curriculum`);
     return null;
   }
+  _lastTerm[grade] = term;
 
   const qs = await getQuestions(grade, term, subject);
   const enabled = qs.filter(q => q.enabled);
   console.log(`[Curriculum] grade=${grade} term=${term} subject=${subject} → ${enabled.length} enabled questions`);
   if (enabled.length === 0) return null;
 
+  // Read current index but do NOT advance yet — advance only on correct answer
   const key = `${grade}_${term}_${subject}`;
   const idx = (_rotation[key] ?? 0) % enabled.length;
-  _rotation[key] = idx + 1;
 
   const q = enabled[idx];
   return { text: q.question_text, choices: q.choices, answer: q.correct_answer };
+}
+
+// Call this when the student answers correctly to move to the next question.
+export function advanceCurriculumQuestion(grade: string, subject: string): void {
+  const term = _lastTerm[grade];
+  if (!term) return;
+  const key = `${grade}_${term}_${subject}`;
+  _rotation[key] = (_rotation[key] ?? 0) + 1;
 }
 
 // ── Ollama import ─────────────────────────────────────────────────────────────
