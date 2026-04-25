@@ -13,6 +13,7 @@ import { COLORS, ACCESSORIES } from '@/lib/avatar-items';
 import { MAP_REGISTRY, MapMeta } from '@/lib/map-registry';
 import { ROOMS } from '@/lib/rooms';
 import { getGlobalConfig } from '@/lib/wallet';
+import { WiseWorldIntro } from '@/components/world/WiseWorldIntro';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -366,10 +367,11 @@ function WorldLobby({ onEnter, onMultiplayer }: { onEnter: (mapId: string) => vo
 
 export default function WorldPage() {
   const router = useRouter();
-  const [selectedMap,  setSelectedMap]  = useState<string | null>(null);
-  const [multiMode,    setMultiMode]    = useState(false);
-  const [multiRoomCode,setMultiRoomCode]= useState<string | null>(null);
-  const [allowed, setAllowed] = useState<boolean | null>(null); // null = loading
+  const [selectedMap,   setSelectedMap]   = useState<string | null>(null);
+  const [multiMode,     setMultiMode]     = useState(false);
+  const [multiRoomCode, setMultiRoomCode] = useState<string | null>(null);
+  const [allowed,       setAllowed]       = useState<boolean | null>(null);
+  const [showWorldIntro, setShowWorldIntro] = useState(false);
 
   useEffect(() => {
     // Always allow on localhost so you can test without affecting students
@@ -412,10 +414,15 @@ export default function WorldPage() {
 
   // Multiplayer game in progress
   if (multiRoomCode && selectedMap) {
-    return <WorldMultiMap
-      roomCode={multiRoomCode} mapId={selectedMap}
-      onBack={() => { setMultiRoomCode(null); setMultiMode(false); setSelectedMap(null); }}
-    />;
+    return (
+      <>
+        <WorldMultiMap
+          roomCode={multiRoomCode} mapId={selectedMap}
+          onBack={() => { setMultiRoomCode(null); setMultiMode(false); setSelectedMap(null); setShowWorldIntro(false); }}
+        />
+        {showWorldIntro && <WiseWorldIntro onDone={() => setShowWorldIntro(false)} />}
+      </>
+    );
   }
 
   // Multiplayer lobby
@@ -427,13 +434,18 @@ export default function WorldPage() {
     />;
   }
 
-  // Solo game
+  // Solo game — render map underneath, intro on top as overlay
   if (selectedMap && !multiMode) {
-    return <WorldMap onBack={() => setSelectedMap(null)} mapId={selectedMap} />;
+    return (
+      <>
+        <WorldMap onBack={() => { setSelectedMap(null); setShowWorldIntro(false); }} mapId={selectedMap} />
+        {showWorldIntro && <WiseWorldIntro onDone={() => setShowWorldIntro(false)} />}
+      </>
+    );
   }
 
   return <WorldLobby
-    onEnter={setSelectedMap}
-    onMultiplayer={(mapId) => { setSelectedMap(mapId); setMultiMode(true); }}
+    onEnter={(mapId) => { setSelectedMap(mapId); setShowWorldIntro(true); }}
+    onMultiplayer={(mapId) => { setSelectedMap(mapId); setMultiMode(true); setShowWorldIntro(true); }}
   />;
 }
