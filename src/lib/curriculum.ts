@@ -239,14 +239,45 @@ Return ONLY a JSON array like:
     }
   }
 
-  // Extract JSON array from the response
-  const match = fullText.match(/\[[\s\S]*\]/);
-  if (!match) throw new Error('Ollama did not return a valid JSON array');
+  // Extract the JSON array from Ollama's response robustly
+  const start = fullText.indexOf('[');
+  const end   = fullText.lastIndexOf(']');
+  if (start === -1 || end === -1 || start >= end)
+    throw new Error('Ollama did not return a JSON array — try again or simplify the input text');
 
-  const parsed: ParsedQuestion[] = JSON.parse(match[0]);
+  let candidate = fullText.slice(start, end + 1);
+
+  // Attempt 1: parse as-is
+  let parsed: ParsedQuestion[] | null = null;
+  try {
+    parsed = JSON.parse(candidate);
+  } catch {
+    // Attempt 2: sanitise common issues Ollama introduces
+    //  - unescaped newlines / tabs inside string values
+    //  - trailing commas before ] or }
+    //  - control characters
+    const cleaned = candidate
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')   // strip control chars (keep \t \n \r)
+      .replace(/([^\\])\n/g, '$1 ')                          // collapse unescaped newlines to spaces
+      .replace(/([^\\])\t/g, '$1 ')                          // same for tabs
+      .replace(/,(\s*[\]}])/g, '$1');                        // trailing commas
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      // Attempt 3: extract individual objects and reassemble
+      const objects: ParsedQuestion[] = [];
+      const objRegex = /\{[^{}]*"question"[^{}]*"choices"[^{}]*"answer"[^{}]*\}/g;
+      for (const m of Array.from(fullText.matchAll(objRegex))) {
+        try { objects.push(JSON.parse(m[0])); } catch {}
+      }
+      if (objects.length === 0)
+        throw new Error('Could not parse Ollama response as JSON — try again');
+      parsed = objects;
+    }
+  }
 
   // Validate each question
-  return parsed.filter(q =>
+  return (parsed as ParsedQuestion[]).filter(q =>
     typeof q.question === 'string' &&
     Array.isArray(q.choices) && q.choices.length === 4 &&
     typeof q.answer === 'number' && q.answer >= 0 && q.answer <= 3
