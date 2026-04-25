@@ -9,8 +9,7 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    // Keep these heavy native/ESM modules out of the webpack bundle
-    serverComponentsExternalPackages: ['pdf-parse', 'mammoth', 'officeparser', 'file-type'],
+    serverComponentsExternalPackages: ['pdf-parse', 'mammoth'],
   },
 };
 

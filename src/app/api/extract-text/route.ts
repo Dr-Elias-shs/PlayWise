@@ -1,5 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Extract text nodes from PPTX/PPT slide XML (<a:t> tags)
+async function extractPptxText(buffer: Buffer): Promise<string> {
+  const JSZip = require('jszip');
+  const zip = await JSZip.loadAsync(buffer);
+
+  const slideNames = Object.keys(zip.files)
+    .filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+    .sort((a, b) => {
+      const num = (s: string) => parseInt(s.match(/\d+/)![0], 10);
+      return num(a) - num(b);
+    });
+
+  const chunks: string[] = [];
+  for (const name of slideNames) {
+    const xml: string = await zip.files[name].async('string');
+    for (const m of xml.matchAll(/<a:t[^>]*>([^<]+)<\/a:t>/g)) {
+      chunks.push(m[1]);
+    }
+    chunks.push('\n');
+  }
+  return chunks.join(' ');
+}
+
 export async function POST(req: NextRequest) {
   let file: File | null = null;
   try {
@@ -29,12 +52,7 @@ export async function POST(req: NextRequest) {
       text = result.value;
 
     } else if (ext === 'pptx' || ext === 'ppt') {
-      const officeParser = require('officeparser');
-      text = await new Promise<string>((resolve, reject) => {
-        officeParser.parseOffice(buffer, (data: string, err: Error) => {
-          if (err) reject(err); else resolve(data);
-        }, { outputErrorToConsole: false });
-      });
+      text = await extractPptxText(buffer);
 
     } else {
       return NextResponse.json({ error: `Unsupported file type: .${ext}` }, { status: 400 });
