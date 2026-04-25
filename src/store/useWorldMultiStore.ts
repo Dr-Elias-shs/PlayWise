@@ -25,7 +25,15 @@ interface WorldMultiState {
   solvedRooms:    Set<string>;       // rooms answered correctly this round
   activeVote:     ActiveVote | null; // live voting session
   myVote:         number | null;     // choice index I submitted
-  lastResult:     { roomKey: string; correct: boolean; answer: number } | null;
+  lastResult:     {
+    roomKey:  string;
+    correct:  boolean;
+    answer:   number;
+    // Captured at resolve time so non-triggerers can show the full reveal panel
+    question: { text: string; choices: string[]; answer: number; explanation?: string } | null;
+    votes:    Record<string, { choice: number; isSpecialist: boolean }>;
+    myVote:   number | null;
+  } | null;
 
   setRoom:          (r: WorldRoom | null) => void;
   setPlayers:       (p: WorldPlayer[]) => void;
@@ -84,10 +92,14 @@ export const useWorldMultiStore = create<WorldMultiState>((set, get) => ({
   },
 
   closeVote(result) {
-    set({ activeVote: null, myVote: null, lastResult: result });
+    const s = get();
+    const question = s.activeVote?.trigger.question ?? null;
+    const votes    = s.activeVote?.votes ?? {};
+    const myVote   = s.myVote;
+    set({ activeVote: null, myVote: null, lastResult: { ...result, question, votes, myVote } });
     if (result.correct) get().markRoomSolved(result.roomKey);
-    // Clear result after 3s
-    setTimeout(() => set(s => s.lastResult?.roomKey === result.roomKey ? { lastResult: null } : s), 3000);
+    // Hold result long enough for the reveal panel to show (7 s)
+    setTimeout(() => set(st => st.lastResult?.roomKey === result.roomKey ? { lastResult: null } : st), 7000);
   },
 
   upsertRemotePos(tick) {

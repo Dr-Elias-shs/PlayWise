@@ -703,8 +703,8 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
         )}
       </AnimatePresence>
 
-      {/* Result flash */}
-      <ResultFlash />
+      {/* Full reveal panel for non-triggerers — triggerer already sees it in VotingOverlay */}
+      {triggererRef.current !== playerName && <ResultFlash />}
 
       {activeSecret && (
         <HiddenSpotModal spot={activeSecret} onClose={() => setActiveSecret(null)} />

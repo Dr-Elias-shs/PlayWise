@@ -377,38 +377,157 @@ export function VotingOverlay({ myName, totalPlayers, onVote, onResolve, isTrigg
   );
 }
 
-// ── Result flash — for NON-triggerers who don't see the reveal panel ──────────
+// ── Full reveal panel for NON-triggerers ─────────────────────────────────────
+// Mirrors the triggerer's revealing phase so every student sees the correct
+// answer, who voted right/wrong, and a brief explanation.
 
 export function ResultFlash() {
   const { lastResult, activeVote } = useWorldMultiStore();
-  // Don't show flash if the reveal panel is already visible
-  if (activeVote) return null;
+  const [countdown, setCountdown] = useState(REVEAL_DURATION);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!lastResult || activeVote) return;
+    setCountdown(REVEAL_DURATION);
+    let s = REVEAL_DURATION;
+    timerRef.current = setInterval(() => {
+      s--;
+      setCountdown(s);
+      if (s <= 0) clearInterval(timerRef.current!);
+    }, 1000);
+    return () => clearInterval(timerRef.current!);
+  }, [lastResult?.roomKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Don't render if vote is still active (VotingOverlay handles that)
+  if (activeVote || !lastResult) return null;
+
+  const { correct, answer: correctIdx, question, votes, myVote } = lastResult;
+  if (!question) return null;
+
+  const tallyArr     = question.choices.map((_, i) => Object.values(votes).filter(v => v.choice === i).length);
+  const iGotItRight  = myVote === correctIdx;
+  const iVotedWrong  = myVote !== null && myVote !== correctIdx;
+  const rightVoters  = Object.entries(votes).filter(([, v]) => v.choice === correctIdx).map(([n]) => n);
+  const wrongVoters  = Object.entries(votes).filter(([, v]) => v.choice !== correctIdx).map(([n]) => n);
+  const explanation  = question.explanation ?? `The correct answer is "${question.choices[correctIdx]}".`;
 
   return (
     <AnimatePresence>
-      {lastResult && (
+      <motion.div
+        key={lastResult.roomKey}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+        style={{ background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(8px)' }}
+      >
         <motion.div
-          key={lastResult.roomKey}
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 1.2, opacity: 0 }}
-          transition={{ duration: 0.35 }}
-          className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+          initial={{ scale: 0.92, y: 30 }} animate={{ scale: 1, y: 0 }}
+          className="w-full max-w-md rounded-3xl overflow-hidden shadow-2xl"
         >
-          <div className={`text-center px-10 py-8 rounded-3xl shadow-2xl border-4 ${
-            lastResult.correct
-              ? 'bg-emerald-500 border-emerald-300 text-white'
-              : 'bg-red-500 border-red-300 text-white'
-          }`}>
-            <div className="text-7xl mb-2">{lastResult.correct ? '🎉' : '💪'}</div>
-            <div className="font-black text-3xl">{lastResult.correct ? 'Correct!' : 'Wrong!'}</div>
-            {lastResult.correct
-              ? <div className="text-white/80 font-bold mt-1">+10 team points</div>
-              : <div className="text-white/80 text-sm font-bold mt-1">Keep exploring!</div>
-            }
+          {/* Header */}
+          <div className={`p-5 text-center ${correct ? 'bg-gradient-to-r from-emerald-500 to-teal-600' : 'bg-gradient-to-r from-red-500 to-rose-600'}`}>
+            <div className="text-5xl mb-1">{correct ? '🎉' : '💪'}</div>
+            <h2 className="text-white font-black text-xl">
+              {correct ? 'Correct! +10 team points' : 'Not quite!'}
+            </h2>
+          </div>
+
+          <div className="bg-white p-5 space-y-4">
+            {/* Question recap */}
+            <p className="text-slate-600 text-sm font-bold text-center leading-snug">
+              {question.text}
+            </p>
+
+            {/* All choices — correct highlighted, wrong voter marked */}
+            <div className="space-y-2">
+              {question.choices.map((choice, i) => {
+                const isCorrect = i === correctIdx;
+                const isMyVote  = myVote === i;
+                const cnt       = tallyArr[i];
+                let bg = 'bg-slate-50 border-slate-200 text-slate-400';
+                if (isCorrect)     bg = 'bg-emerald-500 border-emerald-500 text-white';
+                else if (isMyVote) bg = 'bg-red-400 border-red-400 text-white';
+                return (
+                  <div key={i} className={`flex items-center justify-between rounded-2xl border-2 px-4 py-3 ${bg}`}>
+                    <span className="font-black text-sm">{choice}</span>
+                    <div className="flex items-center gap-2 text-xs font-bold">
+                      {cnt > 0 && (
+                        <span className={isCorrect || isMyVote ? 'text-white/80' : 'text-slate-400'}>
+                          {cnt} vote{cnt !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                      {isCorrect  && <span>✓ Correct</span>}
+                      {isMyVote && !isCorrect && <span>← Your vote</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Explanation box — adapts to whether student got it right or wrong */}
+            <motion.div
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className={`rounded-2xl p-4 border-2 ${
+                iGotItRight ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-300'
+              }`}
+            >
+              {iGotItRight ? (
+                <div className="flex items-start gap-2">
+                  <span className="text-2xl">⭐</span>
+                  <div>
+                    <p className="text-emerald-700 font-black text-sm">You got it right!</p>
+                    <p className="text-emerald-600 text-xs mt-0.5">{explanation}</p>
+                  </div>
+                </div>
+              ) : iVotedWrong ? (
+                <div className="flex items-start gap-2">
+                  <span className="text-2xl">💡</span>
+                  <div>
+                    <p className="text-amber-800 font-black text-sm">Here's why:</p>
+                    <p className="text-amber-700 text-xs mt-0.5 leading-relaxed">{explanation}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-slate-500 text-xs font-bold text-center">💡 {explanation}</p>
+              )}
+            </motion.div>
+
+            {/* Who voted right / wrong */}
+            {(rightVoters.length > 0 || wrongVoters.length > 0) && (
+              <div className="flex gap-3 text-[10px] font-black">
+                {rightVoters.length > 0 && (
+                  <div className="flex-1 bg-emerald-50 rounded-xl p-2 text-center">
+                    <div className="text-emerald-600 mb-1">✓ Got it right</div>
+                    {rightVoters.map(n => <div key={n} className="text-emerald-500">{n}</div>)}
+                  </div>
+                )}
+                {wrongVoters.length > 0 && (
+                  <div className="flex-1 bg-red-50 rounded-xl p-2 text-center">
+                    <div className="text-red-500 mb-1">✗ Got it wrong</div>
+                    {wrongVoters.map(n => <div key={n} className="text-red-400">{n}</div>)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Auto-dismiss countdown bar */}
+            <div className="flex items-center justify-center gap-2">
+              <div className="h-1 flex-1 bg-slate-100 rounded-full overflow-hidden">
+                <motion.div
+                  animate={{ width: `${(countdown / REVEAL_DURATION) * 100}%` }}
+                  transition={{ duration: 1, ease: 'linear' }}
+                  className="h-full bg-slate-300 rounded-full"
+                />
+              </div>
+              <span className="text-slate-400 text-[10px] font-bold shrink-0">
+                Continuing in {countdown}s
+              </span>
+            </div>
           </div>
         </motion.div>
-      )}
+      </motion.div>
     </AnimatePresence>
   );
 }
