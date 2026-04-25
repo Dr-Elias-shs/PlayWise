@@ -23,7 +23,7 @@ import { getGlobalConfig } from '@/lib/wallet';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const ZOOM = 2;     // map renders at 2× the fit-to-screen scale
-const SPEED = 0.7;   // map units per frame at 60 fps
+const SPEED = 1.1;   // map units per frame at 60 fps
 const FRAME_MS = 160;   // ms per walk animation frame
 const SPAWN_X = MAP_W * 0.50;
 const SPAWN_Y = MAP_H * 0.54;
@@ -504,11 +504,11 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
         </div>
       )}
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/30 text-xs z-30 pointer-events-none">
+      <div className="absolute bottom-4 left-6 text-white/30 text-xs z-30 pointer-events-none">
         WASD / arrows or joystick
       </div>
 
-      <div className="absolute bottom-6 right-6 z-30">
+      <div className="absolute bottom-20 left-6 z-30">
         <Joystick onMove={handleJoystick} size={120} />
       </div>
 
