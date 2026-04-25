@@ -162,16 +162,17 @@ export async function parseQuestionsWithOllama(
 ): Promise<ParsedQuestion[]> {
   const model = await getOllamaModel();
 
-  const prompt = `You are an educational test parser. Extract ALL multiple choice questions from the text below and return ONLY a valid JSON array. No explanation, no markdown, just JSON.
+  const prompt = `You are an educational content assistant for grade school students. Your job is to produce multiple choice questions (MCQs) from the text below.
 
-Each question must have:
-- "question": the question text (string)
-- "choices": exactly 4 answer options as strings (array of 4)
-- "answer": the index (0-3) of the correct answer
+RULES:
+1. If the text already contains MCQ questions with answer choices, extract ALL of them exactly as written.
+2. If the text is explanatory or contains no MCQ questions (e.g. a lesson, notes, or a document), GENERATE appropriate MCQ questions that test understanding of the key concepts covered in the text. Generate as many as the content supports (aim for at least 10).
+3. Every question must have exactly 4 answer choices and one correct answer.
+4. Return ONLY a valid JSON array — no explanation, no markdown, no extra text.
 
 Subject: ${subject}
 
-Text to parse:
+Text:
 ---
 ${rawText}
 ---
