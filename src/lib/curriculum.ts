@@ -117,6 +117,10 @@ export async function bulkAddQuestions(
 
 // ── Runtime: get questions for a student ─────────────────────────────────────
 
+// Module-level rotation counters — persist for the browser session, reset on page reload.
+// Keyed by "grade_term_subject".
+const _rotation: Record<string, number> = {};
+
 export async function getCurriculumQuestionsForStudent(
   grade: string,
   subject: string,
@@ -136,14 +140,9 @@ export async function getCurriculumQuestionsForStudent(
   console.log(`[Curriculum] grade=${grade} term=${term} subject=${subject} → ${enabled.length} enabled questions`);
   if (enabled.length === 0) return null;
 
-  // Rotate sequentially so every question gets seen before repeating
-  const key = `cq_idx_${grade}_${term}_${subject}`;
-  let idx = 0;
-  try {
-    const stored = parseInt(localStorage.getItem(key) ?? '0', 10);
-    idx = (isNaN(stored) ? 0 : stored) % enabled.length;
-    localStorage.setItem(key, String((idx + 1) % enabled.length));
-  } catch {}
+  const key = `${grade}_${term}_${subject}`;
+  const idx = (_rotation[key] ?? 0) % enabled.length;
+  _rotation[key] = idx + 1;
 
   const q = enabled[idx];
   return { text: q.question_text, choices: q.choices, answer: q.correct_answer };
