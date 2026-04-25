@@ -15,7 +15,7 @@ async function extractPptxText(buffer: Buffer): Promise<string> {
   const chunks: string[] = [];
   for (const name of slideNames) {
     const xml: string = await zip.files[name].async('string');
-    for (const m of xml.matchAll(/<a:t[^>]*>([^<]+)<\/a:t>/g)) {
+    for (const m of Array.from(xml.matchAll(/<a:t[^>]*>([^<]+)<\/a:t>/g))) {
       chunks.push(m[1]);
     }
     chunks.push('\n');
