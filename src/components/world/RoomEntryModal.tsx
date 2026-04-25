@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RoomDef } from '@/lib/rooms';
 import { QUESTION_BANK, LeveledQuestion } from '@/lib/questionBank';
@@ -15,17 +15,19 @@ interface Props {
   room: RoomDef;
   onClose: () => void;
   onCorrect?: () => void;
-  multiplayer?: boolean; // skip solo mission/completion checks
+  multiplayer?: boolean;
 }
 
-type Phase = 'enter' | 'question' | 'correct' | 'wrong';
+type Phase = 'enter' | 'question' | 'correct' | 'penalty';
 
 export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }: Props) {
   const { playerName, addPlayBits, markRoomComplete, completedRooms, currentMissionIndex, advanceMission } = useWorldStore();
   const { playerEmail, playerGrade } = useGameStore();
-  const [phase, setPhase]       = useState<Phase>(multiplayer ? 'question' : 'enter');
-  const [question, setQuestion] = useState<LeveledQuestion | null>(null);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [phase, setPhase]           = useState<Phase>(multiplayer ? 'question' : 'enter');
+  const [question, setQuestion]     = useState<LeveledQuestion | null>(null);
+  const [selected, setSelected]     = useState<number | null>(null);
+  const [wrongCount, setWrongCount] = useState(0);
+  const [penaltyLeft, setPenaltyLeft] = useState(0);
   const questionStartRef = useRef<number>(Date.now());
 
   const MISSION_SEQUENCE: RoomKey[] = [
@@ -33,52 +35,63 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
     'language_arts', 'reading', 'art', 'music', 'kitchen', 'cafeteria'
   ];
   const currentMissionKey = MISSION_SEQUENCE[currentMissionIndex] || null;
-  // In multiplayer: ignore solo progress — every room is always open
   const isCorrectRoom = multiplayer ? true  : room.key === currentMissionKey;
   const isAlreadyDone = multiplayer ? false : completedRooms.has(room.key);
 
-  // Pick a question: curriculum (grade-specific) first, fall back to static bank
-  useEffect(() => {
-    let cancelled = false;
-    async function pickQuestion() {
-      // Try curriculum question for student's grade
-      if (playerGrade) {
-        const cq = await getCurriculumQuestionsForStudent(playerGrade, room.key);
-        if (!cancelled && cq) {
-          setQuestion({ text: cq.text, choices: cq.choices, answer: cq.answer, level: 'medium' });
-          if (!multiplayer && isCorrectRoom && !isAlreadyDone) setPhase('question');
-          return;
-        }
-      }
-      // Fall back to static question bank
-      if (!cancelled) {
-        const bank = QUESTION_BANK[room.key] || [];
-        const q = bank[Math.floor(Math.random() * bank.length)];
-        setQuestion(q || null);
-        if (!multiplayer && isCorrectRoom && !isAlreadyDone) setPhase('question');
+  // Fetch (or re-fetch) a question — curriculum first, static bank as fallback
+  const loadQuestion = useCallback(async (cancelled?: { value: boolean }) => {
+    if (playerGrade) {
+      const cq = await getCurriculumQuestionsForStudent(playerGrade, room.key);
+      if (cancelled?.value) return;
+      if (cq) {
+        setQuestion({ text: cq.text, choices: cq.choices, answer: cq.answer, level: 'medium' });
+        return;
       }
     }
-    pickQuestion();
-    return () => { cancelled = true; };
+    if (cancelled?.value) return;
+    const bank = QUESTION_BANK[room.key] || [];
+    const q = bank[Math.floor(Math.random() * bank.length)];
+    setQuestion(q || null);
+  }, [playerGrade, room.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Initial question load
+  useEffect(() => {
+    const cancelled = { value: false };
+    loadQuestion(cancelled).then(() => {
+      if (!cancelled.value && !multiplayer && isCorrectRoom && !isAlreadyDone)
+        setPhase('question');
+    });
+    return () => { cancelled.value = true; };
   }, [room, isCorrectRoom, isAlreadyDone, multiplayer, playerGrade]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Switch music theme when question phase starts
+  // Music
   useEffect(() => {
     if (phase === 'question') {
       questionStartRef.current = Date.now();
       gameAudio.setTheme('challenging');
-    } else if (phase === 'correct' || phase === 'wrong') {
-      // Keep it challenging or switch back? Let's switch back on close.
     }
-    return () => {
-      // Revert to peaceful when modal closes
-      gameAudio.setTheme('peaceful');
-    };
+    return () => { gameAudio.setTheme('peaceful'); };
   }, [phase]);
+
+  // Penalty countdown tick
+  useEffect(() => {
+    if (phase !== 'penalty' || penaltyLeft <= 0) return;
+    const t = setTimeout(() => setPenaltyLeft(n => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [phase, penaltyLeft]);
+
+  // When penalty expires → advance rotation and load next question
+  useEffect(() => {
+    if (phase !== 'penalty' || penaltyLeft > 0) return;
+    advanceCurriculumQuestion(playerGrade, room.key);
+    setSelected(null);
+    loadQuestion().then(() => setPhase('question'));
+  }, [phase, penaltyLeft]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleAnswer(idx: number) {
     if (selected !== null || !question) return;
     setSelected(idx);
+
     if (idx === question.answer) {
       playSound('correct');
       advanceCurriculumQuestion(playerGrade, room.key);
@@ -97,7 +110,13 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
       }, 600);
     } else {
       playSound('wrong');
-      setTimeout(() => setPhase('wrong'), 600);
+      const newCount = wrongCount + 1;
+      setWrongCount(newCount);
+      const penalty = newCount === 1 ? 5 : 15;
+      setTimeout(() => {
+        setPenaltyLeft(penalty);
+        setPhase('penalty');
+      }, 600);
     }
   }
 
@@ -119,14 +138,12 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
 
         {/* Body */}
         <div className="bg-white p-5 space-y-4">
-
           <AnimatePresence mode="wait">
 
             {/* Enter prompt */}
             {phase === 'enter' && (
               <motion.div key="enter"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                
                 {isAlreadyDone ? (
                   <div className="text-center py-2">
                     <div className="text-4xl mb-2">✅</div>
@@ -185,13 +202,11 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
                       else                         cls = 'bg-slate-50 border-slate-200 text-slate-400 opacity-50';
                     }
                     return (
-                      <motion.button
-                        key={i}
+                      <motion.button key={i}
                         whileTap={selected === null ? { scale: 0.95 } : {}}
                         onClick={() => handleAnswer(i)}
                         disabled={selected !== null}
-                        className={`${cls} rounded-2xl py-4 px-2 text-base font-black transition-all duration-200 disabled:cursor-not-allowed`}
-                      >
+                        className={`${cls} rounded-2xl py-4 px-2 text-base font-black transition-all duration-200 disabled:cursor-not-allowed`}>
                         {choice}
                       </motion.button>
                     );
@@ -219,34 +234,29 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
               </motion.div>
             )}
 
-            {/* Wrong */}
-            {phase === 'wrong' && (
-              <motion.div key="wrong"
-                initial={{ x: -10 }} animate={{ x: [0, -8, 8, -5, 5, 0] }}
-                transition={{ duration: 0.4 }}
-                className="text-center py-4 space-y-3">
-                <div className="text-6xl">💪</div>
-                <h3 className="text-2xl font-black text-red-500">Try Again!</h3>
+            {/* Penalty cooldown */}
+            {phase === 'penalty' && (
+              <motion.div key="penalty"
+                initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="text-center py-4 space-y-4">
+                <div className="text-5xl">🔒</div>
+                <h3 className="text-xl font-black text-red-500">Wrong answer!</h3>
                 <p className="text-slate-500 text-sm">The correct answer was:</p>
-                <p className="text-slate-800 font-black text-lg bg-emerald-50 rounded-xl py-2 px-4">
-                  {question?.choices[question.answer]}
+                <p className="text-slate-800 font-black text-base bg-emerald-50 rounded-xl py-2 px-4">
+                  {question?.choices[question?.answer ?? 0]}
                 </p>
-                <div className="flex gap-3">
-                  <button onClick={onClose}
-                    className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors">
-                    Leave
-                  </button>
-                  <button onClick={() => { 
-                    const bank = QUESTION_BANK[room.key] || [];
-                    const q = bank[Math.floor(Math.random() * bank.length)];
-                    setQuestion(q || null);
-                    setSelected(null); 
-                    setPhase('question'); 
-                  }}
-                    className={`flex-1 py-3 rounded-2xl bg-gradient-to-r ${room.color} text-white font-black hover:opacity-90`}>
-                    Retry 🔄
-                  </button>
+                <div className="flex flex-col items-center gap-1">
+                  <div className="w-16 h-16 rounded-full border-4 border-red-200 flex items-center justify-center">
+                    <span className="text-2xl font-black text-red-500">{penaltyLeft}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 font-bold">
+                    Next question in {penaltyLeft}s…
+                  </p>
                 </div>
+                <button onClick={onClose}
+                  className="w-full py-3 rounded-2xl bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors text-sm">
+                  Leave room
+                </button>
               </motion.div>
             )}
 
