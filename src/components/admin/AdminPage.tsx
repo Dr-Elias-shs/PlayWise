@@ -128,12 +128,14 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   const [newQ,          setNewQ]          = useState({ text:'', choices:['','','',''], answer:0 });
   const [showAddForm,   setShowAddForm]   = useState(false);
   // Ollama import
-  const [importText,    setImportText]    = useState('');
-  const [importParsed,  setImportParsed]  = useState<ParsedQuestion[]>([]);
-  const [importStream,  setImportStream]  = useState('');
-  const [importLoading, setImportLoading] = useState(false);
-  const [importError,   setImportError]   = useState('');
-  const [showImport,    setShowImport]    = useState(false);
+  const [importText,        setImportText]        = useState('');
+  const [importParsed,      setImportParsed]      = useState<ParsedQuestion[]>([]);
+  const [importStream,      setImportStream]      = useState('');
+  const [importLoading,     setImportLoading]     = useState(false);
+  const [importError,       setImportError]       = useState('');
+  const [showImport,        setShowImport]        = useState(false);
+  const [extracting,        setExtracting]        = useState(false);
+  const [importFileName,    setImportFileName]    = useState('');
   const [loading, setLoading] = useState(true);
 
   // Student filters
@@ -978,11 +980,51 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                       <span className="ml-auto text-xs text-indigo-400 font-bold">Local AI — no data leaves your machine</span>
                     </div>
                     <p className="text-indigo-700 text-xs font-medium">
-                      Paste your exam/test text below. The AI will extract all MCQ questions automatically for <b>Grade {curGrade} · Term {curTerm} · {CURRICULUM_SUBJECTS.find(s=>s.key===curSubject)?.label}</b>.
+                      Upload a file or paste text below. The AI will extract all MCQ questions automatically for <b>Grade {curGrade} · Term {curTerm} · {CURRICULUM_SUBJECTS.find(s=>s.key===curSubject)?.label}</b>.
                     </p>
+
+                    {/* File upload */}
+                    <div className="flex items-center gap-2">
+                      <label className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-dashed cursor-pointer text-sm font-bold transition-colors ${extracting ? 'border-indigo-300 text-indigo-300' : 'border-indigo-400 text-indigo-600 hover:bg-indigo-100'}`}>
+                        <span>{extracting ? '⏳ Extracting…' : '📎 Upload File'}</span>
+                        <span className="text-xs font-normal text-indigo-400">PDF · DOCX · PPTX</span>
+                        <input
+                          type="file"
+                          accept=".pdf,.docx,.pptx,.ppt"
+                          className="hidden"
+                          disabled={extracting || importLoading}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setExtracting(true);
+                            setImportError('');
+                            setImportFileName(file.name);
+                            try {
+                              const fd = new FormData();
+                              fd.append('file', file);
+                              const r = await fetch('/api/extract-text', { method: 'POST', body: fd });
+                              const data = await r.json();
+                              if (!r.ok) throw new Error(data.error ?? 'Extraction failed');
+                              setImportText(data.text);
+                            } catch (err: any) {
+                              setImportError(err.message ?? 'Failed to extract text from file');
+                              setImportFileName('');
+                            }
+                            setExtracting(false);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                      {importFileName && (
+                        <span className="text-xs text-indigo-700 font-bold bg-indigo-100 px-2 py-1 rounded-lg truncate max-w-[180px]">
+                          📄 {importFileName}
+                        </span>
+                      )}
+                    </div>
+
                     <textarea
                       value={importText} onChange={e=>setImportText(e.target.value)}
-                      placeholder="Paste your test questions here — any format works. The AI will detect questions and 4 answer choices automatically..."
+                      placeholder="Paste your test questions here, or upload a PDF / DOCX / PPTX above. The AI will detect questions and 4 answer choices automatically..."
                       className="w-full h-36 p-3 border-2 border-indigo-200 rounded-xl text-sm outline-none focus:border-indigo-500 resize-none font-mono"
                     />
                     {importStream && !importParsed.length && (
@@ -1016,12 +1058,12 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                               question_text: q.question, choices: q.choices,
                               correct_answer: q.answer, enabled: true,
                             })));
-                            setImportParsed([]); setImportText(''); setShowImport(false);
+                            setImportParsed([]); setImportText(''); setImportFileName(''); setShowImport(false);
                             loadCurriculum();
                           }} className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl text-sm transition-colors">
                             💾 Save All {importParsed.length} Questions
                           </button>
-                          <button onClick={() => setImportParsed([])} className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-sm">
+                          <button onClick={() => { setImportParsed([]); }} className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-sm">
                             Discard
                           </button>
                         </div>
@@ -1043,7 +1085,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                           }
                           setImportLoading(false);
                         }}
-                        disabled={importLoading || !importText.trim()}
+                        disabled={importLoading || extracting || !importText.trim()}
                         className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black rounded-xl text-sm transition-colors">
                         {importLoading ? '🤖 AI is reading your test…' : '🚀 Parse Questions with AI'}
                       </button>
