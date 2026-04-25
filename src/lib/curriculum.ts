@@ -133,10 +133,19 @@ export async function getCurriculumQuestionsForStudent(
 
   const qs = await getQuestions(grade, term, subject);
   const enabled = qs.filter(q => q.enabled);
-  console.log(`[Curriculum] grade=${grade} term=${term} subject=${subject} → ${qs.length} questions (${enabled.length} enabled)`);
+  console.log(`[Curriculum] grade=${grade} term=${term} subject=${subject} → ${enabled.length} enabled questions`);
   if (enabled.length === 0) return null;
 
-  const q = enabled[Math.floor(Math.random() * enabled.length)];
+  // Rotate sequentially so every question gets seen before repeating
+  const key = `cq_idx_${grade}_${term}_${subject}`;
+  let idx = 0;
+  try {
+    const stored = parseInt(localStorage.getItem(key) ?? '0', 10);
+    idx = (isNaN(stored) ? 0 : stored) % enabled.length;
+    localStorage.setItem(key, String((idx + 1) % enabled.length));
+  } catch {}
+
+  const q = enabled[idx];
   return { text: q.question_text, choices: q.choices, answer: q.correct_answer };
 }
 
