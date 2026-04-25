@@ -145,7 +145,7 @@ const OLLAMA_MODELS_PREFERENCE = ['mistral:latest', 'gemma3:4b', 'phi:latest', '
 
 async function getOllamaModel(): Promise<string> {
   try {
-    const r = await fetch('http://localhost:11434/api/tags');
+    const r = await fetch('/api/ollama/tags');
     if (!r.ok) return OLLAMA_MODELS_PREFERENCE[0];
     const { models } = await r.json();
     const names: string[] = (models ?? []).map((m: any) => m.name);
@@ -179,7 +179,7 @@ ${rawText}
 Return ONLY a JSON array like:
 [{"question":"...","choices":["A","B","C","D"],"answer":0}]`;
 
-  const response = await fetch('http://localhost:11434/api/generate', {
+  const response = await fetch('/api/ollama/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, prompt, stream: true }),
