@@ -182,25 +182,34 @@ Return ONLY a JSON array like:
   const response = await fetch('/api/ollama/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, prompt, stream: true }),
+    body: JSON.stringify({
+      model,
+      prompt,
+      stream: true,
+      options: {
+        num_predict: -1,  // no token cap — generate until the JSON array is complete
+        num_ctx: 8192,    // large context window to fit the full exam text
+        temperature: 0,   // deterministic output
+      },
+    }),
   });
 
   if (!response.ok || !response.body) throw new Error('Ollama not reachable');
 
   let fullText = '';
+  let streamFinished = false;
   const reader  = response.body.getReader();
   const decoder = new TextDecoder();
 
-  while (true) {
+  while (!streamFinished) {
     const { done, value } = await reader.read();
     if (done) break;
     const chunk = decoder.decode(value);
-    // Each chunk is a JSON line from Ollama streaming
     for (const line of chunk.split('\n').filter(Boolean)) {
       try {
         const { response: token, done: streamDone } = JSON.parse(line);
         if (token) { fullText += token; onChunk?.(fullText); }
-        if (streamDone) break;
+        if (streamDone) { streamFinished = true; break; }
       } catch {}
     }
   }
