@@ -140,11 +140,13 @@ export function WorldMultiLobby({ mapId, onStart, onBack }: Props) {
   const [phase,        setPhase]        = useState<'browse' | 'lobby'>('browse');
   const [loading,      setLoading]      = useState(false);
   const [countdownLive, setCountdownLive] = useState(0);
+  const [autoStart,    setAutoStart]    = useState(0);  // counts down to auto-start
 
-  const unsubRef    = useRef<(() => void) | null>(null);
-  const cdTimerRef  = useRef<NodeJS.Timeout | null>(null);
+  const unsubRef      = useRef<(() => void) | null>(null);
+  const cdTimerRef    = useRef<NodeJS.Timeout | null>(null);
   const roundTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const myRoomCode  = useWorldMultiStore(s => s.myRoomCode);
+  const autoTimerRef  = useRef<NodeJS.Timeout | null>(null);
+  const myRoomCode    = useWorldMultiStore(s => s.myRoomCode);
 
   // Fetch open rooms on mount
   useEffect(() => {
@@ -179,6 +181,7 @@ export function WorldMultiLobby({ mapId, onStart, onBack }: Props) {
   function clearTimers() {
     if (cdTimerRef.current)    clearInterval(cdTimerRef.current);
     if (roundTimerRef.current) clearInterval(roundTimerRef.current);
+    if (autoTimerRef.current)  clearInterval(autoTimerRef.current);
   }
 
   function startCountdown() {
@@ -246,18 +249,36 @@ export function WorldMultiLobby({ mapId, onStart, onBack }: Props) {
     setLoading(false);
   }
 
-  async function handleHostStart() {
-    if (!myRoomCode) return;
-    // Update room to countdown — all clients react
-    await import('@/lib/supabase').then(({ supabase }) =>
-      supabase.from('world_rooms').update({ status: 'countdown' }).eq('room_code', myRoomCode)
-    );
+  // Any player can start — idempotent if multiple clients call simultaneously
+  async function handleStart(code?: string) {
+    const room = code ?? myRoomCode;
+    if (!room) return;
+    if (autoTimerRef.current) clearInterval(autoTimerRef.current);
+    const { supabase } = await import('@/lib/supabase');
+    await supabase.from('world_rooms')
+      .update({ status: 'countdown' })
+      .eq('room_code', room)
+      .neq('status', 'playing'); // skip if already launched
     startCountdown();
-    // After countdown, host transitions to playing
-    setTimeout(async () => {
-      await startWorldRoom(myRoomCode);
-    }, LOBBY_COUNTDOWN_SEC * 1000);
+    setTimeout(() => startWorldRoom(room), LOBBY_COUNTDOWN_SEC * 1000);
   }
+
+  // Auto-start countdown — begins as soon as player enters lobby
+  useEffect(() => {
+    if (phase !== 'lobby') return;
+    const AUTO_SECS = 30;
+    setAutoStart(AUTO_SECS);
+    let remaining = AUTO_SECS;
+    autoTimerRef.current = setInterval(() => {
+      remaining--;
+      setAutoStart(remaining);
+      if (remaining <= 0) {
+        clearInterval(autoTimerRef.current!);
+        handleStart();
+      }
+    }, 1000);
+    return () => { if (autoTimerRef.current) clearInterval(autoTimerRef.current); };
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleLeave() {
     clearTimers();
@@ -417,28 +438,21 @@ export function WorldMultiLobby({ mapId, onStart, onBack }: Props) {
         ))}
       </div>
 
-      {/* Host controls */}
-      {isHost && countdownLive === 0 && (
-        <div className="space-y-3">
-          <p className="text-white/40 text-xs text-center">
-            {players.length < 2 ? 'Waiting for at least 2 players…' : 'Ready to start!'}
-          </p>
+      {/* Start controls — visible to everyone */}
+      {countdownLive === 0 && (
+        <div className="space-y-2">
           <button
-            onClick={handleHostStart}
-            disabled={players.length < 1} // allow solo testing too
-            className="w-full py-4 rounded-2xl font-black text-white text-base transition-all hover:scale-105 disabled:opacity-30"
+            onClick={() => handleStart()}
+            className="w-full py-4 rounded-2xl font-black text-white text-base transition-all hover:scale-105"
             style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}>
             🚀 Start Game Now
           </button>
-          <p className="text-white/30 text-[10px] text-center">
-            Or wait — game auto-starts when the host clicks Start.
-          </p>
+          {autoStart > 0 && (
+            <p className="text-white/40 text-[11px] text-center">
+              Auto-starts in {autoStart}s — or tap Start to begin immediately
+            </p>
+          )}
         </div>
-      )}
-      {!isHost && (
-        <p className="text-white/40 text-xs text-center pb-2">
-          Waiting for the host to start the game…
-        </p>
       )}
     </div>
   );
