@@ -128,7 +128,7 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
         initial={{ scale: 0.85, opacity: 0, y: 30 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 340, damping: 24 }}
-        className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
+        className="w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl"
       >
         {/* Header */}
         <div className={`bg-gradient-to-r ${room.color} p-5 text-center`}>
@@ -190,10 +190,10 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
               <motion.div key="question"
                 initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
                 className="space-y-4">
-                <p className="text-slate-800 font-black text-xl text-center leading-snug">
+                <p className="text-slate-800 font-black text-lg text-center leading-snug">
                   {question.text}
                 </p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   {question.choices.map((choice, i) => {
                     let cls = 'bg-slate-50 border-2 border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50';
                     if (selected !== null) {
@@ -206,7 +206,7 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
                         whileTap={selected === null ? { scale: 0.95 } : {}}
                         onClick={() => handleAnswer(i)}
                         disabled={selected !== null}
-                        className={`${cls} rounded-2xl py-4 px-2 text-base font-black transition-all duration-200 disabled:cursor-not-allowed`}>
+                        className={`${cls} rounded-2xl py-3 px-3 text-sm font-black transition-all duration-200 disabled:cursor-not-allowed text-center leading-snug`}>
                         {choice}
                       </motion.button>
                     );
