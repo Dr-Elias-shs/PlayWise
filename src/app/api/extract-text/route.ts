@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
-  const formData = await req.formData();
-  const file = formData.get('file') as File | null;
+  let file: File | null = null;
+  try {
+    const formData = await req.formData();
+    file = formData.get('file') as File | null;
+  } catch (e: any) {
+    return NextResponse.json({ error: 'Failed to read upload: ' + (e.message ?? e) }, { status: 400 });
+  }
+
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
 
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
@@ -12,7 +18,7 @@ export async function POST(req: NextRequest) {
     let text = '';
 
     if (ext === 'pdf') {
-      // pdf-parse loads test fixtures on import — use the lib path directly to avoid that
+      // Use lib path to avoid pdf-parse loading test fixtures on import
       const pdfParse = require('pdf-parse/lib/pdf-parse.js');
       const result = await pdfParse(buffer);
       text = result.text;
