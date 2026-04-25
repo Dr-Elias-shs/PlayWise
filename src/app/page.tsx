@@ -19,6 +19,7 @@ import { loginRequest } from "@/lib/msal";
 import { Leaderboard } from "@/components/hub/Leaderboard";
 import { ALL_GAMES, GameConfig } from "@/lib/gameConfigs";
 import { getGlobalConfig } from "@/lib/wallet";
+import { PlayWiseIntro, INTRO_SEEN_KEY } from "@/components/PlayWiseIntro";
 
 // ─── Hub game card ────────────────────────────────────────────────────────────
 
@@ -62,6 +63,9 @@ type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'mul
 export default function Home() {
   const { playerName, playerEmail, playerAvatar, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
   const [screen, setScreen] = useState<Screen>('login');
+  const [showIntro, setShowIntro] = useState(() =>
+    typeof window !== 'undefined' ? !localStorage.getItem(INTRO_SEEN_KEY) : false
+  );
   const router = useRouter();
   const [activeGame, setActiveGame] = useState<GameConfig | null>(null);
   const [multiGameId, setMultiGameId] = useState<string>('multiplication');
@@ -149,6 +153,11 @@ export default function Home() {
     }
     setScreen('game');
   };
+
+  // ── Intro splash (shown once, before any screen) ──
+  if (showIntro) {
+    return <PlayWiseIntro onDone={() => setShowIntro(false)} />;
+  }
 
   // ── Login ──
   if (screen === 'login' || (!playerName && screen !== 'profile-setup')) {
