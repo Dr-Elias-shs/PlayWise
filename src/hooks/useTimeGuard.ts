@@ -28,6 +28,7 @@ interface UseTimeGuardResult {
   loading:  boolean;
   access:   AccessResult;
   config:   TimeManagementConfig;
+  refresh:  () => void;   // call to immediately re-fetch config
 }
 
 /**
@@ -55,32 +56,33 @@ export function useTimeGuard(grade: string, active = true): UseTimeGuardResult {
     });
   }, [grade]);
 
-  // Re-fetch config from Supabase every 30 s so admin changes propagate live
+  // Shared fetch function — used on mount, on interval, and by refresh()
+  function fetchConfig() {
+    if (!grade) return;
+    getGlobalConfig(CONFIG_KEY).then(raw => {
+      const cfg = withDefaults(raw);
+      setConfig(cfg);
+      setAccess(checkAccess(cfg, grade));
+      setLoading(false);
+    });
+  }
+
+  // Re-fetch from Supabase every 15 s so admin changes propagate quickly
   useEffect(() => {
     if (!grade) return;
-    const t = setInterval(() => {
-      getGlobalConfig(CONFIG_KEY).then(raw => {
-        const cfg = withDefaults(raw);
-        setConfig(cfg);
-        setAccess(checkAccess(cfg, grade));
-      });
-    }, 30_000);
+    const t = setInterval(fetchConfig, 15_000);
     return () => clearInterval(t);
-  }, [grade]);
+  }, [grade]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Screen-time tick — adds 1 minute every 60 s while active
   useEffect(() => {
     if (!grade || !active) return;
     tickRef.current = setInterval(() => {
       addUsedMinutes(grade, 1);
-      // Re-check after adding time (limit may now be hit)
-      setConfig(prev => {
-        setAccess(checkAccess(prev, grade));
-        return prev;
-      });
+      setConfig(prev => { setAccess(checkAccess(prev, grade)); return prev; });
     }, 60_000);
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
-  }, [grade, active]);
+  }, [grade, active]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { loading, access, config };
+  return { loading, access, config, refresh: fetchConfig };
 }

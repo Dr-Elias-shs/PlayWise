@@ -15,9 +15,10 @@ interface Props {
   loading:   boolean;
   children?: React.ReactNode;
   grade?:    string;
+  onRetry?:  () => void;
 }
 
-export function TimeGate({ access, loading, children, grade }: Props) {
+export function TimeGate({ access, loading, children, grade, onRetry }: Props) {
   if (loading) {
     // Tiny spinner — barely noticeable on fast connections
     return (
@@ -74,8 +75,17 @@ export function TimeGate({ access, loading, children, grade }: Props) {
           </div>
         )}
 
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className="mt-4 px-5 py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold text-sm rounded-2xl transition-colors border border-white/20"
+          >
+            🔄 Check Again
+          </button>
+        )}
+
         {grade && (
-          <p className="text-white/30 text-xs font-bold">
+          <p className="text-white/30 text-xs font-bold mt-3">
             Grade {grade} · PlayWise
           </p>
         )}

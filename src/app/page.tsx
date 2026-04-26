@@ -70,7 +70,7 @@ export default function Home() {
   );
   // Time-management guard — only active after login, skipped on localhost
   const isLocal = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
-  const { loading: tmLoading, access } = useTimeGuard(isLocal ? '' : (playerGrade ?? ''), screen === 'hub' || screen === 'game');
+  const { loading: tmLoading, access, refresh: tmRefresh } = useTimeGuard(isLocal ? '' : (playerGrade ?? ''), screen === 'hub' || screen === 'game');
   const router = useRouter();
   const [activeGame, setActiveGame] = useState<GameConfig | null>(null);
   const [multiGameId, setMultiGameId] = useState<string>('multiplication');
@@ -166,7 +166,7 @@ export default function Home() {
 
   // ── Time-management gate (hub + game only, not login/profile-setup) ──
   if (!isLocal && (screen === 'hub' || screen === 'game') && (tmLoading || !access.allowed)) {
-    return <TimeGate access={access} loading={tmLoading} grade={playerGrade ?? ''} />;
+    return <TimeGate access={access} loading={tmLoading} grade={playerGrade ?? ''} onRetry={tmRefresh} />;
   }
 
   // ── Login ──

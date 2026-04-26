@@ -377,7 +377,7 @@ export default function WorldPage() {
 
   // ── Time-management guard ──────────────────────────────────────────────────
   const playerGrade = (() => { try { const p = JSON.parse(localStorage.getItem('playwise_profile_v2') ?? '{}'); return p.grade ?? ''; } catch { return ''; } })();
-  const { loading: tmLoading, access } = useTimeGuard(playerGrade, !!selectedMap || !!multiRoomCode);
+  const { loading: tmLoading, access, refresh: tmRefresh } = useTimeGuard(playerGrade, !!selectedMap || !!multiRoomCode);
 
   useEffect(() => {
     // Always allow on localhost so you can test without affecting students
@@ -421,7 +421,7 @@ export default function WorldPage() {
   // ── Time-management gate (skipped on localhost) ───────────────────────────
   const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   if (!isLocal && (tmLoading || !access.allowed)) {
-    return <TimeGate access={access} loading={tmLoading} grade={playerGrade} />;
+    return <TimeGate access={access} loading={tmLoading} grade={playerGrade} onRetry={tmRefresh} />;
   }
 
   // Multiplayer game in progress
