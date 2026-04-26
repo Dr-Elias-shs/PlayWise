@@ -9,11 +9,13 @@ import {
   getGlobalConfig, setGlobalConfig,
 } from '@/lib/wallet';
 import { ALL_GAMES } from '@/lib/gameConfigs';
+import { TimeManagementTab } from './TimeManagementTab';
 import { MAP_REGISTRY } from '@/lib/map-registry';
 import { ROOMS } from '@/lib/rooms';
 import {
   CURRICULUM_SUBJECTS, CurriculumQuestion, ParsedQuestion,
   getTermsForGrade, setTermEnabled, getQuestions,
+
   addQuestion, updateQuestion, deleteQuestion, toggleQuestion, bulkAddQuestions,
   parseQuestionsWithOllama,
 } from '@/lib/curriculum';
@@ -35,7 +37,7 @@ function resolveGameName(id: string | null | undefined, focusTable?: number): st
   return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'settings';
+type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'settings';
 
 interface Wallet {
   student_name: string;  // email (DB key)
@@ -227,6 +229,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
           { id: 'analytics',   label: '📊 Analytics' },
           { id: 'games',       label: '🎮 Games', badge: Object.values(gameSettings).filter(v => v === false).length || undefined },
           { id: 'curriculum',  label: '📚 Curriculum' },
+          { id: 'timemgmt',   label: '⏰ Time' },
           { id: 'settings',    label: '⚙️ Settings' },
         ] as { id: Tab; label: string; badge?: number }[]).map(t => (
           <button key={t.id} onClick={() => { setTab(t.id); if (t.id === 'curriculum') loadCurriculum(); }}
@@ -1202,6 +1205,13 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                     </div>
                   )}
                 </div>
+              </motion.div>
+            )}
+
+            {/* ── Time Management ── */}
+            {tab === 'timemgmt' && (
+              <motion.div key="timemgmt" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <TimeManagementTab />
               </motion.div>
             )}
 

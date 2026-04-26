@@ -14,6 +14,8 @@ import { MAP_REGISTRY, MapMeta } from '@/lib/map-registry';
 import { ROOMS } from '@/lib/rooms';
 import { getGlobalConfig } from '@/lib/wallet';
 import { WiseWorldIntro } from '@/components/world/WiseWorldIntro';
+import { useTimeGuard } from '@/hooks/useTimeGuard';
+import { TimeGate } from '@/components/TimeGate';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -373,6 +375,10 @@ export default function WorldPage() {
   const [allowed,       setAllowed]       = useState<boolean | null>(null);
   const [showWorldIntro, setShowWorldIntro] = useState(false);
 
+  // ── Time-management guard ──────────────────────────────────────────────────
+  const playerGrade = (() => { try { const p = JSON.parse(localStorage.getItem('playwise_profile_v2') ?? '{}'); return p.grade ?? ''; } catch { return ''; } })();
+  const { loading: tmLoading, access } = useTimeGuard(playerGrade, !!selectedMap || !!multiRoomCode);
+
   useEffect(() => {
     // Always allow on localhost so you can test without affecting students
     if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
@@ -410,6 +416,12 @@ export default function WorldPage() {
         </div>
       </div>
     );
+  }
+
+  // ── Time-management gate (skipped on localhost) ───────────────────────────
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  if (!isLocal && (tmLoading || !access.allowed)) {
+    return <TimeGate access={access} loading={tmLoading} grade={playerGrade} />;
   }
 
   // Multiplayer game in progress
