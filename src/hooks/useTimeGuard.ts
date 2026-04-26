@@ -55,14 +55,14 @@ export function useTimeGuard(grade: string, active = true): UseTimeGuardResult {
     });
   }, [grade]);
 
-  // Re-evaluate access every 30 s (schedule window may open/close)
+  // Re-fetch config from Supabase every 30 s so admin changes propagate live
   useEffect(() => {
     if (!grade) return;
     const t = setInterval(() => {
-      setConfig(prev => {
-        const result = checkAccess(prev, grade);
-        setAccess(result);
-        return prev;
+      getGlobalConfig(CONFIG_KEY).then(raw => {
+        const cfg = withDefaults(raw);
+        setConfig(cfg);
+        setAccess(checkAccess(cfg, grade));
       });
     }, 30_000);
     return () => clearInterval(t);
