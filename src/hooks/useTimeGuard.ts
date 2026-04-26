@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { getGlobalConfig } from '@/lib/wallet';
 import {
   TimeManagementConfig, DEFAULT_CONFIG,
@@ -10,82 +10,87 @@ import {
 const CONFIG_KEY = 'time_management';
 
 function withDefaults(raw: any): TimeManagementConfig {
-  if (!raw) return DEFAULT_CONFIG;
-  return {
-    ...DEFAULT_CONFIG,
-    ...raw,
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_CONFIG };
+  const cfg: TimeManagementConfig = {
+    global_enabled: raw.global_enabled !== false, // default TRUE unless explicitly false
     schedule: { ...DEFAULT_CONFIG.schedule, ...(raw.schedule ?? {}) },
-    grades:   Object.fromEntries(
+    grades: Object.fromEntries(
       Array.from({ length: 12 }, (_, i) => {
         const g = String(i + 1);
-        return [g, { ...DEFAULT_CONFIG.grades[g], ...(raw.grades?.[g] ?? {}) }];
+        const saved = raw.grades?.[g];
+        return [g, {
+          enabled:         saved?.enabled         !== false, // default TRUE
+          daily_minutes:   saved?.daily_minutes   ?? 0,
+          custom_schedule: saved?.custom_schedule ?? false,
+          open_time:       saved?.open_time       ?? '07:30',
+          close_time:      saved?.close_time      ?? '15:30',
+        }];
       })
     ),
   };
+  return cfg;
 }
 
 interface UseTimeGuardResult {
   loading:  boolean;
   access:   AccessResult;
   config:   TimeManagementConfig;
-  refresh:  () => void;   // call to immediately re-fetch config
+  refresh:  () => void;
 }
 
-/**
- * useTimeGuard
- *
- * Fetches the time-management config, evaluates access for the current
- * player's grade, and tracks screen time in the background (1-minute ticks).
- *
- * @param grade  - The student's grade string ('1'–'12'). Pass '' to skip checks.
- * @param active - Set false to pause screen-time tracking (e.g. modal open).
- */
 export function useTimeGuard(grade: string, active = true): UseTimeGuardResult {
-  // Start as NOT loading — fail open by default.
-  // The gate only activates once we have an explicit "denied" from Supabase.
   const [loading, setLoading] = useState(false);
-  const [config,  setConfig]  = useState<TimeManagementConfig>(DEFAULT_CONFIG);
+  const [config,  setConfig]  = useState<TimeManagementConfig>({ ...DEFAULT_CONFIG });
   const [access,  setAccess]  = useState<AccessResult>({ allowed: true, minutesLeft: null });
-  const tickRef = useRef<NodeJS.Timeout | null>(null);
+  const tickRef   = useRef<NodeJS.Timeout | null>(null);
+  const gradeRef  = useRef(grade);
+  gradeRef.current = grade;
 
-  // Shared fetch — used on mount, interval, and manual refresh
-  function fetchConfig() {
-    if (!grade) return;
+  const fetchConfig = useCallback(() => {
+    const g = gradeRef.current;
+    if (!g) {
+      // No grade — skip check, leave allowed=true
+      setLoading(false);
+      return;
+    }
     getGlobalConfig(CONFIG_KEY)
       .then(raw => {
+        console.log('[TimeGuard] raw config from Supabase:', JSON.stringify(raw));
         const cfg = withDefaults(raw);
+        console.log('[TimeGuard] grade:', g, '| global_enabled:', cfg.global_enabled, '| grade enabled:', cfg.grades[g]?.enabled);
+        const result = checkAccess(cfg, g);
+        console.log('[TimeGuard] access result:', result);
         setConfig(cfg);
-        setAccess(checkAccess(cfg, grade));
+        setAccess(result);
       })
-      .catch(() => {
-        // Network / Supabase error → fail open so students aren't blocked
+      .catch(err => {
+        console.warn('[TimeGuard] fetch failed, failing open:', err);
         setAccess({ allowed: true, minutesLeft: null });
       })
       .finally(() => setLoading(false));
-  }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch on mount
+  // Fetch on mount and whenever grade changes
   useEffect(() => {
-    if (!grade) return;
     fetchConfig();
-  }, [grade]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [grade, fetchConfig]);
 
-  // Re-fetch from Supabase every 15 s so admin changes propagate quickly
+  // Re-fetch every 15 s
   useEffect(() => {
-    if (!grade) return;
     const t = setInterval(fetchConfig, 15_000);
     return () => clearInterval(t);
-  }, [grade]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchConfig]);
 
-  // Screen-time tick — adds 1 minute every 60 s while active
+  // Screen-time tick
   useEffect(() => {
-    if (!grade || !active) return;
+    const g = gradeRef.current;
+    if (!g || !active) return;
     tickRef.current = setInterval(() => {
-      addUsedMinutes(grade, 1);
-      setConfig(prev => { setAccess(checkAccess(prev, grade)); return prev; });
+      addUsedMinutes(g, 1);
+      setConfig(prev => { setAccess(checkAccess(prev, g)); return prev; });
     }, 60_000);
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
-  }, [grade, active]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [grade, active]);
 
   return { loading, access, config, refresh: fetchConfig };
 }

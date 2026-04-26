@@ -1,14 +1,9 @@
 "use client";
 
-/**
- * TimeGate
- *
- * Renders its children when access is allowed.
- * Shows a friendly locked screen when the time-management rules deny access.
- */
-
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { AccessResult } from '@/lib/timeManagement';
+import { setGlobalConfig } from '@/lib/wallet';
 
 interface Props {
   access:    AccessResult;
@@ -19,8 +14,10 @@ interface Props {
 }
 
 export function TimeGate({ access, loading, children, grade, onRetry }: Props) {
+  const [resetting, setResetting] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
+
   if (loading) {
-    // Tiny spinner — barely noticeable on fast connections
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <motion.div
@@ -34,14 +31,34 @@ export function TimeGate({ access, loading, children, grade, onRetry }: Props) {
 
   if (access.allowed) return <>{children}</>;
 
-  // ── Access Denied Screen ──────────────────────────────────────────────────
   const isScreenTime = access.minutesLeft === 0;
+
+  // Emergency reset — re-opens the platform for everyone (admin use)
+  async function emergencyReset() {
+    setResetting(true);
+    const { default: d } = await import('@/lib/timeManagement');
+    // Build a fully open config
+    const open = {
+      global_enabled: true,
+      schedule: { enabled: false, days: ['Mon','Tue','Wed','Thu','Fri'], open_time: '07:30', close_time: '15:30' },
+      grades: Object.fromEntries(
+        Array.from({ length: 12 }, (_, i) => [
+          String(i + 1),
+          { enabled: true, daily_minutes: 0, custom_schedule: false, open_time: '07:30', close_time: '15:30' },
+        ])
+      ),
+    };
+    await setGlobalConfig('time_management', open);
+    setResetting(false);
+    setResetDone(true);
+    setTimeout(() => onRetry?.(), 800);
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6"
       style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)' }}>
 
-      {/* Twinkling stars */}
+      {/* Background stars */}
       {Array.from({ length: 20 }).map((_, i) => (
         <motion.div key={i}
           className="absolute rounded-full bg-white/40"
@@ -53,41 +70,58 @@ export function TimeGate({ access, loading, children, grade, onRetry }: Props) {
 
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        className="bg-white/10 backdrop-blur-md rounded-3xl p-8 max-w-sm w-full text-center border border-white/20 shadow-2xl"
+        className="bg-white/10 backdrop-blur-md rounded-3xl p-8 max-w-sm w-full text-center border border-white/20 shadow-2xl space-y-4"
       >
-        <div className="text-6xl mb-4">
-          {isScreenTime ? '⏰' : '🔒'}
-        </div>
+        <div className="text-6xl">{isScreenTime ? '⏰' : '🔒'}</div>
 
-        <h2 className="text-white font-black text-2xl mb-2">
+        <h2 className="text-white font-black text-2xl">
           {isScreenTime ? "Time's Up!" : 'Not Available Right Now'}
         </h2>
 
-        <p className="text-white/70 text-sm leading-relaxed mb-6">
-          {access.reason}
-        </p>
+        {/* Reason — shown prominently */}
+        <div className="bg-white/10 rounded-2xl px-4 py-3 text-left">
+          <p className="text-white/50 text-[10px] font-black uppercase tracking-widest mb-1">Reason</p>
+          <p className="text-white/90 text-sm font-bold leading-relaxed">
+            {access.reason ?? 'Access is currently restricted.'}
+          </p>
+        </div>
 
         {isScreenTime && (
-          <div className="bg-white/10 rounded-2xl px-4 py-3 mb-4">
-            <p className="text-violet-200 text-xs font-bold">
-              🌟 Great job playing today! Come back tomorrow for more adventures.
-            </p>
-          </div>
+          <p className="text-violet-200 text-xs font-bold">
+            🌟 Great job today! Come back tomorrow for more adventures.
+          </p>
         )}
 
         {onRetry && (
           <button
             onClick={onRetry}
-            className="mt-4 px-5 py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold text-sm rounded-2xl transition-colors border border-white/20"
+            className="w-full px-5 py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold text-sm rounded-2xl transition-colors border border-white/20"
           >
             🔄 Check Again
           </button>
         )}
 
+        {/* Emergency reset — visible to admin when stuck */}
+        <details className="text-left">
+          <summary className="text-white/20 text-xs cursor-pointer hover:text-white/40 transition-colors text-center">
+            Admin options
+          </summary>
+          <div className="mt-3 space-y-2">
+            <p className="text-white/40 text-[10px]">
+              If the platform was accidentally closed, use the button below to re-open it for all grades.
+            </p>
+            <button
+              onClick={emergencyReset}
+              disabled={resetting || resetDone}
+              className="w-full px-4 py-2 bg-emerald-600/80 hover:bg-emerald-500/80 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-colors"
+            >
+              {resetDone ? '✅ Done — checking…' : resetting ? '⏳ Resetting…' : '🚨 Emergency: Open Platform for All'}
+            </button>
+          </div>
+        </details>
+
         {grade && (
-          <p className="text-white/30 text-xs font-bold mt-3">
-            Grade {grade} · PlayWise
-          </p>
+          <p className="text-white/20 text-xs font-bold">Grade {grade} · PlayWise</p>
         )}
       </motion.div>
     </div>
