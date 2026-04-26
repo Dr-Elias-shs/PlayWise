@@ -11,10 +11,10 @@ import { motion } from 'framer-motion';
 import { AccessResult } from '@/lib/timeManagement';
 
 interface Props {
-  access:   AccessResult;
-  loading:  boolean;
-  children: React.ReactNode;
-  grade?:   string;
+  access:    AccessResult;
+  loading:   boolean;
+  children?: React.ReactNode;
+  grade?:    string;
 }
 
 export function TimeGate({ access, loading, children, grade }: Props) {
