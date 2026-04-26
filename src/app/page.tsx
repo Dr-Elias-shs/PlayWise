@@ -22,6 +22,7 @@ import { getGlobalConfig } from "@/lib/wallet";
 import { PlayWiseIntro, INTRO_SEEN_KEY } from "@/components/PlayWiseIntro";
 import { useTimeGuard } from "@/hooks/useTimeGuard";
 import { TimeGate } from "@/components/TimeGate";
+import { useHeartbeat } from "@/hooks/useHeartbeat";
 
 // ─── Hub game card ────────────────────────────────────────────────────────────
 
@@ -71,6 +72,13 @@ export default function Home() {
   // Time-management guard — only active after login, skipped on localhost
   const isLocal = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
   const { loading: tmLoading, access, refresh: tmRefresh } = useTimeGuard(isLocal ? '' : (playerGrade ?? ''), screen === 'hub' || screen === 'game');
+
+  // Heartbeat — tracks this student as active while on hub or in a game
+  const heartbeatGame = screen === 'game' ? (activeGame?.title ?? 'Game') : screen === 'multiplayer' ? 'Multiplayer Hub' : 'Hub';
+  useHeartbeat(
+    screen === 'hub' || screen === 'game' || screen === 'multiplayer' ? playerEmail : '',
+    playerName, playerGrade ?? '', heartbeatGame,
+  );
   const router = useRouter();
   const [activeGame, setActiveGame] = useState<GameConfig | null>(null);
   const [multiGameId, setMultiGameId] = useState<string>('multiplication');

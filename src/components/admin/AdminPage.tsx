@@ -10,6 +10,7 @@ import {
 } from '@/lib/wallet';
 import { ALL_GAMES } from '@/lib/gameConfigs';
 import { TimeManagementTab } from './TimeManagementTab';
+import { LiveNowTab } from './LiveNowTab';
 import { MAP_REGISTRY } from '@/lib/map-registry';
 import { ROOMS } from '@/lib/rooms';
 import {
@@ -37,7 +38,7 @@ function resolveGameName(id: string | null | undefined, focusTable?: number): st
   return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'settings';
+type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'live' | 'settings';
 
 interface Wallet {
   student_name: string;  // email (DB key)
@@ -230,6 +231,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
           { id: 'games',       label: '🎮 Games', badge: Object.values(gameSettings).filter(v => v === false).length || undefined },
           { id: 'curriculum',  label: '📚 Curriculum' },
           { id: 'timemgmt',   label: '⏰ Time' },
+          { id: 'live',       label: '🟢 Live' },
           { id: 'settings',    label: '⚙️ Settings' },
         ] as { id: Tab; label: string; badge?: number }[]).map(t => (
           <button key={t.id} onClick={() => { setTab(t.id); if (t.id === 'curriculum') loadCurriculum(); }}
@@ -1205,6 +1207,13 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                     </div>
                   )}
                 </div>
+              </motion.div>
+            )}
+
+            {/* ── Live Now ── */}
+            {tab === 'live' && (
+              <motion.div key="live" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <LiveNowTab />
               </motion.div>
             )}
 

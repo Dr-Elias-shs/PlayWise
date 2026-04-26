@@ -16,6 +16,7 @@ import { getGlobalConfig } from '@/lib/wallet';
 import { WiseWorldIntro } from '@/components/world/WiseWorldIntro';
 import { useTimeGuard } from '@/hooks/useTimeGuard';
 import { TimeGate } from '@/components/TimeGate';
+import { useHeartbeat } from '@/hooks/useHeartbeat';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -378,6 +379,11 @@ export default function WorldPage() {
   // ── Time-management guard ──────────────────────────────────────────────────
   const playerGrade = (() => { try { const p = JSON.parse(localStorage.getItem('playwise_profile_v2') ?? '{}'); return p.grade ?? ''; } catch { return ''; } })();
   const { loading: tmLoading, access, refresh: tmRefresh } = useTimeGuard(playerGrade, !!selectedMap || !!multiRoomCode);
+
+  // Pull player info from hub profile for heartbeat
+  const worldProfile = (() => { try { return JSON.parse(localStorage.getItem('playwise_profile_v2') ?? '{}'); } catch { return {}; } })();
+  const worldGame = multiRoomCode ? 'WiseWorld Multiplayer' : selectedMap ? 'WiseWorld' : 'World Lobby';
+  useHeartbeat(worldProfile.email ?? '', worldProfile.name ?? '', playerGrade, worldGame);
 
   useEffect(() => {
     // Always allow on localhost so you can test without affecting students
