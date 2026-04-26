@@ -20,6 +20,8 @@ import { Leaderboard } from "@/components/hub/Leaderboard";
 import { ALL_GAMES, GameConfig } from "@/lib/gameConfigs";
 import { getGlobalConfig } from "@/lib/wallet";
 import { PlayWiseIntro, INTRO_SEEN_KEY } from "@/components/PlayWiseIntro";
+import { useTimeGuard } from "@/hooks/useTimeGuard";
+import { TimeGate } from "@/components/TimeGate";
 
 // ─── Hub game card ────────────────────────────────────────────────────────────
 
@@ -61,11 +63,14 @@ function HubGameCard({ config, onClick, multiplayerBadge }: {
 type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer' | 'redeem';
 
 export default function Home() {
-  const { playerName, playerEmail, playerAvatar, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
+  const { playerName, playerEmail, playerAvatar, playerGrade, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
   const [screen, setScreen] = useState<Screen>('login');
   const [showIntro, setShowIntro] = useState(() =>
     typeof window !== 'undefined' ? !localStorage.getItem(INTRO_SEEN_KEY) : false
   );
+  // Time-management guard — only active after login, skipped on localhost
+  const isLocal = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const { loading: tmLoading, access } = useTimeGuard(isLocal ? '' : (playerGrade ?? ''), screen === 'hub' || screen === 'game');
   const router = useRouter();
   const [activeGame, setActiveGame] = useState<GameConfig | null>(null);
   const [multiGameId, setMultiGameId] = useState<string>('multiplication');
@@ -157,6 +162,11 @@ export default function Home() {
   // ── Intro splash (shown once, before any screen) ──
   if (showIntro) {
     return <PlayWiseIntro onDone={() => setShowIntro(false)} />;
+  }
+
+  // ── Time-management gate (hub + game only, not login/profile-setup) ──
+  if (!isLocal && (screen === 'hub' || screen === 'game') && (tmLoading || !access.allowed)) {
+    return <TimeGate access={access} loading={tmLoading} grade={playerGrade ?? ''} />;
   }
 
   // ── Login ──
