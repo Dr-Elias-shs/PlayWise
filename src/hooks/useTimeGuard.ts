@@ -41,31 +41,34 @@ interface UseTimeGuardResult {
  * @param active - Set false to pause screen-time tracking (e.g. modal open).
  */
 export function useTimeGuard(grade: string, active = true): UseTimeGuardResult {
-  const [loading, setLoading] = useState(true);
+  // Start as NOT loading — fail open by default.
+  // The gate only activates once we have an explicit "denied" from Supabase.
+  const [loading, setLoading] = useState(false);
   const [config,  setConfig]  = useState<TimeManagementConfig>(DEFAULT_CONFIG);
   const [access,  setAccess]  = useState<AccessResult>({ allowed: true, minutesLeft: null });
   const tickRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch config once on mount
-  useEffect(() => {
-    getGlobalConfig(CONFIG_KEY).then(raw => {
-      const cfg = withDefaults(raw);
-      setConfig(cfg);
-      if (grade) setAccess(checkAccess(cfg, grade));
-      setLoading(false);
-    });
-  }, [grade]);
-
-  // Shared fetch function — used on mount, on interval, and by refresh()
+  // Shared fetch — used on mount, interval, and manual refresh
   function fetchConfig() {
     if (!grade) return;
-    getGlobalConfig(CONFIG_KEY).then(raw => {
-      const cfg = withDefaults(raw);
-      setConfig(cfg);
-      setAccess(checkAccess(cfg, grade));
-      setLoading(false);
-    });
+    getGlobalConfig(CONFIG_KEY)
+      .then(raw => {
+        const cfg = withDefaults(raw);
+        setConfig(cfg);
+        setAccess(checkAccess(cfg, grade));
+      })
+      .catch(() => {
+        // Network / Supabase error → fail open so students aren't blocked
+        setAccess({ allowed: true, minutesLeft: null });
+      })
+      .finally(() => setLoading(false));
   }
+
+  // Fetch on mount
+  useEffect(() => {
+    if (!grade) return;
+    fetchConfig();
+  }, [grade]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-fetch from Supabase every 15 s so admin changes propagate quickly
   useEffect(() => {

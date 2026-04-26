@@ -420,8 +420,8 @@ export default function WorldPage() {
 
   // ── Time-management gate (skipped on localhost) ───────────────────────────
   const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  if (!isLocal && (tmLoading || !access.allowed)) {
-    return <TimeGate access={access} loading={tmLoading} grade={playerGrade} onRetry={tmRefresh} />;
+  if (!isLocal && !access.allowed) {
+    return <TimeGate access={access} loading={false} grade={playerGrade} onRetry={tmRefresh} />;
   }
 
   // Multiplayer game in progress

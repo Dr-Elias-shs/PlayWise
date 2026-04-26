@@ -165,8 +165,8 @@ export default function Home() {
   }
 
   // ── Time-management gate (hub + game only, not login/profile-setup) ──
-  if (!isLocal && (screen === 'hub' || screen === 'game') && (tmLoading || !access.allowed)) {
-    return <TimeGate access={access} loading={tmLoading} grade={playerGrade ?? ''} onRetry={tmRefresh} />;
+  if (!isLocal && (screen === 'hub' || screen === 'game') && !access.allowed) {
+    return <TimeGate access={access} loading={false} grade={playerGrade ?? ''} onRetry={tmRefresh} />;
   }
 
   // ── Login ──
