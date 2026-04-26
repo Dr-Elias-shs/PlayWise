@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { AccessResult } from '@/lib/timeManagement';
-import { setGlobalConfig } from '@/lib/wallet';
 
 interface Props {
   access:    AccessResult;
@@ -14,8 +12,6 @@ interface Props {
 }
 
 export function TimeGate({ access, loading, children, grade, onRetry }: Props) {
-  const [resetting, setResetting] = useState(false);
-  const [resetDone, setResetDone] = useState(false);
 
   if (loading) {
     return (
@@ -32,25 +28,6 @@ export function TimeGate({ access, loading, children, grade, onRetry }: Props) {
   if (access.allowed) return <>{children}</>;
 
   const isScreenTime = access.minutesLeft === 0;
-
-  // Emergency reset — re-opens the platform for everyone (admin use)
-  async function emergencyReset() {
-    setResetting(true);
-    const open = {
-      global_enabled: true,
-      schedule: { enabled: false, days: ['Mon','Tue','Wed','Thu','Fri'], open_time: '07:30', close_time: '15:30' },
-      grades: Object.fromEntries(
-        Array.from({ length: 12 }, (_, i) => [
-          String(i + 1),
-          { enabled: true, daily_minutes: 0, custom_schedule: false, open_time: '07:30', close_time: '15:30' },
-        ])
-      ),
-    };
-    await setGlobalConfig('time_management', open);
-    setResetting(false);
-    setResetDone(true);
-    setTimeout(() => onRetry?.(), 800);
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6"
@@ -98,25 +75,6 @@ export function TimeGate({ access, loading, children, grade, onRetry }: Props) {
             🔄 Check Again
           </button>
         )}
-
-        {/* Emergency reset — visible to admin when stuck */}
-        <details className="text-left">
-          <summary className="text-white/20 text-xs cursor-pointer hover:text-white/40 transition-colors text-center">
-            Admin options
-          </summary>
-          <div className="mt-3 space-y-2">
-            <p className="text-white/40 text-[10px]">
-              If the platform was accidentally closed, use the button below to re-open it for all grades.
-            </p>
-            <button
-              onClick={emergencyReset}
-              disabled={resetting || resetDone}
-              className="w-full px-4 py-2 bg-emerald-600/80 hover:bg-emerald-500/80 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-colors"
-            >
-              {resetDone ? '✅ Done — checking…' : resetting ? '⏳ Resetting…' : '🚨 Emergency: Open Platform for All'}
-            </button>
-          </div>
-        </details>
 
         {grade && (
           <p className="text-white/20 text-xs font-bold">Grade {grade} · PlayWise</p>
