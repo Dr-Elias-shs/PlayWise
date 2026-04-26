@@ -36,8 +36,6 @@ export function TimeGate({ access, loading, children, grade, onRetry }: Props) {
   // Emergency reset — re-opens the platform for everyone (admin use)
   async function emergencyReset() {
     setResetting(true);
-    const { default: d } = await import('@/lib/timeManagement');
-    // Build a fully open config
     const open = {
       global_enabled: true,
       schedule: { enabled: false, days: ['Mon','Tue','Wed','Thu','Fri'], open_time: '07:30', close_time: '15:30' },
