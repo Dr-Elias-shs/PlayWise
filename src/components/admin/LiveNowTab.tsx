@@ -49,18 +49,26 @@ function playingFor(iso: string) {
 }
 
 export function LiveNowTab() {
-  const [sessions, setSessions] = useState<ActiveSession[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const [sessions,    setSessions]    = useState<ActiveSession[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   async function fetchSessions() {
-    const cutoff = new Date(Date.now() - 2 * 60_000).toISOString(); // active in last 2 min
-    const { data } = await supabase
+    setError(null);
+    const cutoff = new Date(Date.now() - 2 * 60_000).toISOString();
+    const { data, error: err } = await supabase
       .from('active_sessions')
       .select('*')
       .gte('last_seen', cutoff)
       .order('last_seen', { ascending: false });
-    setSessions((data ?? []) as ActiveSession[]);
+
+    if (err) {
+      console.error('[LiveNow] fetch error:', err);
+      setError(err.message);
+    } else {
+      setSessions((data ?? []) as ActiveSession[]);
+    }
     setLoading(false);
     setLastRefresh(new Date());
   }
@@ -107,6 +115,25 @@ export function LiveNowTab() {
 
       {loading ? (
         <div className="text-center py-12 text-slate-400 font-bold">Loading…</div>
+      ) : error ? (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 space-y-2">
+          <p className="text-red-600 font-black text-sm">⚠️ Could not load active sessions</p>
+          <p className="text-red-400 text-xs font-mono">{error}</p>
+          <p className="text-red-500 text-sm font-bold mt-2">
+            Make sure you have created the <code className="bg-red-100 px-1 rounded">active_sessions</code> table in Supabase:
+          </p>
+          <pre className="bg-red-100 text-red-700 text-xs rounded-xl p-3 overflow-x-auto whitespace-pre-wrap">{`CREATE TABLE IF NOT EXISTS public.active_sessions (
+  player_email  TEXT        PRIMARY KEY,
+  player_name   TEXT        NOT NULL DEFAULT '',
+  grade         TEXT        NOT NULL DEFAULT '',
+  current_game  TEXT        NOT NULL DEFAULT 'hub',
+  last_seen     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  started_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE public.active_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "active_sessions_all" ON public.active_sessions
+  FOR ALL USING (true) WITH CHECK (true);`}</pre>
+        </div>
       ) : sessions.length === 0 ? (
         <div className="bg-slate-50 rounded-2xl border border-slate-200 py-16 text-center">
           <div className="text-5xl mb-3">😴</div>
