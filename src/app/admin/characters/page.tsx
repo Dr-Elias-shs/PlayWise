@@ -512,6 +512,24 @@ export default function CharacterImportTool() {
     persist({ characters: registry.characters, outfits: registry.outfits.filter(o => o.id !== id) });
   }
 
+  async function updateCharacterFrame(charId: string, frameIndex: number, file: File) {
+    const char = registry.characters.find(c => c.id === charId);
+    if (!char) return;
+    const ext  = file.name.split('.').pop() ?? 'png';
+    const path = `/characters/${charId}/walk${frameIndex + 1}.${ext}`;
+    await uploadCharacterFile(file, path);
+    const newFrames = [...char.frames] as [string, string, string];
+    newFrames[frameIndex] = path;
+    persist({
+      characters: registry.characters.map(c => c.id !== charId ? c : {
+        ...c,
+        frames:    newFrames,
+        standFrame: frameIndex === 1 ? path : c.standFrame,
+      }),
+      outfits: registry.outfits,
+    });
+  }
+
   const previewCharDef   = registry.characters.find(c => c.id === previewChar)   ?? registry.characters[0];
   const previewOutfitDef = registry.outfits.find(o => o.id === previewOutfit);
   const previewSprite    = previewOutfitDef && previewCharDef
@@ -583,9 +601,25 @@ export default function CharacterImportTool() {
                       <div className="text-[10px] text-emerald-600 font-bold mt-1">✓ built-in logo</div>
                     )}
                   </div>
-                  {/* Walk frames strip */}
+                  {/* Walk frames — click any to replace */}
                   <div className="flex gap-1">
-                    {c.frames.map((f, i) => <Thumb key={i} src={f} size={36} />)}
+                    {(['Walk 1', 'Stand', 'Walk 3'] as const).map((lbl, i) => (
+                      <label key={i} className="cursor-pointer group flex flex-col items-center gap-0.5">
+                        <div className="relative rounded-xl overflow-hidden"
+                          style={{ width: 44, height: 44, backgroundImage: CHECKER }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={c.frames[i]} alt={lbl} draggable={false}
+                            style={{ width: 44, height: 44, objectFit: 'contain' }} />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-violet-600/40
+                            flex items-center justify-center transition-colors rounded-xl">
+                            <span className="text-white text-base opacity-0 group-hover:opacity-100">✏️</span>
+                          </div>
+                        </div>
+                        <span className="text-[9px] text-slate-400 font-bold">{lbl}</span>
+                        <input type="file" accept="image/png,image/webp" className="hidden"
+                          onChange={e => { const f = e.target.files?.[0]; if (f) updateCharacterFrame(c.id, i, f); }} />
+                      </label>
+                    ))}
                   </div>
                   {!['male', 'female'].includes(c.id) && (
                     <button onClick={() => removeCharacter(c.id)}

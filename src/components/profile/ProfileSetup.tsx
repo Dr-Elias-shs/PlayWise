@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '@/store/useGameStore';
 import { COLORS } from '@/lib/avatar-items';
-import { OwlMini } from '@/components/game/OwlCharacter';
 import { useCharacterRegistry } from '@/lib/characterRegistry';
 
 const GRADES = Array.from({ length: 12 }, (_, i) => String(i + 1));
@@ -84,38 +83,41 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
           </div>
         </div>
 
-        {/* ── Live preview ── */}
-        <div className="flex justify-center mb-5">
-          <motion.div key={`${colorId}-${characterId}`}
-            initial={{ scale: 0.85, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
-            <OwlMini colorIdOverride={colorId} size={80} />
-          </motion.div>
-        </div>
-
-        {/* ── Colour grid ── */}
+        {/* ── Colour grid — each swatch shows the character in that colour ── */}
         <div className="mb-5">
           <p className="text-sm font-bold text-slate-500 mb-3">Choose your colour</p>
-          <div className="grid grid-cols-5 gap-3">
-            {COLORS.map(c => (
-              <button key={c.id} onClick={() => setColorId(c.id)}
-                className="flex flex-col items-center gap-1.5">
-                <div className={`w-11 h-11 rounded-full border-4 transition-all duration-150
-                  ${colorId === c.id
-                    ? 'border-violet-500 scale-110 shadow-lg shadow-violet-300/50'
-                    : 'border-slate-200 hover:border-violet-300 hover:scale-105'}`}
-                  style={{ background: c.swatch }}>
-                  {colorId === c.id && (
-                    <div className="w-full h-full rounded-full flex items-center justify-center
-                      text-white font-black text-base">✓</div>
-                  )}
-                </div>
-                <span className="text-[10px] font-bold text-slate-500 text-center leading-tight">
-                  {c.name}
-                </span>
-              </button>
-            ))}
+          <div className="grid grid-cols-5 gap-2">
+            {COLORS.map(c => {
+              const charDef = registry.character(characterId) ?? registry.characters[0];
+              const src = charDef?.standFrame ?? '/character/walk2.png';
+              const selected = colorId === c.id;
+              return (
+                <button key={c.id} onClick={() => setColorId(c.id)}
+                  className="flex flex-col items-center gap-1 group">
+                  <div className={`relative rounded-2xl overflow-hidden transition-all duration-150
+                    ${selected
+                      ? 'ring-2 ring-violet-500 ring-offset-1 scale-110 shadow-lg shadow-violet-300/40'
+                      : 'ring-1 ring-slate-200 hover:ring-violet-300 hover:scale-105'}`}
+                    style={{ width: 52, height: 52,
+                             background: selected ? '#ede9fe' : '#f1f5f9' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt={c.name} draggable={false}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain',
+                               filter: c.filter || undefined }} />
+                    {selected && (
+                      <div className="absolute inset-0 flex items-end justify-end p-0.5">
+                        <span className="text-[10px] bg-violet-500 text-white rounded-full w-4 h-4
+                          flex items-center justify-center font-black leading-none">✓</span>
+                      </div>
+                    )}
+                  </div>
+                  <span className={`text-[10px] font-bold text-center leading-tight transition-colors
+                    ${selected ? 'text-violet-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                    {c.name}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
