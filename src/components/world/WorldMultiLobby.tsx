@@ -1,11 +1,12 @@
 "use client";
+import { useGameStore } from '@/store/useGameStore';
 
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWorldStore } from '@/store/useWorldStore';
 import { useWorldMultiStore } from '@/store/useWorldMultiStore';
-import { useAvatarStore } from '@/store/useAvatarStore';
-import { COLORS, ACCESSORIES } from '@/lib/avatar-items';
+
+import { COLORS, ACCESSORIES, itemTopFraction } from '@/lib/avatar-items';
 
 // ── Animated lobby scene ──────────────────────────────────────────────────────
 
@@ -110,13 +111,26 @@ interface Props {
 
 function PlayerChip({ p }: { p: WorldPlayer }) {
   const color  = COLORS.find(c => c.id === p.color_id);
-  const acc    = ACCESSORIES.find(a => a.id === p.equipped_id);
+  const acc    = ACCESSORIES.find(a => a.id === p.equipped_id) ?? null;
+  const H      = 40;
+  const fs     = Math.round(H * 0.30);
   return (
     <div className="flex items-center gap-3 bg-white/10 rounded-2xl px-4 py-3 border border-white/10">
-      <div className="flex flex-col items-center">
-        {acc && <span className="text-base leading-none">{acc.emoji}</span>}
+      <div className="relative flex-shrink-0" style={{ width: H, height: H }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/character/walk2.png" alt="" draggable={false}
-          style={{ height: 36, filter: color?.filter ?? '' }} />
+          style={{ width: H, height: H, objectFit: 'contain', filter: color?.filter ?? '' }} />
+        {acc && (
+          <span style={{
+            position: 'absolute',
+            top:       itemTopFraction(acc) * H,
+            left:      `calc(50% + ${acc.xOffset ?? 0}px)`,
+            transform: 'translateX(-50%)',
+            fontSize:  fs,
+            lineHeight: 1,
+            pointerEvents: 'none',
+          }}>{acc.emoji}</span>
+        )}
       </div>
       <div>
         <div className="text-white font-black text-sm">{p.player_name}</div>
@@ -131,7 +145,7 @@ function PlayerChip({ p }: { p: WorldPlayer }) {
 
 export function WorldMultiLobby({ mapId, onStart, onBack }: Props) {
   const { playerName } = useWorldStore();
-  const { colorId, equippedId } = useAvatarStore();
+  const { colorId, equippedId } = useGameStore();
   const { setRoom, setPlayers, setMyRoomCode, room, players } = useWorldMultiStore();
 
   const [openRooms,    setOpenRooms]    = useState<WorldRoom[]>([]);

@@ -246,6 +246,11 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
             )}
           </button>
         ))}
+        {/* Characters tool — separate page */}
+        <a href="/admin/characters"
+          className="ml-auto px-4 py-2 font-bold text-sm rounded-t-xl text-violet-600 hover:bg-violet-50 transition-colors flex items-center gap-1.5">
+          🎨 Characters
+        </a>
       </div>
 
       <div className="p-6 max-w-6xl mx-auto">

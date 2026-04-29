@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { ALL_GAME_IDS } from "@/lib/learningScore";
+import { useGameStore } from "@/store/useGameStore";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ interface SpecialistEntry {
   avg_accuracy: number; sessions_count: number; mastered: boolean;
 }
 
-type BoardType = 'learners' | 'improved' | 'accuracy' | 'explorers' | 'specialist';
+type BoardType = 'learners' | 'myClass' | 'improved' | 'accuracy' | 'explorers' | 'specialist';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -43,30 +44,33 @@ function ScoreBar({ value, max = 100, color }: { value: number; max?: number; co
   );
 }
 
-function EntryRow({ rank, name, grade, main, sub, extra }: {
+function EntryRow({ rank, name, grade, main, sub, extra, isMe }: {
   rank: number; name: string; grade?: string;
-  main: string; sub?: string; extra?: React.ReactNode;
+  main: string; sub?: string; extra?: React.ReactNode; isMe?: boolean;
 }) {
   const top3 = rank <= 3;
   return (
     <motion.div layout initial={{ x: -16, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
       transition={{ delay: rank * 0.04 }}
-      className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-colors ${
-        rank === 1 ? 'bg-amber-50 border border-amber-100' :
-        rank === 2 ? 'bg-slate-50 border border-slate-100' :
-        rank === 3 ? 'bg-orange-50 border border-orange-100' :
-        'bg-white hover:bg-slate-50 border border-transparent'
+      className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-colors border ${
+        isMe        ? 'bg-violet-50 border-violet-300 ring-1 ring-violet-300' :
+        rank === 1  ? 'bg-amber-50 border-amber-100' :
+        rank === 2  ? 'bg-slate-50 border-slate-100' :
+        rank === 3  ? 'bg-orange-50 border-orange-100' :
+        'bg-white hover:bg-slate-50 border-transparent'
       }`}>
       <span className={`w-7 text-center font-black text-sm ${
         top3 ? 'text-lg' : 'text-slate-400'
       }`}>{top3 ? MEDALS[rank - 1] : rank}</span>
       <div className="flex-1 min-w-0">
-        <div className="font-bold text-slate-800 text-sm truncate">{name}</div>
+        <div className={`font-bold text-sm truncate ${isMe ? 'text-violet-700' : 'text-slate-800'}`}>
+          {name}{isMe && <span className="ml-1 text-[10px] bg-violet-200 text-violet-700 px-1.5 py-0.5 rounded-full font-black">YOU</span>}
+        </div>
         {grade && <div className="text-[10px] text-slate-400 font-semibold">Grade {grade}</div>}
         {sub && <div className="text-[10px] text-slate-400">{sub}</div>}
       </div>
       {extra}
-      <div className="text-right font-black text-sm text-violet-600 shrink-0">{main}</div>
+      <div className={`text-right font-black text-sm shrink-0 ${isMe ? 'text-violet-600' : 'text-violet-600'}`}>{main}</div>
     </motion.div>
   );
 }
@@ -74,6 +78,7 @@ function EntryRow({ rank, name, grade, main, sub, extra }: {
 // ── Main Leaderboard ──────────────────────────────────────────────────────────
 
 export function Leaderboard() {
+  const { playerGrade, playerName } = useGameStore();
   const [board, setBoard]           = useState<BoardType>('learners');
   const [entries, setEntries]       = useState<LearnerEntry[]>([]);
   const [specialists, setSpecialists] = useState<Record<string, SpecialistEntry[]>>({});
@@ -129,6 +134,10 @@ export function Leaderboard() {
 
   // ── Derived lists ───────────────────────────────────────────────────────────
   const topLearners  = [...entries].sort((a, b) => b.learning_score - a.learning_score).slice(0, 10);
+  const myClassEntries = [...entries]
+    .filter(e => playerGrade && e.grade === playerGrade)
+    .sort((a, b) => b.learning_score - a.learning_score)
+    .slice(0, 20);
   const mostImproved = [...entries]
     .filter(e => e.improvement_delta > 0)
     .sort((a, b) => b.improvement_delta - a.improvement_delta).slice(0, 10);
@@ -139,6 +148,7 @@ export function Leaderboard() {
 
   const tabs: { id: BoardType; label: string; emoji: string }[] = [
     { id: 'learners',   label: 'Top Learners',   emoji: '🏆' },
+    { id: 'myClass',    label: 'My Class',        emoji: '🏫' },
     { id: 'improved',   label: 'Most Improved',  emoji: '📈' },
     { id: 'accuracy',   label: 'Accuracy',        emoji: '🎯' },
     { id: 'explorers',  label: 'Explorers',       emoji: '🌍' },
@@ -218,6 +228,39 @@ export function Leaderboard() {
                   />
                 ))
               }
+            </motion.div>
+          )}
+
+          {/* ── My Class ── */}
+          {board === 'myClass' && (
+            <motion.div key="myClass" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-1 mb-2">
+                {playerGrade ? `Grade ${playerGrade} classmates · ranked by learning score` : 'Set your grade in profile to see classmates'}
+              </p>
+              {!playerGrade ? (
+                <p className="text-center py-12 text-slate-400 text-sm">No grade set — update your profile first.</p>
+              ) : myClassEntries.length === 0 ? (
+                <p className="text-center py-12 text-slate-400 text-sm">No classmates found in Grade {playerGrade} yet 🎒</p>
+              ) : (
+                myClassEntries.map((e, i) => (
+                  <EntryRow key={e.student_name} rank={i + 1} name={e.student_name}
+                    isMe={e.student_name === playerName}
+                    main={`${e.learning_score.toFixed(1)} pts`}
+                    extra={
+                      <div className="flex flex-col gap-1 items-end mr-2">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-slate-400">M</span>
+                          <ScoreBar value={e.mastery_score}  color="bg-violet-500" />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-slate-400">A</span>
+                          <ScoreBar value={e.accuracy_score} color="bg-emerald-500" />
+                        </div>
+                      </div>
+                    }
+                  />
+                ))
+              )}
             </motion.div>
           )}
 

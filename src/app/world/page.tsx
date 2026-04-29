@@ -1,4 +1,5 @@
 "use client";
+import { useGameStore } from '@/store/useGameStore';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -8,8 +9,8 @@ import { WorldMultiLobby } from '@/components/world/WorldMultiLobby';
 import { WorldMultiMap } from '@/components/world/WorldMultiMap';
 import { Shop } from '@/components/world/Shop';
 import { useWorldStore } from '@/store/useWorldStore';
-import { useAvatarStore } from '@/store/useAvatarStore';
-import { COLORS, ACCESSORIES } from '@/lib/avatar-items';
+
+import { COLORS, ACCESSORIES, itemTopFraction } from '@/lib/avatar-items';
 import { MAP_REGISTRY, MapMeta } from '@/lib/map-registry';
 import { ROOMS } from '@/lib/rooms';
 import { getGlobalConfig } from '@/lib/wallet';
@@ -21,19 +22,44 @@ import { useHeartbeat } from '@/hooks/useHeartbeat';
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function CharacterPreview({ size = 80 }: { size?: number }) {
-  const { colorId, equippedId } = useAvatarStore();
+  const { colorId, equippedId, equippedClothingId } = useGameStore();
   const color = COLORS.find(c => c.id === colorId);
-  const acc   = ACCESSORIES.find(a => a.id === equippedId);
+  const acc   = ACCESSORIES.find(a => a.id === equippedId)   ?? null;
+  const cloth = ACCESSORIES.find(a => a.id === equippedClothingId) ?? null;
+  const fs    = Math.round(size * 0.30);
   return (
-    <div className="flex flex-col items-center">
-      {acc && <span style={{ fontSize: size * 0.45 }}>{acc.emoji}</span>}
+    <div className="relative" style={{ width: size, height: size }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/character/walk2.png"
         alt="Character"
         draggable={false}
-        style={{ height: size, filter: color?.filter ?? '', transition: 'filter 0.25s' }}
+        style={{ width: size, height: size, objectFit: 'contain', filter: color?.filter ?? '', transition: 'filter 0.25s' }}
       />
+      {acc && (
+        <span className="absolute pointer-events-none select-none"
+          style={{
+            top:       itemTopFraction(acc) * size,
+            left:      `calc(50% + ${acc.xOffset ?? 0}px)`,
+            transform: 'translateX(-50%)',
+            fontSize:  fs,
+            lineHeight: 1,
+          }}>
+          {acc.emoji}
+        </span>
+      )}
+      {cloth && (
+        <span className="absolute pointer-events-none select-none"
+          style={{
+            top:       itemTopFraction(cloth) * size,
+            left:      `calc(50% + ${cloth.xOffset ?? 0}px)`,
+            transform: 'translateX(-50%)',
+            fontSize:  fs,
+            lineHeight: 1,
+          }}>
+          {cloth.emoji}
+        </span>
+      )}
     </div>
   );
 }
@@ -102,7 +128,7 @@ function MapCard({ map, onSelect, locked }: { map: MapMeta; onSelect: () => void
 
 function WorldLobby({ onEnter, onMultiplayer }: { onEnter: (mapId: string) => void; onMultiplayer?: (mapId: string) => void }) {
   const { playerName, setPlayerName, playBits, completedRooms } = useWorldStore();
-  const { colorId } = useAvatarStore();
+  const { colorId } = useGameStore();
 
   const [name, setName]         = useState(playerName === 'Player' ? '' : playerName);
   const [editingName, setEditingName] = useState(playerName === 'Player');

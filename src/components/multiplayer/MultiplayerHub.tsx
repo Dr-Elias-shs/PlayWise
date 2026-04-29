@@ -9,6 +9,7 @@ import {
 } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 import { ALL_GAMES, GameConfig } from '@/lib/gameConfigs';
+import { OwlMini } from '@/components/game/OwlCharacter';
 
 // ─── Game filter tab ──────────────────────────────────────────────────────────
 
@@ -149,7 +150,7 @@ function WaitingRoom({ roomCode, gameConfig, onStart, onLeave }: {
   onStart: () => void;
   onLeave: () => void;
 }) {
-  const { roomData, playerName, playerAvatar } = useGameStore();
+  const { roomData, playerName } = useGameStore();
   const players: { id: string; name: string; avatar?: string; score: number }[] = roomData?.players ?? [];
   const amHost = players[0]?.name === playerName;
 
@@ -174,7 +175,7 @@ function WaitingRoom({ roomCode, gameConfig, onStart, onLeave }: {
         {players.map((p, i) => (
           <motion.div key={p.id} initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
             className="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3">
-            <span className="text-2xl">{p.avatar ?? playerAvatar}</span>
+            <OwlMini size={32} />
             <span className="text-white font-bold flex-1">{p.name}</span>
             {i === 0 && <span className="text-xs bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">Host</span>}
           </motion.div>
@@ -214,7 +215,7 @@ interface Props {
 }
 
 export function MultiplayerHub({ onGameStart, onBack }: Props) {
-  const { playerName, playerAvatar, connectSocket, joinRoom, startGameMultiplayer, roomId, roomData, clearRoom } = useGameStore();
+  const { playerName, connectSocket, joinRoom, startGameMultiplayer, roomId, roomData, clearRoom } = useGameStore();
 
   const [rooms, setRooms] = useState<GameRoom[]>([]);
   const [filter, setFilter] = useState<string>('all');
@@ -277,7 +278,7 @@ export function MultiplayerHub({ onGameStart, onBack }: Props) {
   }, [roomData?.players?.length, activeRoom]);
 
   const handleCreate = async (gameId: string) => {
-    const avatar = playerAvatar || '🦁';
+    const avatar = '';
     let roomCode: string;
 
     try {
@@ -343,7 +344,7 @@ export function MultiplayerHub({ onGameStart, onBack }: Props) {
         </div>
         {/* Player badge */}
         <div className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
-          <span className="text-xl">{playerAvatar}</span>
+          <OwlMini size={28} />
           <span className="text-white font-bold text-sm">{playerName}</span>
         </div>
       </div>

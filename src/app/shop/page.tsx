@@ -1,9 +1,10 @@
 "use client";
+import { useGameStore } from '@/store/useGameStore';
 
 import { useState }        from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter }       from 'next/navigation';
-import { useAvatarStore }  from '@/store/useAvatarStore';
+
 import { useWorldStore }   from '@/store/useWorldStore';
 import { COLORS, ACCESSORIES } from '@/lib/avatar-items';
 import type { AccessoryItem } from '@/lib/avatar-items';
@@ -90,7 +91,7 @@ export default function ShopPage() {
   const {
     colorId, equippedId, ownedAccessories,
     setColor, ownAccessory, equipAccessory,
-  } = useAvatarStore();
+  } = useGameStore();
   const { playBits, addPlayBits, playerName } = useWorldStore();
 
   const [tab,           setTab]           = useState<Category>('colors');

@@ -18,6 +18,7 @@ import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { loginRequest } from "@/lib/msal";
 import { Leaderboard } from "@/components/hub/Leaderboard";
 import { ALL_GAMES, GameConfig } from "@/lib/gameConfigs";
+import { OwlMini } from "@/components/game/OwlCharacter";
 import { getGlobalConfig } from "@/lib/wallet";
 import { PlayWiseIntro, INTRO_SEEN_KEY } from "@/components/PlayWiseIntro";
 import { useTimeGuard } from "@/hooks/useTimeGuard";
@@ -64,7 +65,7 @@ function HubGameCard({ config, onClick, multiplayerBadge }: {
 type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer' | 'redeem';
 
 export default function Home() {
-  const { playerName, playerEmail, playerAvatar, playerGrade, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
+  const { playerName, playerEmail, playerGrade, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
   const [screen, setScreen] = useState<Screen>('login');
   const [showIntro, setShowIntro] = useState(() =>
     typeof window !== 'undefined' ? !localStorage.getItem(INTRO_SEEN_KEY) : false
@@ -109,12 +110,12 @@ export default function Home() {
     if (email) setPlayerName(displayName, email); // always set — no guard
   }, [isAuthenticated, accounts]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Determine initial screen once playerName/avatar known
+  // Determine initial screen once profile loaded
   useEffect(() => {
     if (screen !== 'login') return;
-    if (playerName && playerAvatar) setScreen('hub');
-    else if (playerName && !playerAvatar) setScreen('profile-setup');
-  }, [playerName, playerAvatar, screen]);
+    if (playerName && playerGrade) setScreen('hub');
+    else if (playerName && !playerGrade) setScreen('profile-setup');
+  }, [playerName, playerGrade, screen]);
 
   const handleLogin = () => {
     instance.loginPopup(loginRequest).catch(e => {
@@ -133,7 +134,7 @@ export default function Home() {
 
   const handleLogout = () => {
     // Clear full profile including email so re-login works cleanly
-    setProfile('', '', '', '');
+    setProfile('', '', 'green', '');
     setEmailInput('');
     setScreen('login');
     if (isAuthenticated) {
@@ -183,9 +184,17 @@ export default function Home() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 bg-brand-background">
         <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
-          <div className="flex justify-center mb-6">
-            <div className="bg-white p-2 rounded-2xl shadow-lg border border-slate-100">
-              <img src="/playwise-logo.png" alt="PlayWise Logo" className="w-24 h-24 object-contain" />
+          {/* SHS logo — upper left */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-slate-50 p-1.5 rounded-xl border border-slate-100 shadow-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/exams-logo.png" alt="SHS" className="w-10 h-10 object-contain" />
+            </div>
+            <div className="flex-1 flex justify-center">
+              <div className="bg-white p-2 rounded-2xl shadow-lg border border-slate-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/playwise-logo.png" alt="PlayWise Logo" className="w-16 h-16 object-contain" />
+              </div>
             </div>
           </div>
           <h1 className="text-3xl font-black text-center text-slate-800 mb-2">PlayWise</h1>
@@ -293,7 +302,7 @@ export default function Home() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-3xl">{playerAvatar}</span>
+              <OwlMini size={44} />
               <h1 className="text-3xl font-black text-slate-800 tracking-tight">Hey, {playerName}! 👋</h1>
             </div>
             <p className="text-slate-500 text-base mt-0.5 font-medium">Pick a game and start playing</p>
@@ -353,8 +362,7 @@ export default function Home() {
             style={{ background: 'linear-gradient(135deg, #1a3a1a 0%, #2d6e2d 100%)' }}
             onClick={() => router.push('/world')}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/character/walk2.png" alt="Character" className="h-20 flex-shrink-0" draggable={false} />
+            <OwlMini size={80} />
             <div className="flex-1">
               <h2 className="text-xl font-black text-white">PlayWise World 🗺️</h2>
               <p className="text-white/70 text-sm font-medium mt-1">

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Joystick } from './Joystick';
 import { WalkingCharacter, CHAR_H, CHAR_HW } from './WalkingCharacter';
 import { RoomEntryModal } from './RoomEntryModal';
-import { useAvatarStore } from '@/store/useAvatarStore';
+import { useGameStore } from '@/store/useGameStore';
 import { COLORS, ACCESSORIES } from '@/lib/avatar-items';
 import {
   ROOMS, WALLS as DEFAULT_WALLS, MAP_W, MAP_H, DOOR_RADIUS,
@@ -135,9 +135,8 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
   const [wallEditorEnabled, setWallEditorEnabled] = useState(false);
   const disabledRoomsRef = useRef<Set<string>>(new Set());
   const [muted, setMuted] = useState(false);
-  const { colorId, equippedId } = useAvatarStore();
+  const { colorId, characterId, equippedId, equippedClothingId } = useGameStore();
   const colorFilter = COLORS.find(c => c.id === colorId)?.filter ?? '';
-  const accessoryEmoji = ACCESSORIES.find(a => a.id === equippedId)?.emoji;
 
   // ── Music ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -397,7 +396,9 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
           ref={charRef}
           playerName={playerName}
           colorFilter={colorFilter}
-          accessoryEmoji={accessoryEmoji}
+          characterId={characterId}
+          equippedAccId={equippedId}
+          equippedClothingId={equippedClothingId}
         />
       </div>
 

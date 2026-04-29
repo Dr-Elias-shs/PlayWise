@@ -6,8 +6,8 @@ import { Joystick } from './Joystick';
 import { WalkingCharacter, CHAR_H, CHAR_HW } from './WalkingCharacter';
 import { HiddenSpotModal } from './HiddenSpotModal';
 import { VotingOverlay, ResultFlash } from './VotingOverlay';
-import { useAvatarStore } from '@/store/useAvatarStore';
-import { COLORS, ACCESSORIES } from '@/lib/avatar-items';
+
+import { COLORS, ACCESSORIES, itemTopFraction } from '@/lib/avatar-items';
 import {
   ROOMS, WALLS as DEFAULT_WALLS, MAP_W, MAP_H, DOOR_RADIUS,
   DEFAULT_HIDDEN_SPOTS, HiddenSpotDef,
@@ -125,15 +125,17 @@ function TeammateArrow({ rp, viewport, myX, myY, scale }: {
 
 function RemoteSprite({ p, scale, isSpecialist }: { p: RemotePlayer; scale: number; isSpecialist: boolean }) {
   const color = COLORS.find(c => c.id === p.color_id);
-  const acc   = ACCESSORIES.find(a => a.id === p.equipped_id);
+  const acc   = ACCESSORIES.find(a => a.id === p.equipped_id) ?? null;
   const px = p.renderX * scale * ZOOM;
   const py = p.renderY * scale * ZOOM;
+  const fs = Math.round(CHAR_H * 0.30);
 
   return (
     <div style={{
       position: 'absolute', left: px - CHAR_HW, top: py - CHAR_H,
       transform: `scaleX(${p.dir})`, pointerEvents: 'none', zIndex: 4,
     }}>
+      {/* Name tag */}
       <div style={{
         position: 'absolute', bottom: '100%', left: '50%',
         transform: 'translateX(-50%)',
@@ -141,10 +143,30 @@ function RemoteSprite({ p, scale, isSpecialist }: { p: RemotePlayer; scale: numb
         color: '#fff', fontSize: 9, fontWeight: 900,
         padding: '2px 6px', borderRadius: 8, marginBottom: 2,
       }}>
-        {acc?.emoji ?? ''} {p.player_name} {isSpecialist ? '⭐' : ''}
+        {p.player_name} {isSpecialist ? '⭐' : ''}
       </div>
-      <img src={`/character/walk${p.frame + 1}.png`} alt={p.player_name} draggable={false}
-        style={{ height: CHAR_H, filter: color?.filter ?? '', opacity: 0.92 }} />
+
+      {/* Sprite */}
+      <div style={{ position: 'relative', height: CHAR_H }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`/character/walk${p.frame + 1}.png`} alt={p.player_name} draggable={false}
+          style={{ height: CHAR_H, filter: color?.filter ?? '', opacity: 0.92 }} />
+
+        {/* Accessory overlay */}
+        {acc && (
+          <span style={{
+            position: 'absolute',
+            top:       itemTopFraction(acc) * CHAR_H,
+            left:      `calc(50% + ${acc.xOffset ?? 0}px)`,
+            transform: 'translateX(-50%)',
+            fontSize:  fs,
+            lineHeight: 1,
+            pointerEvents: 'none',
+          }}>
+            {acc.emoji}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -185,7 +207,7 @@ interface Props { roomCode: string; mapId?: string; onBack: () => void; }
 export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
   const activeMapId = mapIdProp ?? DEFAULT_MAP_ID;
   const { playerName, foundSecrets } = useWorldStore();
-  const { colorId, equippedId } = useAvatarStore();
+  const { colorId, characterId, equippedId, equippedClothingId } = useGameStore();
   const color = COLORS.find(c => c.id === colorId);
   const {
     remotePos, upsertRemotePos, teamScore, setTeamScore,
@@ -578,7 +600,9 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
         {/* My character */}
         <WalkingCharacter ref={charRef} playerName={playerName}
           colorFilter={color?.filter ?? ''}
-          accessoryEmoji={ACCESSORIES.find(a => a.id === equippedId)?.emoji} />
+          characterId={characterId}
+          equippedAccId={equippedId}
+          equippedClothingId={equippedClothingId} />
       </div>
 
       {/* Off-screen teammate arrows */}

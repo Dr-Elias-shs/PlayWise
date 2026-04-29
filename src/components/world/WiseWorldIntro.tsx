@@ -10,6 +10,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useGameStore } from "@/store/useGameStore";
+import { COLORS, ACCESSORIES } from "@/lib/avatar-items";
 
 // ─── Walking character hook ───────────────────────────────────────────────────
 function useWalkFrame(fps = 6) {
@@ -65,6 +67,9 @@ export function WiseWorldIntro({ onDone }: Props) {
   const [exiting, setExiting] = useState(false);
   const doneRef  = useRef(false);
   const walkFrame = useWalkFrame(7);
+  const { colorId, equippedId } = useGameStore();
+  const colorFilter      = COLORS.find(c => c.id === colorId)?.filter ?? '';
+  const equippedAcc      = ACCESSORIES.find(a => a.id === equippedId) ?? null;
 
   function finish() {
     if (doneRef.current) return;
@@ -249,23 +254,30 @@ export function WiseWorldIntro({ onDone }: Props) {
             animate={{ x: 0,    opacity: 1 }}
             transition={{ delay: 1.0, type: "spring", stiffness: 120, damping: 18 }}
           >
+            {/* Accessory above character */}
+            {equippedAcc && (
+              <span className="select-none pointer-events-none" style={{ fontSize: 22, lineHeight: 1, marginBottom: 2 }}>
+                {equippedAcc.emoji}
+              </span>
+            )}
             {/* Shadow under feet */}
             <motion.div
               className="w-10 h-2 bg-black/30 rounded-full blur-sm mt-1"
               animate={{ scaleX: [1, 0.85, 1] }}
               transition={{ duration: 0.28, repeat: Infinity }}
             />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`/character/walk${walkFrame}.png`}
               alt="Character"
               draggable={false}
               className="w-16 h-16 md:w-20 md:h-20"
               style={{
-                imageRendering: "pixelated",
-                filter:
-                  "drop-shadow(0 0 12px rgba(52,211,153,0.7)) drop-shadow(0 2px 6px rgba(0,0,0,0.5))",
-                // Position shadow below
                 marginTop: "-8px",
+                filter: [
+                  colorFilter,
+                  "drop-shadow(0 0 12px rgba(52,211,153,0.7)) drop-shadow(0 2px 6px rgba(0,0,0,0.5))",
+                ].filter(Boolean).join(' '),
               }}
             />
           </motion.div>

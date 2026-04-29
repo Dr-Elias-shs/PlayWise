@@ -1,0 +1,121 @@
+{
+  "characters": [
+    {
+      "id": "male",
+      "name": "Male",
+      "frames": [
+        "/character/walk1.png",
+        "/character/walk2.png",
+        "/character/walk3.png"
+      ],
+      "standFrame": "/character/walk2.png",
+      "hasBuiltInLogo": false
+    },
+    {
+      "id": "female",
+      "name": "Female",
+      "frames": [
+        "/character/female-walk1.png",
+        "/character/female-walk2.png",
+        "/character/female-walk3.png"
+      ],
+      "standFrame": "/character/female-walk2.png",
+      "hasBuiltInLogo": true
+    },
+    {
+      "id": "female-owl",
+      "name": "Female owl",
+      "frames": [
+        "/characters/female-owl/walk1.png",
+        "/characters/female-owl/walk2.png",
+        "/characters/female-owl/walk3.png"
+      ],
+      "standFrame": "/characters/female-owl/walk2.png",
+      "hasBuiltInLogo": false
+    }
+  ],
+  "outfits": [
+    {
+      "id": "f-jacket",
+      "name": "Varsity Jacket",
+      "emoji": "🧥",
+      "price": 800,
+      "category": "clothing",
+      "yFraction": 0.42,
+      "sprites": {
+        "female": "/character/female-outfit-jacket.png"
+      }
+    },
+    {
+      "id": "f-jeans",
+      "name": "Jeans",
+      "emoji": "👖",
+      "price": 600,
+      "category": "clothing",
+      "yFraction": 0.44,
+      "sprites": {
+        "female": "/character/female-outfit-jeans.png"
+      }
+    },
+    {
+      "id": "f-jacket-jeans",
+      "name": "Jacket + Jeans",
+      "emoji": "✨",
+      "price": 1200,
+      "category": "clothing",
+      "yFraction": 0.42,
+      "sprites": {
+        "female": "/character/female-outfit-jacket-jeans.png"
+      }
+    },
+    {
+      "id": "jacketv",
+      "name": "Varsity Jacket V2",
+      "emoji": "🧥",
+      "price": 500,
+      "category": "clothing",
+      "yFraction": 0.44,
+      "sprites": {
+        "male": "/characters/outfits/jacketv/male.png",
+        "female": "/characters/outfits/jacketv/female.png",
+        "female-owl": "/characters/outfits/jacketv/female-owl.png"
+      }
+    },
+    {
+      "id": "sako",
+      "name": "School Blazer",
+      "emoji": "🥼",
+      "price": 500,
+      "category": "clothing",
+      "yFraction": 0.44,
+      "sprites": {
+        "male": [
+          "/characters/outfits/sako/male-walk1.png",
+          "/characters/outfits/sako/male-walk2.png",
+          "/characters/outfits/sako/male-walk3.png"
+        ],
+        "female-owl": [
+          "/characters/outfits/sako/female-owl-walk1.png",
+          "/characters/outfits/sako/female-owl-walk2.png",
+          "/characters/outfits/sako/female-owl-walk3.png"
+        ],
+        "female": [
+          "/characters/outfits/sako/female-walk1.png",
+          "/characters/outfits/sako/female-walk2.png"
+        ]
+      }
+    },
+    {
+      "id": "space-suite",
+      "name": "Space Suit",
+      "emoji": "🚀",
+      "price": 1500,
+      "category": "clothing",
+      "yFraction": 0.44,
+      "sprites": {
+        "male": "/characters/outfits/space-suite/male.png",
+        "female-owl": "/characters/outfits/space-suite/female-owl.png"
+      }
+    }
+  ]
+}
