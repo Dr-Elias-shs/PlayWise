@@ -1,5 +1,81 @@
 import { supabase } from './supabase';
 
+// ─── Grade change requests ────────────────────────────────────────────────────
+
+export interface GradeChangeRequest {
+  id:               string;
+  student_name:     string;
+  display_name:     string;
+  current_grade:    string;
+  requested_grade:  string;
+  status:           'pending' | 'approved' | 'rejected';
+  created_at:       string;
+}
+
+export async function submitGradeChangeRequest(
+  studentName:    string,
+  displayName:    string,
+  currentGrade:   string,
+  requestedGrade: string,
+) {
+  // Cancel any existing pending request before submitting a new one
+  await supabase
+    .from('grade_change_requests')
+    .delete()
+    .eq('student_name', studentName)
+    .eq('status', 'pending');
+  return supabase.from('grade_change_requests').insert({
+    student_name:    studentName,
+    display_name:    displayName,
+    current_grade:   currentGrade,
+    requested_grade: requestedGrade,
+    status:          'pending',
+  });
+}
+
+export async function getMyGradeRequest(studentName: string): Promise<GradeChangeRequest | null> {
+  const { data } = await supabase
+    .from('grade_change_requests')
+    .select('*')
+    .eq('student_name', studentName)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data as GradeChangeRequest | null;
+}
+
+export async function getApprovedGradeFromDB(studentName: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('grade_change_requests')
+    .select('requested_grade')
+    .eq('student_name', studentName)
+    .eq('status', 'approved')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as { requested_grade: string } | null)?.requested_grade ?? null;
+}
+
+export async function getAllGradeRequests(): Promise<GradeChangeRequest[]> {
+  const { data } = await supabase
+    .from('grade_change_requests')
+    .select('*')
+    .order('created_at', { ascending: false });
+  return (data ?? []) as GradeChangeRequest[];
+}
+
+export async function resolveGradeRequest(
+  id:          string,
+  status:      'approved' | 'rejected',
+  studentName: string,
+  newGrade:    string,
+) {
+  await supabase.from('grade_change_requests').update({ status }).eq('id', id);
+  if (status === 'approved') {
+    await supabase.from('player_wallets').update({ grade: newGrade }).eq('student_name', studentName);
+  }
+}
+
 // ─── Coin rates ───────────────────────────────────────────────────────────────
 
 export function calcCoins(correctCount: number, maxStreak: number, won: boolean, isMultiplayer: boolean) {

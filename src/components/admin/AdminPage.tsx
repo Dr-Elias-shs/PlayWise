@@ -7,6 +7,8 @@ import {
   updateRedemptionStatus, formatPlayTime,
   getAllScores, getAllTransactions, getAllSessions,
   getGlobalConfig, setGlobalConfig,
+  getAllGradeRequests, resolveGradeRequest,
+  type GradeChangeRequest,
 } from '@/lib/wallet';
 import { ALL_GAMES } from '@/lib/gameConfigs';
 import { TimeManagementTab } from './TimeManagementTab';
@@ -38,7 +40,7 @@ function resolveGameName(id: string | null | undefined, focusTable?: number): st
   return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'live' | 'settings';
+type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'live' | 'grade-requests' | 'settings';
 
 interface Wallet {
   student_name: string;  // email (DB key)
@@ -151,11 +153,12 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   const [saving, setSaving] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [analyticsGameId, setAnalyticsGameId] = useState('all');
+  const [gradeRequests, setGradeRequests] = useState<GradeChangeRequest[]>([]);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [w, r, s, sc, tr, se, cfg, gs] = await Promise.all([
+      const [w, r, s, sc, tr, se, cfg, gs, gr] = await Promise.all([
         getAllWallets().catch(() => []),
         getAllRedemptions().catch(() => []),
         getAllShopItems().catch(() => []),
@@ -164,11 +167,13 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
         getAllSessions().catch(() => []),
         getGlobalConfig('wall_editor_enabled').catch(() => ({})),
         getGlobalConfig('game_settings').catch(() => ({})),
+        getAllGradeRequests().catch(() => []),
       ]);
       setWallets(w); setRedemptions(r); setShopItems(s);
       setScores(sc); setTransactions(tr); setSessions(se);
       setWallEditorConfigs(cfg || {});
       setGameSettings(gs || {});
+      setGradeRequests(gr);
     } catch (err) {
       console.error('Failed to load admin data:', err);
     }
@@ -231,8 +236,9 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
           { id: 'games',       label: '🎮 Games', badge: Object.values(gameSettings).filter(v => v === false).length || undefined },
           { id: 'curriculum',  label: '📚 Curriculum' },
           { id: 'timemgmt',   label: '⏰ Time' },
-          { id: 'live',       label: '🟢 Live' },
-          { id: 'settings',    label: '⚙️ Settings' },
+          { id: 'live',            label: '🟢 Live' },
+          { id: 'grade-requests',  label: '🎓 Grade Requests', badge: gradeRequests.filter(r => r.status === 'pending').length || undefined },
+          { id: 'settings',        label: '⚙️ Settings' },
         ] as { id: Tab; label: string; badge?: number }[]).map(t => (
           <button key={t.id} onClick={() => { setTab(t.id); if (t.id === 'curriculum') loadCurriculum(); }}
             className={`px-4 py-2 font-bold text-sm rounded-t-xl transition-all relative ${
@@ -1226,6 +1232,110 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
             {tab === 'timemgmt' && (
               <motion.div key="timemgmt" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <TimeManagementTab />
+              </motion.div>
+            )}
+
+            {/* ── Grade Requests ── */}
+            {tab === 'grade-requests' && (
+              <motion.div key="grade-requests" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-slate-500 font-medium">
+                    Students who requested a grade change. Approve to update their grade, reject to dismiss.
+                  </p>
+                  <span className="text-xs font-black bg-amber-100 text-amber-700 px-3 py-1 rounded-full">
+                    {gradeRequests.filter(r => r.status === 'pending').length} pending
+                  </span>
+                </div>
+
+                {gradeRequests.length === 0 ? (
+                  <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-12 text-center">
+                    <div className="text-4xl mb-3">🎓</div>
+                    <p className="font-bold text-slate-500">No grade change requests yet</p>
+                    <p className="text-sm text-slate-400 mt-1">
+                      Create the <code className="bg-slate-100 px-1 rounded">grade_change_requests</code> table in Supabase if this is empty after students submit requests.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b-2 border-slate-100 bg-slate-50">
+                          <th className="py-3 px-5 text-left text-xs font-black text-slate-500 uppercase tracking-wider">Student</th>
+                          <th className="py-3 px-5 text-center text-xs font-black text-slate-500 uppercase tracking-wider">Current</th>
+                          <th className="py-3 px-5 text-center text-xs font-black text-slate-500 uppercase tracking-wider">Requested</th>
+                          <th className="py-3 px-5 text-center text-xs font-black text-slate-500 uppercase tracking-wider">Date</th>
+                          <th className="py-3 px-5 text-center text-xs font-black text-slate-500 uppercase tracking-wider">Status</th>
+                          <th className="py-3 px-5" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {gradeRequests.map(req => (
+                          <tr key={req.id} className="border-b border-slate-100 hover:bg-slate-50">
+                            <td className="py-3 px-5 font-bold text-slate-800">{req.display_name || req.student_name}</td>
+                            <td className="py-3 px-5 text-center">
+                              <span className="bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full text-xs">
+                                Grade {req.current_grade}
+                              </span>
+                            </td>
+                            <td className="py-3 px-5 text-center">
+                              <span className="bg-violet-100 text-violet-700 font-bold px-2 py-0.5 rounded-full text-xs">
+                                Grade {req.requested_grade}
+                              </span>
+                            </td>
+                            <td className="py-3 px-5 text-center text-xs text-slate-400">
+                              {new Date(req.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 px-5 text-center">
+                              <span className={`text-xs font-black px-2 py-0.5 rounded-full ${
+                                req.status === 'pending'  ? 'bg-amber-100 text-amber-700' :
+                                req.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                                'bg-red-100 text-red-600'
+                              }`}>
+                                {req.status === 'pending' ? '⏳ Pending' : req.status === 'approved' ? '✓ Approved' : '✕ Rejected'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-5">
+                              {req.status === 'pending' && (
+                                <div className="flex gap-2 justify-end">
+                                  <button
+                                    onClick={async () => {
+                                      await resolveGradeRequest(req.id, 'approved', req.student_name, req.requested_grade);
+                                      setGradeRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: 'approved' } : r));
+                                    }}
+                                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-xl transition-colors">
+                                    ✓ Approve
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      await resolveGradeRequest(req.id, 'rejected', req.student_name, req.requested_grade);
+                                      setGradeRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: 'rejected' } : r));
+                                    }}
+                                    className="px-3 py-1.5 bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 font-black text-xs rounded-xl transition-colors">
+                                    ✕ Reject
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* SQL setup hint */}
+                <div className="bg-slate-800 rounded-2xl p-5 text-sm font-mono text-slate-300">
+                  <p className="text-slate-400 text-xs font-black uppercase tracking-wider mb-2">Supabase SQL — run once</p>
+                  <pre className="text-xs leading-relaxed whitespace-pre-wrap">{`CREATE TABLE IF NOT EXISTS grade_change_requests (
+  id               UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  student_name     TEXT NOT NULL,
+  display_name     TEXT,
+  current_grade    TEXT,
+  requested_grade  TEXT NOT NULL,
+  status           TEXT DEFAULT 'pending',
+  created_at       TIMESTAMPTZ DEFAULT now()
+);`}</pre>
+                </div>
               </motion.div>
             )}
 

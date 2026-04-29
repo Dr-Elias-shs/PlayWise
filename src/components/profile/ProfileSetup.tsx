@@ -1,9 +1,13 @@
 "use client";
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/useGameStore';
 import { COLORS } from '@/lib/avatar-items';
 import { useCharacterRegistry } from '@/lib/characterRegistry';
+import {
+  submitGradeChangeRequest, getMyGradeRequest, getApprovedGradeFromDB,
+  type GradeChangeRequest,
+} from '@/lib/wallet';
 
 const GRADES = Array.from({ length: 12 }, (_, i) => String(i + 1));
 
@@ -24,16 +28,59 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
   const [colorId,     setColorId]  = useState(storedColorId || 'green');
   const [characterId, setCharId]   = useState(storedCharId  || 'male');
   const [grade,       setGrade]    = useState(playerGrade   || '');
-  const [error,         setError]    = useState('');
+  const [error,       setError]    = useState('');
+
+  // Grade change request state
+  const [requestOpen,    setRequestOpen]    = useState(false);
+  const [requestGrade,   setRequestGrade]   = useState('');
+  const [requestBusy,    setRequestBusy]    = useState(false);
+  const [requestDone,    setRequestDone]    = useState(false);
+  const [existingRequest, setExistingReq]  = useState<GradeChangeRequest | null>(null);
+
+  const gradeAlreadySet = !!playerGrade;
+
+  // On mount: sync approved grade from DB + load any pending request
+  useEffect(() => {
+    if (!playerName) return;
+    const dbKey = playerEmail?.trim().toLowerCase() || playerName;
+
+    // Sync if admin approved a grade change
+    getApprovedGradeFromDB(dbKey).then(approved => {
+      if (approved && approved !== playerGrade) {
+        setProfile(playerName, playerEmail ?? '', storedColorId, approved, storedCharId);
+        setGrade(approved);
+      }
+    });
+
+    // Load current pending/recent request for display
+    getMyGradeRequest(dbKey).then(req => {
+      if (req && req.status !== 'approved') setExistingReq(req);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSave = () => {
     const stripped = name.trim().split('').filter(c => c.codePointAt(0)! < 0x1F000).join('');
     const trimmed  = stripped.replace(/[^\w\sÀ-öø-ÿ؀-ۿ\-'.]/g, '').trim();
     if (trimmed.length < 2)  { setError('Name must be at least 2 characters'); return; }
     if (trimmed.length > 20) { setError('Name must be 20 characters or less');  return; }
-    if (!grade)              { setError('Please select your grade');             return; }
-    setProfile(trimmed, playerEmail, colorId, grade, characterId as string);
+    if (!grade && !gradeAlreadySet) { setError('Please select your grade'); return; }
+    // Keep existing grade locked — only name, color, and character can change
+    setProfile(trimmed, playerEmail ?? '', colorId, gradeAlreadySet ? playerGrade! : grade, characterId as string);
     onDone();
+  };
+
+  const handleGradeRequest = async () => {
+    if (!requestGrade || requestGrade === playerGrade) return;
+    setRequestBusy(true);
+    const dbKey = playerEmail?.trim().toLowerCase() || playerName;
+    await submitGradeChangeRequest(dbKey, playerName, playerGrade!, requestGrade);
+    setRequestBusy(false);
+    setRequestDone(true);
+    setExistingReq({ id: '', student_name: dbKey, display_name: playerName,
+      current_grade: playerGrade!, requested_grade: requestGrade,
+      status: 'pending', created_at: new Date().toISOString() });
+    setTimeout(() => { setRequestOpen(false); setRequestDone(false); }, 1800);
   };
 
   return (
@@ -137,13 +184,37 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
         {/* ── Grade ── */}
         <div className="mb-6">
           <p className="text-sm font-bold text-slate-500 mb-2">Your grade</p>
-          <select value={grade} onChange={e => { setGrade(e.target.value); setError(''); }}
-            className="w-full px-4 py-3 border-2 border-slate-200 focus:border-violet-500
-              rounded-2xl text-lg font-bold text-slate-800 outline-none transition-colors
-              bg-white appearance-none cursor-pointer">
-            <option value="">Select your grade...</option>
-            {GRADES.map(g => <option key={g} value={g}>Grade {g}</option>)}
-          </select>
+
+          {gradeAlreadySet ? (
+            // Locked — show grade badge + request change option
+            <div className="flex items-center justify-between px-4 py-3 border-2 border-slate-100
+              rounded-2xl bg-slate-50">
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-black text-slate-800">Grade {playerGrade}</span>
+                <span className="text-[10px] bg-amber-100 text-amber-700 font-black px-2 py-0.5 rounded-full">
+                  🔒 Locked
+                </span>
+                {existingRequest?.status === 'pending' && (
+                  <span className="text-[10px] bg-blue-100 text-blue-700 font-black px-2 py-0.5 rounded-full">
+                    ⏳ Change → Grade {existingRequest.requested_grade} pending
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => { setRequestGrade(''); setRequestOpen(true); }}
+                className="text-xs font-black text-violet-600 hover:text-violet-800 transition-colors">
+                Request change
+              </button>
+            </div>
+          ) : (
+            <select value={grade} onChange={e => { setGrade(e.target.value); setError(''); }}
+              className="w-full px-4 py-3 border-2 border-slate-200 focus:border-violet-500
+                rounded-2xl text-lg font-bold text-slate-800 outline-none transition-colors
+                bg-white appearance-none cursor-pointer">
+              <option value="">Select your grade...</option>
+              {GRADES.map(g => <option key={g} value={g}>Grade {g}</option>)}
+            </select>
+          )}
         </div>
 
         {error && <p className="text-red-500 text-sm mb-3 font-medium">{error}</p>}
@@ -162,6 +233,59 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
           </button>
         )}
       </motion.div>
+
+      {/* ── Grade Change Request Modal ── */}
+      <AnimatePresence>
+        {requestOpen && (
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+            onClick={e => e.target === e.currentTarget && setRequestOpen(false)}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl p-7 w-full max-w-sm">
+
+              <h3 className="text-xl font-black text-slate-800 mb-1">Request Grade Change</h3>
+              <p className="text-sm text-slate-400 mb-5">
+                Your teacher will review this request. Grade changes take effect once approved.
+              </p>
+
+              <div className="mb-5">
+                <p className="text-xs font-bold text-slate-500 mb-2">Current grade</p>
+                <div className="px-4 py-3 bg-slate-50 rounded-2xl font-black text-slate-600">
+                  Grade {playerGrade}
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-xs font-bold text-slate-500 mb-2">Change to</p>
+                <select value={requestGrade} onChange={e => setRequestGrade(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-slate-200 focus:border-violet-500
+                    rounded-2xl font-bold text-slate-800 outline-none bg-white appearance-none">
+                  <option value="">Select new grade...</option>
+                  {GRADES.filter(g => g !== playerGrade).map(g => (
+                    <option key={g} value={g}>Grade {g}</option>
+                  ))}
+                </select>
+              </div>
+
+              {requestDone ? (
+                <div className="text-center py-3 text-emerald-600 font-black">✓ Request sent!</div>
+              ) : (
+                <div className="flex gap-3">
+                  <button onClick={() => setRequestOpen(false)}
+                    className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200">
+                    Cancel
+                  </button>
+                  <button onClick={handleGradeRequest} disabled={requestBusy || !requestGrade}
+                    className="flex-1 py-3 rounded-2xl text-white font-black disabled:opacity-40"
+                    style={{ background: 'linear-gradient(135deg,#7c3aed,#9333ea)' }}>
+                    {requestBusy ? 'Sending…' : 'Send Request'}
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
