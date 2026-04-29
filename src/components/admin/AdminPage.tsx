@@ -149,7 +149,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   // Student filters
   const [search, setSearch] = useState('');
   const [gradeFilter, setGradeFilter] = useState('');
-  const [sortBy, setSortBy] = useState<'coins' | 'games' | 'playtime' | 'name'>('coins');
+  const [sortBy, setSortBy] = useState<'coins' | 'games' | 'playtime' | 'name' | 'banned'>('coins');
 
   // New shop item form
   const [form, setForm] = useState({ name: '', description: '', cost: '', emoji: '🎁' });
@@ -300,10 +300,17 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                     <option value="games">Sort: Most Games</option>
                     <option value="playtime">Sort: Most Play Time</option>
                     <option value="name">Sort: Name A–Z</option>
+                    <option value="banned">Sort: Banned First</option>
                   </select>
                   {/* Stats summary */}
                   <div className="ml-auto flex items-center gap-4 text-xs text-slate-400 font-medium">
                     <span>{wallets.length} total students</span>
+                    {wallets.filter(w => w.banned).length > 0 && (
+                      <button onClick={() => setSortBy('banned')}
+                        className="flex items-center gap-1 font-black text-red-500 hover:text-red-700 transition-colors">
+                        🚫 {wallets.filter(w => w.banned).length} banned
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -328,6 +335,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                             if (sortBy === 'coins')    return b.coins - a.coins;
                             if (sortBy === 'games')    return b.games_played - a.games_played;
                             if (sortBy === 'playtime') return b.play_time_seconds - a.play_time_seconds;
+                            if (sortBy === 'banned')   return (b.banned ? 1 : 0) - (a.banned ? 1 : 0);
                             return a.student_name.localeCompare(b.student_name);
                           });
 
