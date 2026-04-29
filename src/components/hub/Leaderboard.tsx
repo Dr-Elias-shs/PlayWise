@@ -26,6 +26,34 @@ type BoardType = 'learners' | 'myClass' | 'improved' | 'accuracy' | 'explorers' 
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
+const HOW_TO_EARN = [
+  {
+    icon: '🏆', label: 'Mastery', weight: '35%',
+    color: 'bg-violet-50 border-violet-200 text-violet-700',
+    tip: 'Score 90%+ in a game across 3+ sessions to master it. Multiplication has 12 tables to master — each one counts!',
+  },
+  {
+    icon: '🎯', label: 'Accuracy', weight: '20%',
+    color: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+    tip: 'Answer correctly! Your average accuracy across all games is tracked. Play each game at least 3 times for it to count fully.',
+  },
+  {
+    icon: '📈', label: 'Progress', weight: '20%',
+    color: 'bg-blue-50 border-blue-200 text-blue-700',
+    tip: 'Do better than your last session! Improving each time you play adds big progress points. Staying consistent also keeps you stable.',
+  },
+  {
+    icon: '🌍', label: 'Variety', weight: '15%',
+    color: 'bg-amber-50 border-amber-200 text-amber-700',
+    tip: 'Play as many different games as possible in the last 14 days. All 7 games played = full variety score!',
+  },
+  {
+    icon: '🪙', label: 'PlayBits', weight: '10%',
+    color: 'bg-orange-50 border-orange-200 text-orange-700',
+    tip: '+1 PlayBit per correct answer · +3–5 for streaks · +10 for winning multiplayer. Earn more coins, climb higher!',
+  },
+];
+
 const GAME_LABELS: Record<string, string> = {
   multiplication: '✖️ Multiplication', addition: '➕ Number Sprint',
   division: '➗ Division Dash', fractions: '🍕 Fractions',
@@ -80,6 +108,7 @@ function EntryRow({ rank, name, grade, main, sub, extra, isMe }: {
 export function Leaderboard() {
   const { playerGrade, playerName } = useGameStore();
   const [board, setBoard]           = useState<BoardType>('learners');
+  const [showHints, setShowHints]   = useState(false);
   const [entries, setEntries]       = useState<LearnerEntry[]>([]);
   const [specialists, setSpecialists] = useState<Record<string, SpecialistEntry[]>>({});
   const [specialistGame, setSpecialistGame] = useState<string>('multiplication');
@@ -181,7 +210,45 @@ export function Leaderboard() {
           <span className="text-2xl">🏆</span>
           <h2 className="text-xl font-black text-slate-800">Leaderboards</h2>
           <span className="ml-auto text-[10px] bg-emerald-100 text-emerald-700 font-black px-2 py-0.5 rounded-full">LIVE 🟢</span>
+          <button
+            onClick={() => setShowHints(h => !h)}
+            className={`text-[11px] font-black px-2.5 py-1 rounded-xl transition-colors ${
+              showHints ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-violet-100 hover:text-violet-600'
+            }`}>
+            💡 How to earn?
+          </button>
         </div>
+
+        {/* Collapsible hints panel */}
+        <AnimatePresence>
+          {showHints && (
+            <motion.div
+              key="hints"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="overflow-hidden mb-4">
+              <div className="bg-slate-50 rounded-2xl p-4 space-y-2">
+                <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider mb-3">
+                  Your score = 5 things combined
+                </p>
+                {HOW_TO_EARN.map(h => (
+                  <div key={h.label} className={`flex items-start gap-3 p-3 rounded-xl border ${h.color}`}>
+                    <span className="text-xl shrink-0 mt-0.5">{h.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="font-black text-sm">{h.label}</span>
+                        <span className="text-[10px] font-black bg-white/60 px-1.5 py-0.5 rounded-full">{h.weight}</span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed opacity-80">{h.tip}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Tab switcher */}
         <div className="flex gap-1 overflow-x-auto pb-0.5">
