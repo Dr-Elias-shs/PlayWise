@@ -19,7 +19,7 @@ import { loginRequest } from "@/lib/msal";
 import { Leaderboard } from "@/components/hub/Leaderboard";
 import { ALL_GAMES, GameConfig } from "@/lib/gameConfigs";
 import { OwlMini } from "@/components/game/OwlCharacter";
-import { getGlobalConfig } from "@/lib/wallet";
+import { getGlobalConfig, checkBanned } from "@/lib/wallet";
 import { PlayWiseIntro, INTRO_SEEN_KEY } from "@/components/PlayWiseIntro";
 import { useTimeGuard } from "@/hooks/useTimeGuard";
 import { TimeGate } from "@/components/TimeGate";
@@ -80,6 +80,7 @@ export default function Home() {
   const [walletRefresh, setWalletRefresh] = useState(0);
   const [gameSettings, setGameSettings] = useState<Record<string, boolean>>({});
   const [emailInput, setEmailInput] = useState('');
+  const [bannedInfo, setBannedInfo] = useState<{ banned: boolean; reason: string } | null>(null);
   const { isFullscreen, toggle: toggleFullscreen, enter: enterFullscreen } = useFullscreen();
   const msalConfigured = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID !== '00000000-0000-0000-0000-000000000000';
   const { instance, accounts } = useMsal();
@@ -116,6 +117,13 @@ export default function Home() {
     if (playerName && playerGrade) setScreen('hub');
     else if (playerName && !playerGrade) setScreen('profile-setup');
   }, [playerName, playerGrade, screen]);
+
+  // Check ban status whenever player is identified
+  useEffect(() => {
+    if (!playerEmail && !playerName) return;
+    const dbKey = playerEmail?.trim().toLowerCase() || playerName;
+    checkBanned(dbKey).then(info => { if (info.banned) setBannedInfo(info); });
+  }, [playerEmail, playerName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLogin = () => {
     instance.loginPopup(loginRequest).catch(e => {
@@ -172,6 +180,29 @@ export default function Home() {
   // ── Intro splash (shown once, before any screen) ──
   if (showIntro) {
     return <PlayWiseIntro onDone={() => setShowIntro(false)} />;
+  }
+
+  // ── Ban gate — checked before anything else ──
+  if (bannedInfo?.banned) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6"
+        style={{ background: 'linear-gradient(135deg,#1e1b4b,#4c1d95,#6b21a8)' }}>
+        <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-sm w-full text-center">
+          <div className="text-6xl mb-4">🚫</div>
+          <h2 className="text-2xl font-black text-slate-800 mb-2">Account Suspended</h2>
+          <p className="text-slate-500 text-sm mb-4">
+            Your account has been suspended by your teacher and you cannot access PlayWise right now.
+          </p>
+          {bannedInfo.reason && (
+            <div className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3 mb-4 text-left">
+              <p className="text-xs font-black text-red-500 uppercase tracking-wider mb-1">Reason</p>
+              <p className="text-sm text-red-700 font-medium">{bannedInfo.reason}</p>
+            </div>
+          )}
+          <p className="text-xs text-slate-400">Please speak to your teacher to have your account reinstated.</p>
+        </div>
+      </div>
+    );
   }
 
   // ── Time-management gate (hub + game only, not login/profile-setup) ──

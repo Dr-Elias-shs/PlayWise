@@ -1,5 +1,30 @@
 import { supabase } from './supabase';
 
+// ─── Ban management ───────────────────────────────────────────────────────────
+
+export async function banPlayer(studentName: string, reason = '') {
+  return supabase
+    .from('player_wallets')
+    .update({ banned: true, ban_reason: reason, updated_at: new Date().toISOString() })
+    .eq('student_name', studentName);
+}
+
+export async function unbanPlayer(studentName: string) {
+  return supabase
+    .from('player_wallets')
+    .update({ banned: false, ban_reason: null, updated_at: new Date().toISOString() })
+    .eq('student_name', studentName);
+}
+
+export async function checkBanned(studentName: string): Promise<{ banned: boolean; reason: string }> {
+  const { data } = await supabase
+    .from('player_wallets')
+    .select('banned, ban_reason')
+    .eq('student_name', studentName)
+    .maybeSingle();
+  return { banned: !!(data as any)?.banned, reason: (data as any)?.ban_reason ?? '' };
+}
+
 // ─── Grade change requests ────────────────────────────────────────────────────
 
 export interface GradeChangeRequest {

@@ -8,6 +8,7 @@ import {
   getAllScores, getAllTransactions, getAllSessions,
   getGlobalConfig, setGlobalConfig,
   getAllGradeRequests, resolveGradeRequest,
+  banPlayer, unbanPlayer,
   type GradeChangeRequest,
 } from '@/lib/wallet';
 import { ALL_GAMES } from '@/lib/gameConfigs';
@@ -48,6 +49,8 @@ interface Wallet {
   coins: number; total_earned: number;
   total_redeemed: number; play_time_seconds: number; games_played: number;
   grade: string;
+  banned?: boolean;
+  ban_reason?: string;
 }
 
 function walletLabel(w: Wallet) {
@@ -154,6 +157,8 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [analyticsGameId, setAnalyticsGameId] = useState('all');
   const [gradeRequests, setGradeRequests] = useState<GradeChangeRequest[]>([]);
+  const [banTarget,   setBanTarget]   = useState<Wallet | null>(null);
+  const [banReason,   setBanReason]   = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -307,7 +312,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50 border-b border-slate-100">
                       <tr>
-                        {['#', 'Student', 'Grade', 'Coins', 'Games Played', 'Play Time', 'Total Earned', 'Redeemed'].map(h => (
+                        {['#', 'Student', 'Grade', 'Coins', 'Games Played', 'Play Time', 'Total Earned', 'Redeemed', ''].map(h => (
                           <th key={h} className="text-left px-4 py-3 text-slate-500 font-bold text-xs uppercase tracking-wide">{h}</th>
                         ))}
                       </tr>
@@ -337,11 +342,12 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                             initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
                             transition={{ delay: i * 0.02 }}
                             onClick={() => setSelectedStudent(w.student_name)}
-                            className="hover:bg-slate-50 transition-colors cursor-pointer group">
+                            className={`hover:bg-slate-50 transition-colors cursor-pointer group ${w.banned ? 'bg-red-50/60' : ''}`}>
                             <td className="px-4 py-3 text-slate-400 font-bold text-xs">{i + 1}</td>
                             <td className="px-4 py-3 font-bold text-slate-800 group-hover:text-violet-600 transition-colors">
-                              {walletLabel(w)}
-                              <span className="ml-2 opacity-0 group-hover:opacity-100 text-[10px] uppercase text-violet-400">View Details →</span>
+                              <span className={w.banned ? 'line-through text-slate-400' : ''}>{walletLabel(w)}</span>
+                              {w.banned && <span className="ml-2 text-[10px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">🚫 Banned</span>}
+                              {!w.banned && <span className="ml-2 opacity-0 group-hover:opacity-100 text-[10px] uppercase text-violet-400">View Details →</span>}
                             </td>
                             <td className="px-4 py-3">
                               {w.grade
@@ -362,6 +368,24 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                             <td className="px-4 py-3 text-slate-600">{formatPlayTime(w.play_time_seconds)}</td>
                             <td className="px-4 py-3 text-slate-500">₿ {w.total_earned.toLocaleString()}</td>
                             <td className="px-4 py-3 text-slate-500">₿ {w.total_redeemed.toLocaleString()}</td>
+                            <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                              {w.banned ? (
+                                <button
+                                  onClick={async () => {
+                                    await unbanPlayer(w.student_name);
+                                    setWallets(prev => prev.map(p => p.student_name === w.student_name ? { ...p, banned: false, ban_reason: '' } : p));
+                                  }}
+                                  className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
+                                  ✓ Unban
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => { setBanTarget(w); setBanReason(''); }}
+                                  className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100">
+                                  🚫 Ban
+                                </button>
+                              )}
+                            </td>
                           </motion.tr>
                         ));
                       })()}
@@ -1452,10 +1476,30 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                           <div className="flex items-center gap-3 mb-1">
                             <h2 className="text-3xl font-black">{walletLabel(w)}</h2>
                             {w.grade && <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-bold">Grade {w.grade}</span>}
+                            {w.banned && <span className="px-3 py-1 bg-red-500/80 rounded-full text-xs font-black text-white">🚫 Banned</span>}
                           </div>
                           <p className="text-slate-400 font-medium">Player Profile & Statistics</p>
+                          {w.ban_reason && <p className="text-red-400 text-xs mt-1 font-medium">Ban reason: {w.ban_reason}</p>}
                         </div>
-                        <button onClick={() => setSelectedStudent(null)} className="absolute top-0 right-0 text-slate-400 hover:text-white text-2xl">✕</button>
+                        <div className="flex items-start gap-3 absolute top-4 right-4">
+                          {w.banned ? (
+                            <button
+                              onClick={async () => {
+                                await unbanPlayer(w.student_name);
+                                setWallets(prev => prev.map(p => p.student_name === w.student_name ? { ...p, banned: false, ban_reason: '' } : p));
+                              }}
+                              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-sm rounded-xl transition-colors">
+                              ✓ Unban Player
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => { setBanTarget(w); setBanReason(''); }}
+                              className="px-4 py-2 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-black text-sm rounded-xl transition-colors">
+                              🚫 Ban Player
+                            </button>
+                          )}
+                          <button onClick={() => setSelectedStudent(null)} className="text-slate-400 hover:text-white text-2xl leading-none">✕</button>
+                        </div>
                       </div>
                     </div>
 
@@ -1536,6 +1580,55 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                   </>
                 );
               })()}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Ban confirmation modal ── */}
+      <AnimatePresence>
+        {banTarget && (
+          <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4"
+            onClick={e => e.target === e.currentTarget && setBanTarget(null)}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl p-7 w-full max-w-sm">
+              <div className="text-center mb-5">
+                <div className="text-5xl mb-3">🚫</div>
+                <h3 className="text-xl font-black text-slate-800">Ban {walletLabel(banTarget)}?</h3>
+                <p className="text-sm text-slate-400 mt-1">
+                  They will be blocked from accessing the game until unbanned.
+                </p>
+              </div>
+              <div className="mb-5">
+                <p className="text-xs font-bold text-slate-500 mb-2">Reason <span className="font-normal text-slate-400">(optional)</span></p>
+                <input
+                  value={banReason}
+                  onChange={e => setBanReason(e.target.value)}
+                  placeholder="e.g. Inappropriate behaviour"
+                  className="w-full px-4 py-3 border-2 border-slate-200 focus:border-red-400 rounded-2xl
+                    font-medium text-slate-800 outline-none text-sm"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setBanTarget(null)}
+                  className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200">
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    await banPlayer(banTarget.student_name, banReason);
+                    setWallets(prev => prev.map(p =>
+                      p.student_name === banTarget.student_name
+                        ? { ...p, banned: true, ban_reason: banReason }
+                        : p
+                    ));
+                    setBanTarget(null);
+                  }}
+                  className="flex-1 py-3 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-black transition-colors">
+                  🚫 Confirm Ban
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
