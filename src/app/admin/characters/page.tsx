@@ -157,13 +157,20 @@ function AddOutfitModal({ characters, onDone, onClose }: {
   onDone: (o: RegistryOutfit) => void;
   onClose: () => void;
 }) {
-  const [name,     setName]     = useState('');
-  const [emoji,    setEmoji]    = useState('');
-  const [price,    setPrice]    = useState('500');
-  const [category, setCategory] = useState<'hat' | 'extra' | 'clothing'>('clothing');
-  const [yFrac,    setYFrac]    = useState('0.44');
-  const [busy,     setBusy]     = useState(false);
-  const [err,      setErr]      = useState('');
+  const [name,          setName]        = useState('');
+  const [emoji,         setEmoji]       = useState('🎽');
+  const [thumbFile,     setThumbFile]   = useState<File | null>(null);
+  const [thumbPreview,  setThumbPreview] = useState<string | null>(null);
+  const [price,         setPrice]       = useState('500');
+  const [category,      setCategory]    = useState<'hat' | 'extra' | 'clothing'>('clothing');
+  const [yFrac,         setYFrac]       = useState('0.44');
+  const [busy,          setBusy]        = useState(false);
+  const [err,           setErr]         = useState('');
+
+  function handleThumbFile(f: File) {
+    setThumbFile(f);
+    setThumbPreview(URL.createObjectURL(f));
+  }
 
   // Default to 3-frame walk mode — outfits need animation in the world map
   const [charSprites, setCharSprites] = useState<Record<string, CharSprites>>(() =>
@@ -204,10 +211,17 @@ function AddOutfitModal({ characters, onDone, onClose }: {
 
   async function handleSave() {
     const id = slugify(name.trim());
-    if (!id)    { setErr('Enter a name'); return; }
-    if (!emoji) { setErr('Enter an emoji'); return; }
+    if (!id) { setErr('Enter a name'); return; }
     setBusy(true);
     try {
+      // Upload thumbnail if provided
+      let thumbnailPath: string | undefined;
+      if (thumbFile) {
+        const ext = thumbFile.name.split('.').pop() ?? 'png';
+        thumbnailPath = `/characters/outfits/${id}/thumbnail.${ext}`;
+        await uploadCharacterFile(thumbFile, thumbnailPath);
+      }
+
       const savedSprites: Record<string, string | string[]> = {};
       for (const [charId, cs] of Object.entries(charSprites)) {
         if (cs.mode === 'single') {
@@ -231,7 +245,8 @@ function AddOutfitModal({ characters, onDone, onClose }: {
         }
       }
       onDone({
-        id, name: name.trim(), emoji,
+        id, name: name.trim(), emoji: emoji || '🎽',
+        ...(thumbnailPath ? { thumbnail: thumbnailPath } : {}),
         price:     parseInt(price, 10) || 500,
         category,
         yFraction: parseFloat(yFrac) || 0.44,
@@ -251,6 +266,28 @@ function AddOutfitModal({ characters, onDone, onClose }: {
         style={{ maxHeight: '90vh' }}>
         <h3 className="text-xl font-black text-slate-800 mb-5">Add Outfit / Accessory</h3>
 
+        {/* Thumbnail upload — shown in shop card */}
+        <div className="mb-5">
+          <p className="text-xs font-bold text-slate-500 mb-2">
+            Outfit picture <span className="font-normal text-slate-400">(shown in the shop)</span>
+          </p>
+          <div className="flex items-center gap-4">
+            <UploadZone label="Upload picture" size={88}
+              preview={thumbPreview ?? undefined}
+              onFile={handleThumbFile} />
+            {thumbPreview && (
+              <div className="flex-1 text-xs text-slate-400 leading-relaxed">
+                This image will show in the shop card so students know what the outfit looks like before buying.
+              </div>
+            )}
+            {!thumbPreview && (
+              <div className="flex-1 text-xs text-slate-400 leading-relaxed">
+                Upload a picture of the outfit. It appears on the shop card. If skipped, the emoji is shown instead.
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div>
             <p className="text-xs font-bold text-slate-500 mb-1">Name</p>
@@ -259,8 +296,10 @@ function AddOutfitModal({ characters, onDone, onClose }: {
                 rounded-xl font-bold text-slate-800 outline-none text-sm" />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-500 mb-1">Emoji</p>
-            <input value={emoji} onChange={e => setEmoji(e.target.value)} placeholder="🚀"
+            <p className="text-xs font-bold text-slate-500 mb-1">
+              Emoji <span className="font-normal text-slate-400">(overlay fallback)</span>
+            </p>
+            <input value={emoji} onChange={e => setEmoji(e.target.value)} placeholder="🎽"
               className="w-full px-3 py-2 border-2 border-slate-200 focus:border-violet-500
                 rounded-xl font-bold text-slate-800 outline-none text-sm" />
           </div>
@@ -679,13 +718,31 @@ export default function CharacterImportTool() {
                   {registry.outfits.map(o => (
                     <tr key={o.id} className="border-b border-slate-100 hover:bg-violet-50/30 transition-colors">
                       <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl">{o.emoji}</span>
+                        <div className="flex items-center gap-3">
+                          {o.thumbnail
+                            ? <Thumb src={o.thumbnail} size={48} />
+                            : <span className="text-3xl w-12 text-center">{o.emoji}</span>}
                           <div>
                             <div className="font-black text-sm text-slate-800">{o.name}</div>
                             <div className="text-[10px] text-slate-400 font-bold">
                               🪙 {o.price} · {o.category} · y={o.yFraction ?? 0.44}
                             </div>
+                            {!o.thumbnail && (
+                              <label className="cursor-pointer text-[10px] font-bold text-violet-500 hover:text-violet-700">
+                                + add picture
+                                <input type="file" accept="image/png,image/webp,image/jpeg" className="hidden"
+                                  onChange={async e => {
+                                    const f = e.target.files?.[0]; if (!f) return;
+                                    const ext = f.name.split('.').pop() ?? 'png';
+                                    const path = `/characters/outfits/${o.id}/thumbnail.${ext}`;
+                                    await uploadCharacterFile(f, path);
+                                    persist({
+                                      characters: registry.characters,
+                                      outfits: registry.outfits.map(x => x.id === o.id ? { ...x, thumbnail: path } : x),
+                                    });
+                                  }} />
+                              </label>
+                            )}
                           </div>
                         </div>
                       </td>

@@ -15,6 +15,7 @@ export interface RegistryOutfit {
   id:         string;
   name:       string;
   emoji:      string;
+  thumbnail?: string;   // shop card preview image (uploaded picture)
   price:      number;
   category:   'hat' | 'extra' | 'clothing';
   yFraction?: number;

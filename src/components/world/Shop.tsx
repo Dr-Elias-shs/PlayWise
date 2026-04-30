@@ -258,11 +258,15 @@ export function Shop({ onClose }: { onClose: () => void }) {
                     onMouseLeave={() => setPreviewAcc(null)}
                     className={`flex items-center gap-3 rounded-2xl p-3 transition-colors
                       ${equipped ? 'bg-violet-50 ring-2 ring-violet-400' : 'bg-slate-50'}`}>
-                    {(() => { const s = resolveOutfitStand(outfit, characterId); return s
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={s} alt={outfit.name} draggable={false}
-                          className="w-10 h-10 object-contain rounded-lg bg-white" />
-                      : <span className="text-3xl leading-none">{outfit.emoji}</span>;
+                    {(() => {
+                      const thumb = outfit.thumbnail;
+                      const stand = resolveOutfitStand(outfit, characterId);
+                      const imgSrc = thumb ?? stand;
+                      return imgSrc
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={imgSrc} alt={outfit.name} draggable={false}
+                            className="w-10 h-10 object-contain rounded-lg bg-white shrink-0" />
+                        : <span className="text-3xl leading-none shrink-0">{outfit.emoji}</span>;
                     })()}
                     <div className="flex-1 min-w-0">
                       <div className="font-black text-sm text-slate-800 truncate">{outfit.name}</div>
