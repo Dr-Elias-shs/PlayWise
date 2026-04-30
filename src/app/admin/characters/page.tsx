@@ -174,11 +174,23 @@ function AddOutfitModal({ characters, existing, onDone, onClose }: {
     setThumbPreview(URL.createObjectURL(f));
   }
 
-  // Default to 3-frame walk mode — outfits need animation in the world map
-  const [charSprites, setCharSprites] = useState<Record<string, CharSprites>>(() =>
-    Object.fromEntries(characters.map(c => [c.id, { mode: 'walk', files: [null, null, null] }]))
-  );
-  const [previews, setPreviews] = useState<Record<string, string | string[]>>({});
+  const [charSprites, setCharSprites] = useState<Record<string, CharSprites>>(() => {
+    return Object.fromEntries(characters.map(c => {
+      const s = existing?.sprites[c.id];
+      if (typeof s === 'string') return [c.id, { mode: 'single' as const, file: null }];
+      if (Array.isArray(s))     return [c.id, { mode: 'walk'   as const, files: [null, null, null] as [File|null,File|null,File|null] }];
+      return [c.id, { mode: 'walk' as const, files: [null, null, null] as [File|null,File|null,File|null] }];
+    }));
+  });
+  const [previews, setPreviews] = useState<Record<string, string | string[]>>(() => {
+    if (!existing) return {};
+    const init: Record<string, string | string[]> = {};
+    for (const c of characters) {
+      const s = existing.sprites[c.id];
+      if (s) init[c.id] = s;
+    }
+    return init;
+  });
 
   function toggleMode(charId: string) {
     setCharSprites(s => {
@@ -224,29 +236,40 @@ function AddOutfitModal({ characters, existing, onDone, onClose }: {
         await uploadCharacterFile(thumbFile, thumbnailPath);
       }
 
-      // When editing, keep existing sprites; only collect new uploads for add mode
-      const savedSprites: Record<string, string | string[]> = isEdit ? { ...existing!.sprites } : {};
-      if (!isEdit) {
-        for (const [charId, cs] of Object.entries(charSprites)) {
-          if (cs.mode === 'single') {
-            if (!cs.file) continue;
-            const ext  = cs.file.name.split('.').pop() ?? 'png';
-            const p = `/characters/outfits/${id}/${charId}.${ext}`;
+      const savedSprites: Record<string, string | string[]> = {};
+      for (const [charId, cs] of Object.entries(charSprites)) {
+        const existingSprite = existing?.sprites[charId];
+        if (cs.mode === 'single') {
+          if (cs.file) {
+            const ext = cs.file.name.split('.').pop() ?? 'png';
+            const p   = `/characters/outfits/${id}/${charId}.${ext}`;
             await uploadCharacterFile(cs.file, p);
             savedSprites[charId] = p;
-          } else {
-            const paths: string[] = [];
-            for (let i = 0; i < 3; i++) {
-              const f = cs.files[i];
-              if (!f) continue;
-              const ext  = f.name.split('.').pop() ?? 'png';
-              const p = `/characters/outfits/${id}/${charId}-walk${i + 1}.${ext}`;
-              await uploadCharacterFile(f, p);
-              paths.push(p);
-            }
-            if (paths.length === 3) savedSprites[charId] = paths;
-            else if (paths.length === 1) savedSprites[charId] = paths[0];
+          } else if (existingSprite) {
+            // No new file — keep whatever was there (string or walk array)
+            savedSprites[charId] = existingSprite;
           }
+        } else {
+          // Walk mode: merge frame-by-frame with existing paths
+          const existingFrames: string[] = Array.isArray(existingSprite)
+            ? [...existingSprite]
+            : (typeof existingSprite === 'string' ? [existingSprite, existingSprite, existingSprite] : ['', '', '']);
+          const paths: string[] = [...existingFrames];
+          let anyNew = false;
+          for (let i = 0; i < 3; i++) {
+            const f = cs.files[i];
+            if (!f) continue;
+            const ext = f.name.split('.').pop() ?? 'png';
+            const p   = `/characters/outfits/${id}/${charId}-walk${i + 1}.${ext}`;
+            await uploadCharacterFile(f, p);
+            paths[i] = p;
+            anyNew = true;
+          }
+          const validPaths = paths.filter(p => p);
+          if (validPaths.length === 3) savedSprites[charId] = paths;
+          else if (validPaths.length === 1) savedSprites[charId] = validPaths[0];
+          else if (anyNew && validPaths.length > 0) savedSprites[charId] = validPaths;
+          else if (existingSprite) savedSprites[charId] = existingSprite;
         }
       }
       onDone({
@@ -338,51 +361,49 @@ function AddOutfitModal({ characters, existing, onDone, onClose }: {
           </div>
         </div>
 
-        {!isEdit && (
-          <div className="mb-5">
-            <p className="text-xs font-bold text-slate-500 mb-2">
-              Sprites per character
-              <span className="font-normal text-slate-400 ml-1">(optional — falls back to emoji)</span>
-            </p>
-            <div className="space-y-4">
-              {characters.map(c => {
-                const cs = charSprites[c.id] ?? { mode: 'single', file: null };
-                const prev = previews[c.id];
-                return (
-                  <div key={c.id} className="border border-slate-200 rounded-2xl p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Thumb src={c.standFrame} size={28} />
-                        <span className="text-sm font-black text-slate-700">{c.name}</span>
-                      </div>
-                      <button type="button" onClick={() => toggleMode(c.id)}
-                        className={`text-xs font-black px-3 py-1 rounded-full transition-colors
-                          ${cs.mode === 'walk'
-                            ? 'bg-violet-100 text-violet-700'
-                            : 'bg-slate-100 text-slate-500 hover:bg-violet-50'}`}>
-                        {cs.mode === 'walk' ? '🚶 Walk (3 frames)' : '🧍 Single pose'}
-                      </button>
+        <div className="mb-5">
+          <p className="text-xs font-bold text-slate-500 mb-2">
+            Sprites per character
+            <span className="font-normal text-slate-400 ml-1">(optional — falls back to emoji)</span>
+          </p>
+          <div className="space-y-4">
+            {characters.map(c => {
+              const cs = charSprites[c.id] ?? { mode: 'single', file: null };
+              const prev = previews[c.id];
+              return (
+                <div key={c.id} className="border border-slate-200 rounded-2xl p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Thumb src={c.standFrame} size={28} />
+                      <span className="text-sm font-black text-slate-700">{c.name}</span>
                     </div>
-
-                    {cs.mode === 'single' ? (
-                      <UploadZone label="Outfit image" size={64}
-                        preview={typeof prev === 'string' ? prev : undefined}
-                        onFile={f => setSingleFile(c.id, f)} />
-                    ) : (
-                      <div className="flex gap-3">
-                        {(['Walk 1', 'Stand', 'Walk 3'] as const).map((lbl, i) => (
-                          <UploadZone key={i} label={lbl} size={56}
-                            preview={Array.isArray(prev) ? prev[i] : undefined}
-                            onFile={f => setWalkFile(c.id, i, f)} />
-                        ))}
-                      </div>
-                    )}
+                    <button type="button" onClick={() => toggleMode(c.id)}
+                      className={`text-xs font-black px-3 py-1 rounded-full transition-colors
+                        ${cs.mode === 'walk'
+                          ? 'bg-violet-100 text-violet-700'
+                          : 'bg-slate-100 text-slate-500 hover:bg-violet-50'}`}>
+                      {cs.mode === 'walk' ? '🚶 Walk (3 frames)' : '🧍 Single pose'}
+                    </button>
                   </div>
-                );
-              })}
-            </div>
+
+                  {cs.mode === 'single' ? (
+                    <UploadZone label="Outfit image" size={64}
+                      preview={typeof prev === 'string' ? prev : undefined}
+                      onFile={f => setSingleFile(c.id, f)} />
+                  ) : (
+                    <div className="flex gap-3">
+                      {(['Walk 1', 'Stand', 'Walk 3'] as const).map((lbl, i) => (
+                        <UploadZone key={i} label={lbl} size={56}
+                          preview={Array.isArray(prev) ? prev[i] : undefined}
+                          onFile={f => setWalkFile(c.id, i, f)} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
 
         {err && <p className="text-red-500 text-sm mb-3">{err}</p>}
 
