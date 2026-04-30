@@ -97,7 +97,7 @@ export const useCharacterRegistry = create<RegistryStore>((set, get) => ({
 
   async refresh() {
     try {
-      const res = await fetch(`/characters/registry.json?t=${Date.now()}`);
+      const res = await fetch(`/api/characters?t=${Date.now()}`);
       if (!res.ok) return;
       const data: CharacterRegistry = await res.json();
       set({ characters: data.characters, outfits: data.outfits, loaded: true });
@@ -131,8 +131,13 @@ export async function uploadCharacterFile(
   fd.append('file', file);
   fd.append('path', targetPath);
   const res = await fetch('/api/characters/upload', { method: 'POST', body: fd });
-  if (!res.ok) throw new Error('Upload failed');
-  return targetPath;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? 'Upload failed');
+  }
+  const data = await res.json();
+  // Returns the Supabase Storage public URL (or local path in dev)
+  return data.path ?? targetPath;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
