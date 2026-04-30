@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { supabase } from '@/lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,22 +98,37 @@ export const useCharacterRegistry = create<RegistryStore>((set, get) => ({
 
   async refresh() {
     try {
-      const res = await fetch(`/api/characters?t=${Date.now()}`);
-      if (!res.ok) return;
-      const data: CharacterRegistry = await res.json();
-      set({ characters: data.characters, outfits: data.outfits, loaded: true });
-    } catch {
-      set({ loaded: true });
-    }
+      // Try Supabase global_config first (source of truth for admin updates)
+      const { data } = await supabase
+        .from('global_config')
+        .select('value')
+        .eq('key', 'character_registry')
+        .maybeSingle();
+      if (data?.value) {
+        const reg = data.value as CharacterRegistry;
+        set({ characters: reg.characters, outfits: reg.outfits, loaded: true });
+        return;
+      }
+    } catch { /* fall through */ }
+
+    try {
+      // Fallback: static file bundled with the deployment
+      const res = await fetch(`/characters/registry.json?t=${Date.now()}`);
+      if (res.ok) {
+        const data: CharacterRegistry = await res.json();
+        set({ characters: data.characters, outfits: data.outfits, loaded: true });
+        return;
+      }
+    } catch { /* fall through */ }
+
+    set({ loaded: true });
   },
 
   async save(registry) {
     set({ characters: registry.characters, outfits: registry.outfits });
-    await fetch('/api/characters', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(registry),
-    });
+    await supabase
+      .from('global_config')
+      .upsert({ key: 'character_registry', value: registry }, { onConflict: 'key' });
   },
 }));
 
@@ -127,17 +143,37 @@ export async function uploadCharacterFile(
   file:       File,
   targetPath: string,   // e.g. "/characters/robot/walk1.png"
 ): Promise<string> {
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('path', targetPath);
-  const res = await fetch('/api/characters/upload', { method: 'POST', body: fd });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any).error ?? 'Upload failed');
+  const isDev = typeof window !== 'undefined' &&
+    ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+  // Dev: write via API route to local public/ filesystem
+  if (isDev) {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('path', targetPath);
+    const res = await fetch('/api/characters/upload', { method: 'POST', body: fd });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as any).error ?? 'Upload failed');
+    }
+    const data = await res.json();
+    return data.path ?? targetPath;
   }
-  const data = await res.json();
-  // Returns the Supabase Storage public URL (or local path in dev)
-  return data.path ?? targetPath;
+
+  // Prod: upload directly to Supabase Storage (no server route needed)
+  const storagePath = targetPath.startsWith('/') ? targetPath.slice(1) : targetPath;
+  const bytes = await file.arrayBuffer();
+  const { error } = await supabase.storage
+    .from('characters')
+    .upload(storagePath, bytes, { contentType: file.type || 'image/png', upsert: true });
+
+  if (error) throw new Error(`Upload failed: ${error.message}`);
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('characters')
+    .getPublicUrl(storagePath);
+
+  return publicUrl;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
