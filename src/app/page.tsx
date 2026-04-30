@@ -19,7 +19,7 @@ import { loginRequest } from "@/lib/msal";
 import { Leaderboard } from "@/components/hub/Leaderboard";
 import { ALL_GAMES, GameConfig } from "@/lib/gameConfigs";
 import { OwlMini } from "@/components/game/OwlCharacter";
-import { getGlobalConfig, checkBanned } from "@/lib/wallet";
+import { getGlobalConfig, checkBanned, getWallet } from "@/lib/wallet";
 import { PlayWiseIntro, INTRO_SEEN_KEY } from "@/components/PlayWiseIntro";
 import { useTimeGuard } from "@/hooks/useTimeGuard";
 import { TimeGate } from "@/components/TimeGate";
@@ -65,7 +65,7 @@ function HubGameCard({ config, onClick, multiplayerBadge }: {
 type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer' | 'redeem';
 
 export default function Home() {
-  const { playerName, playerEmail, playerGrade, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
+  const { playerName, playerEmail, playerGrade, colorId, characterId, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
   const [screen, setScreen] = useState<Screen>('login');
   const [showIntro, setShowIntro] = useState(() =>
     typeof window !== 'undefined' ? !localStorage.getItem(INTRO_SEEN_KEY) : false
@@ -114,7 +114,21 @@ export default function Home() {
     if (!isAuthenticated || accounts.length === 0) return;
     const email       = (accounts[0].username ?? '').toLowerCase().trim();
     const displayName = accounts[0].name || email.split('@')[0];
-    if (email) setPlayerName(displayName, email); // always set — no guard
+    if (!email) return;
+    setPlayerName(displayName, email);
+    // If grade isn't in localStorage, restore from DB to avoid re-asking
+    if (!playerGrade) {
+      getWallet(email).then(wallet => {
+        if (wallet?.grade) {
+          setProfile(
+            displayName, email,
+            (wallet.color_id as string | undefined) || colorId || 'green',
+            wallet.grade as string,
+            (wallet.character_id as string | undefined) || characterId || 'male',
+          );
+        }
+      });
+    }
   }, [isAuthenticated, accounts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Determine initial screen once profile loaded
@@ -137,13 +151,26 @@ export default function Home() {
     });
   };
 
-  const handleEmailLogin = () => {
+  const handleEmailLogin = async () => {
     const email = emailInput.trim().toLowerCase();
     if (!email.includes('@')) return;
     const prefix      = email.split('@')[0];
     const displayName = prefix.split(/[._-]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    setPlayerName(displayName, email); // email is the stable DB key
-    setScreen('profile-setup');
+    setPlayerName(displayName, email);
+
+    // Restore grade (and appearance) from DB — avoids asking grade again on new devices
+    const wallet = await getWallet(email);
+    if (wallet?.grade) {
+      setProfile(
+        displayName, email,
+        (wallet.color_id as string | undefined) || colorId || 'green',
+        wallet.grade as string,
+        (wallet.character_id as string | undefined) || characterId || 'male',
+      );
+      setScreen('hub');
+    } else {
+      setScreen('profile-setup');
+    }
   };
 
   const handleLogout = () => {
