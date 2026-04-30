@@ -128,24 +128,28 @@ function MapCard({ map, onSelect, locked }: { map: MapMeta; onSelect: () => void
 
 function WorldLobby({ onEnter, onMultiplayer }: { onEnter: (mapId: string) => void; onMultiplayer?: (mapId: string) => void }) {
   const { playerName, setPlayerName, playBits, completedRooms } = useWorldStore();
-  const { colorId } = useGameStore();
+  const { colorId, playerName: hubName } = useGameStore();
 
-  const [name, setName]         = useState(playerName === 'Player' ? '' : playerName);
-  const [editingName, setEditingName] = useState(playerName === 'Player');
+  // Resolve name: hub store → world store → localStorage fallback (in that order)
+  const resolvedName = (() => {
+    if (hubName && hubName !== 'Player') return hubName;
+    if (playerName && playerName !== 'Player') return playerName;
+    try {
+      const parsed = JSON.parse(localStorage.getItem('playwise_profile_v2') ?? '{}');
+      return (parsed.name as string) || '';
+    } catch { return ''; }
+  })();
+
+  const [name, setName]         = useState(resolvedName);
+  const [editingName, setEditingName] = useState(!resolvedName);
   const [showShop, setShowShop] = useState(false);
 
-  // Auto-fill from hub profile if available
+  // Sync resolved name into world store once on mount
   useEffect(() => {
-    if (playerName === 'Player') {
-      try {
-        const stored = localStorage.getItem('playwise_profile_v2');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed.name) { setName(parsed.name); setEditingName(false); setPlayerName(parsed.name); }
-        }
-      } catch {}
+    if (resolvedName && playerName !== resolvedName) {
+      setPlayerName(resolvedName);
     }
-  }, [playerName, setPlayerName]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const color = COLORS.find(c => c.id === colorId);
   const progress = Math.round((completedRooms.size / ROOMS.length) * 100);
