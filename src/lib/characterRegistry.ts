@@ -143,37 +143,16 @@ export async function uploadCharacterFile(
   file:       File,
   targetPath: string,   // e.g. "/characters/robot/walk1.png"
 ): Promise<string> {
-  const isDev = typeof window !== 'undefined' &&
-    ['localhost', '127.0.0.1'].includes(window.location.hostname);
-
-  // Dev: write via API route to local public/ filesystem
-  if (isDev) {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('path', targetPath);
-    const res = await fetch('/api/characters/upload', { method: 'POST', body: fd });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error((err as any).error ?? 'Upload failed');
-    }
-    const data = await res.json();
-    return data.path ?? targetPath;
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('path', targetPath);
+  const res = await fetch('/api/characters/upload', { method: 'POST', body: fd });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? 'Upload failed');
   }
-
-  // Prod: upload directly to Supabase Storage (no server route needed)
-  const storagePath = targetPath.startsWith('/') ? targetPath.slice(1) : targetPath;
-  const bytes = await file.arrayBuffer();
-  const { error } = await supabase.storage
-    .from('characters')
-    .upload(storagePath, bytes, { contentType: file.type || 'image/png', upsert: true });
-
-  if (error) throw new Error(`Upload failed: ${error.message}`);
-
-  const { data: { publicUrl } } = supabase.storage
-    .from('characters')
-    .getPublicUrl(storagePath);
-
-  return publicUrl;
+  const data = await res.json();
+  return data.path ?? targetPath;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

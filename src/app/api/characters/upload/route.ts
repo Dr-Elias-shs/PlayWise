@@ -54,7 +54,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const storagePath = filePath.slice(1); // strip leading /
+    // Strip /characters/ prefix — bucket is already named 'characters'
+    const storagePath = filePath.replace(/^\/characters\//, '');
 
     const { error } = await supabase.storage
       .from('characters')
