@@ -11,6 +11,7 @@ import { Shop } from '@/components/world/Shop';
 import { useWorldStore } from '@/store/useWorldStore';
 
 import { COLORS, ACCESSORIES, itemTopFraction } from '@/lib/avatar-items';
+import { useCharacterRegistry, resolveOutfitStand } from '@/lib/characterRegistry';
 import { MAP_REGISTRY, MapMeta } from '@/lib/map-registry';
 import { ROOMS } from '@/lib/rooms';
 import { getGlobalConfig } from '@/lib/wallet';
@@ -22,16 +23,23 @@ import { useHeartbeat } from '@/hooks/useHeartbeat';
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function CharacterPreview({ size = 80 }: { size?: number }) {
-  const { colorId, equippedId, equippedClothingId } = useGameStore();
-  const color = COLORS.find(c => c.id === colorId);
-  const acc   = ACCESSORIES.find(a => a.id === equippedId)   ?? null;
-  const cloth = ACCESSORIES.find(a => a.id === equippedClothingId) ?? null;
-  const fs    = Math.round(size * 0.30);
+  const { colorId, equippedId, equippedClothingId, characterId } = useGameStore();
+  const registry   = useCharacterRegistry();
+  const charDef    = registry.character(characterId) ?? registry.characters[0];
+  const color      = COLORS.find(c => c.id === colorId);
+  const acc        = ACCESSORIES.find(a => a.id === equippedId) ?? null;
+  const outfitDef  = equippedClothingId ? registry.outfit(equippedClothingId) : null;
+  const outfitSprite = outfitDef ? resolveOutfitStand(outfitDef, characterId) : null;
+
+  const baseSrc  = charDef?.standFrame ?? '/character/walk2.png';
+  const spriteSrc = outfitSprite ?? baseSrc;
+  const fs = Math.round(size * 0.30);
+
   return (
     <div className="relative" style={{ width: size, height: size }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/character/walk2.png"
+        src={spriteSrc}
         alt="Character"
         draggable={false}
         style={{ width: size, height: size, objectFit: 'contain', filter: color?.filter ?? '', transition: 'filter 0.25s' }}
@@ -48,16 +56,17 @@ function CharacterPreview({ size = 80 }: { size?: number }) {
           {acc.emoji}
         </span>
       )}
-      {cloth && (
+      {/* Outfit emoji fallback — only when no sprite for this character */}
+      {outfitDef && !outfitSprite && (
         <span className="absolute pointer-events-none select-none"
           style={{
-            top:       itemTopFraction(cloth) * size,
-            left:      `calc(50% + ${cloth.xOffset ?? 0}px)`,
+            top:       (outfitDef.yFraction ?? 0.44) * size,
+            left:      `calc(50% + ${outfitDef.xOffset ?? 0}px)`,
             transform: 'translateX(-50%)',
             fontSize:  fs,
             lineHeight: 1,
           }}>
-          {cloth.emoji}
+          {outfitDef.emoji}
         </span>
       )}
     </div>
