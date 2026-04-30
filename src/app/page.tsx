@@ -99,9 +99,15 @@ export default function Home() {
   }, [loadStoredProfile]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) return; // dev: show everything
-    getGlobalConfig('game_settings').then(cfg => { if (cfg) setGameSettings(cfg); });
-  }, []);
+    if (isLocal) return; // dev: show everything
+    Promise.all([
+      getGlobalConfig('grade_game_settings'),
+      getGlobalConfig('game_settings'),
+    ]).then(([gradeSettings, globalSettings]) => {
+      const perGrade = playerGrade && gradeSettings?.[playerGrade];
+      setGameSettings(perGrade || globalSettings || {});
+    });
+  }, [playerGrade, isLocal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // After MSAL login — use email as stable ID, display name for UI
   useEffect(() => {

@@ -430,8 +430,13 @@ export default function WorldPage() {
       setAllowed(true);
       return;
     }
-    getGlobalConfig('game_settings').then(cfg => {
-      setAllowed(!cfg || cfg['world'] !== false);
+    Promise.all([
+      getGlobalConfig('grade_game_settings'),
+      getGlobalConfig('game_settings'),
+    ]).then(([gradeSettings, globalSettings]) => {
+      const perGrade = playerGrade && gradeSettings?.[playerGrade];
+      const effective = perGrade || globalSettings || {};
+      setAllowed(effective['world'] !== false);
     }).catch(() => setAllowed(true));
   }, []);
 

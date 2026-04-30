@@ -13,6 +13,7 @@ import {
 } from '@/lib/wallet';
 import { ALL_GAMES } from '@/lib/gameConfigs';
 import { TimeManagementTab } from './TimeManagementTab';
+import { GradeControlTab } from './GradeControlTab';
 import { LiveNowTab } from './LiveNowTab';
 import { MAP_REGISTRY } from '@/lib/map-registry';
 import { ROOMS } from '@/lib/rooms';
@@ -41,7 +42,7 @@ function resolveGameName(id: string | null | undefined, focusTable?: number): st
   return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'live' | 'grade-requests' | 'settings';
+type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'grades' | 'live' | 'grade-requests' | 'settings';
 
 interface Wallet {
   student_name: string;  // email (DB key)
@@ -241,6 +242,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
           { id: 'games',       label: '🎮 Games', badge: Object.values(gameSettings).filter(v => v === false).length || undefined },
           { id: 'curriculum',  label: '📚 Curriculum' },
           { id: 'timemgmt',   label: '⏰ Time' },
+          { id: 'grades',     label: '📚 Grades' },
           { id: 'live',            label: '🟢 Live' },
           { id: 'grade-requests',  label: '🎓 Grade Requests', badge: gradeRequests.filter(r => r.status === 'pending').length || undefined },
           { id: 'settings',        label: '⚙️ Settings' },
@@ -1264,6 +1266,13 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
             {tab === 'timemgmt' && (
               <motion.div key="timemgmt" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <TimeManagementTab />
+              </motion.div>
+            )}
+
+            {/* ── Grade Control ── */}
+            {tab === 'grades' && (
+              <motion.div key="grades" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <GradeControlTab />
               </motion.div>
             )}
 
