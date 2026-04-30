@@ -1,14 +1,19 @@
 /**
- * Supabase Storage bucket setup (run once in Supabase dashboard):
- *   1. Create a bucket named "characters" and set it to Public.
- *   2. Add a storage policy allowing INSERT for the service role (or anon if using anon key).
+ * Uploads character/outfit images.
+ * - Dev (localhost): writes directly to public/ filesystem (fast, no setup needed)
+ * - Prod (Render etc.): uploads to Supabase Storage bucket "characters" (public bucket)
  *
- * Required env var (server-side): SUPABASE_SERVICE_ROLE_KEY
- * Falls back to NEXT_PUBLIC_SUPABASE_ANON_KEY if not set (needs permissive bucket policy).
+ * One-time Supabase setup for prod:
+ *   1. Storage → New bucket → name "characters" → Public ✓
+ *   2. Render env var: SUPABASE_SERVICE_ROLE_KEY  (from Supabase → Settings → API)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import path from 'path';
+import fs from 'fs/promises';
 import { createClient } from '@supabase/supabase-js';
+
+const isDev = process.env.NODE_ENV === 'development';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,8 +32,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Path must start with /characters/' }, { status: 400 });
   }
 
-  const storagePath = filePath.slice(1); // "characters/outfits/sako/male.png"
   const bytes = Buffer.from(await file.arrayBuffer());
+
+  // ── Dev: write to local public/ ──────────────────────────────────────────
+  if (isDev) {
+    const fullPath = path.join(process.cwd(), 'public', filePath);
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, bytes);
+    return NextResponse.json({ ok: true, path: filePath });
+  }
+
+  // ── Prod: Supabase Storage ────────────────────────────────────────────────
+  const storagePath = filePath.slice(1); // strip leading /
 
   const { error } = await supabase.storage
     .from('characters')
@@ -39,7 +54,7 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     return NextResponse.json(
-      { error: `Storage upload failed: ${error.message}. Make sure the "characters" bucket exists and is public in Supabase.` },
+      { error: `Storage upload failed: ${error.message}. Create a public "characters" bucket in Supabase and set SUPABASE_SERVICE_ROLE_KEY on Render.` },
       { status: 500 },
     );
   }

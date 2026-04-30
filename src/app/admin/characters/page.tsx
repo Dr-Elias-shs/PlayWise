@@ -152,18 +152,20 @@ function AddCharacterModal({ onDone, onClose }: {
 // Per-character sprite state: either 1 file or 3 files
 type CharSprites = { mode: 'single'; file: File | null } | { mode: 'walk'; files: [File|null, File|null, File|null] };
 
-function AddOutfitModal({ characters, onDone, onClose }: {
+function AddOutfitModal({ characters, existing, onDone, onClose }: {
   characters: CharacterDef[];
+  existing?:  RegistryOutfit;
   onDone: (o: RegistryOutfit) => void;
   onClose: () => void;
 }) {
-  const [name,          setName]        = useState('');
-  const [emoji,         setEmoji]       = useState('🎽');
+  const isEdit = !!existing;
+  const [name,          setName]        = useState(existing?.name ?? '');
+  const [emoji,         setEmoji]       = useState(existing?.emoji ?? '🎽');
   const [thumbFile,     setThumbFile]   = useState<File | null>(null);
-  const [thumbPreview,  setThumbPreview] = useState<string | null>(null);
-  const [price,         setPrice]       = useState('500');
-  const [category,      setCategory]    = useState<'hat' | 'extra' | 'clothing'>('clothing');
-  const [yFrac,         setYFrac]       = useState('0.44');
+  const [thumbPreview,  setThumbPreview] = useState<string | null>(existing?.thumbnail ?? null);
+  const [price,         setPrice]       = useState(String(existing?.price ?? 500));
+  const [category,      setCategory]    = useState<'hat' | 'extra' | 'clothing'>(existing?.category ?? 'clothing');
+  const [yFrac,         setYFrac]       = useState(String(existing?.yFraction ?? 0.44));
   const [busy,          setBusy]        = useState(false);
   const [err,           setErr]         = useState('');
 
@@ -210,38 +212,41 @@ function AddOutfitModal({ characters, onDone, onClose }: {
   }
 
   async function handleSave() {
-    const id = slugify(name.trim());
+    const id = isEdit ? existing!.id : slugify(name.trim());
     if (!id) { setErr('Enter a name'); return; }
     setBusy(true);
     try {
-      // Upload thumbnail if provided
-      let thumbnailPath: string | undefined;
+      // Upload thumbnail if a new file was chosen
+      let thumbnailPath: string | undefined = existing?.thumbnail;
       if (thumbFile) {
         const ext = thumbFile.name.split('.').pop() ?? 'png';
         thumbnailPath = `/characters/outfits/${id}/thumbnail.${ext}`;
         await uploadCharacterFile(thumbFile, thumbnailPath);
       }
 
-      const savedSprites: Record<string, string | string[]> = {};
-      for (const [charId, cs] of Object.entries(charSprites)) {
-        if (cs.mode === 'single') {
-          if (!cs.file) continue;
-          const ext  = cs.file.name.split('.').pop() ?? 'png';
-          const path = `/characters/outfits/${id}/${charId}.${ext}`;
-          await uploadCharacterFile(cs.file, path);
-          savedSprites[charId] = path;
-        } else {
-          const paths: string[] = [];
-          for (let i = 0; i < 3; i++) {
-            const f = cs.files[i];
-            if (!f) continue;
-            const ext  = f.name.split('.').pop() ?? 'png';
-            const path = `/characters/outfits/${id}/${charId}-walk${i + 1}.${ext}`;
-            await uploadCharacterFile(f, path);
-            paths.push(path);
+      // When editing, keep existing sprites; only collect new uploads for add mode
+      const savedSprites: Record<string, string | string[]> = isEdit ? { ...existing!.sprites } : {};
+      if (!isEdit) {
+        for (const [charId, cs] of Object.entries(charSprites)) {
+          if (cs.mode === 'single') {
+            if (!cs.file) continue;
+            const ext  = cs.file.name.split('.').pop() ?? 'png';
+            const p = `/characters/outfits/${id}/${charId}.${ext}`;
+            await uploadCharacterFile(cs.file, p);
+            savedSprites[charId] = p;
+          } else {
+            const paths: string[] = [];
+            for (let i = 0; i < 3; i++) {
+              const f = cs.files[i];
+              if (!f) continue;
+              const ext  = f.name.split('.').pop() ?? 'png';
+              const p = `/characters/outfits/${id}/${charId}-walk${i + 1}.${ext}`;
+              await uploadCharacterFile(f, p);
+              paths.push(p);
+            }
+            if (paths.length === 3) savedSprites[charId] = paths;
+            else if (paths.length === 1) savedSprites[charId] = paths[0];
           }
-          if (paths.length === 3) savedSprites[charId] = paths;
-          else if (paths.length === 1) savedSprites[charId] = paths[0];
         }
       }
       onDone({
@@ -264,7 +269,7 @@ function AddOutfitModal({ characters, onDone, onClose }: {
       <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         className="bg-white rounded-3xl shadow-2xl p-7 w-full max-w-md overflow-y-auto"
         style={{ maxHeight: '90vh' }}>
-        <h3 className="text-xl font-black text-slate-800 mb-5">Add Outfit / Accessory</h3>
+        <h3 className="text-xl font-black text-slate-800 mb-5">{isEdit ? `Edit: ${existing!.name}` : 'Add Outfit / Accessory'}</h3>
 
         {/* Thumbnail upload — shown in shop card */}
         <div className="mb-5">
@@ -333,50 +338,51 @@ function AddOutfitModal({ characters, onDone, onClose }: {
           </div>
         </div>
 
-        <div className="mb-5">
-          <p className="text-xs font-bold text-slate-500 mb-2">
-            Sprites per character
-            <span className="font-normal text-slate-400 ml-1">(optional — falls back to emoji)</span>
-          </p>
-          <div className="space-y-4">
-            {characters.map(c => {
-              const cs = charSprites[c.id] ?? { mode: 'single', file: null };
-              const prev = previews[c.id];
-              return (
-                <div key={c.id} className="border border-slate-200 rounded-2xl p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Thumb src={c.standFrame} size={28} />
-                      <span className="text-sm font-black text-slate-700">{c.name}</span>
+        {!isEdit && (
+          <div className="mb-5">
+            <p className="text-xs font-bold text-slate-500 mb-2">
+              Sprites per character
+              <span className="font-normal text-slate-400 ml-1">(optional — falls back to emoji)</span>
+            </p>
+            <div className="space-y-4">
+              {characters.map(c => {
+                const cs = charSprites[c.id] ?? { mode: 'single', file: null };
+                const prev = previews[c.id];
+                return (
+                  <div key={c.id} className="border border-slate-200 rounded-2xl p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Thumb src={c.standFrame} size={28} />
+                        <span className="text-sm font-black text-slate-700">{c.name}</span>
+                      </div>
+                      <button type="button" onClick={() => toggleMode(c.id)}
+                        className={`text-xs font-black px-3 py-1 rounded-full transition-colors
+                          ${cs.mode === 'walk'
+                            ? 'bg-violet-100 text-violet-700'
+                            : 'bg-slate-100 text-slate-500 hover:bg-violet-50'}`}>
+                        {cs.mode === 'walk' ? '🚶 Walk (3 frames)' : '🧍 Single pose'}
+                      </button>
                     </div>
-                    {/* Toggle single / walk cycle */}
-                    <button type="button" onClick={() => toggleMode(c.id)}
-                      className={`text-xs font-black px-3 py-1 rounded-full transition-colors
-                        ${cs.mode === 'walk'
-                          ? 'bg-violet-100 text-violet-700'
-                          : 'bg-slate-100 text-slate-500 hover:bg-violet-50'}`}>
-                      {cs.mode === 'walk' ? '🚶 Walk (3 frames)' : '🧍 Single pose'}
-                    </button>
-                  </div>
 
-                  {cs.mode === 'single' ? (
-                    <UploadZone label="Outfit image" size={64}
-                      preview={typeof prev === 'string' ? prev : undefined}
-                      onFile={f => setSingleFile(c.id, f)} />
-                  ) : (
-                    <div className="flex gap-3">
-                      {(['Walk 1', 'Stand', 'Walk 3'] as const).map((lbl, i) => (
-                        <UploadZone key={i} label={lbl} size={56}
-                          preview={Array.isArray(prev) ? prev[i] : undefined}
-                          onFile={f => setWalkFile(c.id, i, f)} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                    {cs.mode === 'single' ? (
+                      <UploadZone label="Outfit image" size={64}
+                        preview={typeof prev === 'string' ? prev : undefined}
+                        onFile={f => setSingleFile(c.id, f)} />
+                    ) : (
+                      <div className="flex gap-3">
+                        {(['Walk 1', 'Stand', 'Walk 3'] as const).map((lbl, i) => (
+                          <UploadZone key={i} label={lbl} size={56}
+                            preview={Array.isArray(prev) ? prev[i] : undefined}
+                            onFile={f => setWalkFile(c.id, i, f)} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {err && <p className="text-red-500 text-sm mb-3">{err}</p>}
 
@@ -388,7 +394,7 @@ function AddOutfitModal({ characters, onDone, onClose }: {
           <button onClick={handleSave} disabled={busy}
             className="flex-1 py-2.5 rounded-xl text-white font-black text-sm disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg,#7c3aed,#9333ea)' }}>
-            {busy ? 'Saving…' : 'Add'}
+            {busy ? 'Saving…' : isEdit ? 'Save changes' : 'Add'}
           </button>
         </div>
       </motion.div>
@@ -465,10 +471,11 @@ type Tab = 'characters' | 'outfits' | 'preview';
 
 export default function CharacterImportTool() {
   const registry = useCharacterRegistry();
-  const [tab,         setTab]        = useState<Tab>('characters');
-  const [addCharOpen, setAddChar]    = useState(false);
-  const [addOutfitOpen, setAddOutfit] = useState(false);
-  const [previewChar, setPreviewChar] = useState('');
+  const [tab,           setTab]        = useState<Tab>('characters');
+  const [addCharOpen,   setAddChar]    = useState(false);
+  const [addOutfitOpen, setAddOutfit]  = useState(false);
+  const [editOutfit,    setEditOutfit] = useState<RegistryOutfit | null>(null);
+  const [previewChar,   setPreviewChar]   = useState('');
   const [previewOutfit, setPreviewOutfit] = useState('');
   const [saving, setSaving]          = useState(false);
   const [saved,  setSaved]           = useState(false);
@@ -499,6 +506,14 @@ export default function CharacterImportTool() {
     };
     persist(updated);
     setAddOutfit(false);
+  }
+
+  function updateOutfit(o: RegistryOutfit) {
+    persist({
+      characters: registry.characters,
+      outfits:    registry.outfits.map(x => x.id === o.id ? o : x),
+    });
+    setEditOutfit(null);
   }
 
   async function uploadSprite(outfitId: string, charId: string, files: File[]) {
@@ -777,10 +792,16 @@ export default function CharacterImportTool() {
                         );
                       })}
                       <td className="py-3 px-4">
-                        <button onClick={() => removeOutfit(o.id)}
-                          className="text-xs text-slate-300 hover:text-red-500 font-bold transition-colors">
-                          ✕
-                        </button>
+                        <div className="flex flex-col items-center gap-1.5">
+                          <button onClick={() => setEditOutfit(o)}
+                            className="text-xs text-slate-400 hover:text-violet-600 font-bold transition-colors">
+                            ✏️ edit
+                          </button>
+                          <button onClick={() => removeOutfit(o.id)}
+                            className="text-xs text-slate-300 hover:text-red-500 font-bold transition-colors">
+                            ✕ remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -887,8 +908,9 @@ export default function CharacterImportTool() {
 
       {/* Modals */}
       <AnimatePresence>
-        {addCharOpen  && <AddCharacterModal onDone={addCharacter} onClose={() => setAddChar(false)} />}
+        {addCharOpen   && <AddCharacterModal onDone={addCharacter} onClose={() => setAddChar(false)} />}
         {addOutfitOpen && <AddOutfitModal characters={registry.characters} onDone={addOutfit} onClose={() => setAddOutfit(false)} />}
+        {editOutfit    && <AddOutfitModal characters={registry.characters} existing={editOutfit} onDone={updateOutfit} onClose={() => setEditOutfit(null)} />}
       </AnimatePresence>
     </div>
   );
