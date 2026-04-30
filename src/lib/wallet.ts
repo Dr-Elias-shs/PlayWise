@@ -132,10 +132,8 @@ export async function getWallet(studentName: string) {
     .from('player_wallets')
     .select('*')
     .eq('student_name', studentName)
-    .single();
-  if (error && error.code !== 'PGRST116') { // PGRST116 = row not found (expected for new players)
-    console.error('getWallet error:', error.message);
-  }
+    .maybeSingle();
+  if (error) console.error('getWallet error:', error.message);
   return data;
 }
 
