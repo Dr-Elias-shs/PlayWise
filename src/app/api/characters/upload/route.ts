@@ -1,19 +1,8 @@
-/**
- * Uploads character/outfit images.
- * - Dev (localhost): writes directly to public/ filesystem (fast, no setup needed)
- * - Prod (Render etc.): uploads to Supabase Storage bucket "characters" (public bucket)
- *
- * One-time Supabase setup for prod:
- *   1. Storage → New bucket → name "characters" → Public ✓
- *   2. Render env var: SUPABASE_SERVICE_ROLE_KEY  (from Supabase → Settings → API)
- */
-
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
-import fs from 'fs/promises';
 import { createClient } from '@supabase/supabase-js';
 
-const isDev = process.env.NODE_ENV === 'development';
+export const runtime = 'nodejs';
+export const maxDuration = 30;
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -37,19 +26,21 @@ export async function POST(req: NextRequest) {
 
     const bytes = Buffer.from(await file.arrayBuffer());
 
-    // ── Dev: write to local public/ ────────────────────────────────────────
-    if (isDev) {
-      const fullPath = path.join(process.cwd(), 'public', filePath);
-      await fs.mkdir(path.dirname(fullPath), { recursive: true });
-      await fs.writeFile(fullPath, bytes);
+    // Dev: write to local filesystem
+    if (process.env.NODE_ENV === 'development') {
+      const { join, dirname } = await import('path');
+      const { mkdir, writeFile } = await import('fs/promises');
+      const fullPath = join(process.cwd(), 'public', filePath);
+      await mkdir(dirname(fullPath), { recursive: true });
+      await writeFile(fullPath, bytes);
       return NextResponse.json({ ok: true, path: filePath });
     }
 
-    // ── Prod: Supabase Storage ──────────────────────────────────────────────
+    // Prod: Supabase Storage (service role key bypasses RLS)
     const supabase = getSupabase();
     if (!supabase) {
       return NextResponse.json(
-        { error: 'Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on Render.' },
+        { error: 'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY' },
         { status: 500 },
       );
     }
@@ -59,25 +50,17 @@ export async function POST(req: NextRequest) {
 
     const { error } = await supabase.storage
       .from('characters')
-      .upload(storagePath, bytes, {
-        contentType: file.type || 'image/png',
-        upsert: true,
-      });
+      .upload(storagePath, bytes, { contentType: file.type || 'image/png', upsert: true });
 
     if (error) {
-      return NextResponse.json(
-        { error: `Storage upload failed: ${error.message}` },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: `Storage upload failed: ${error.message}` }, { status: 500 });
     }
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('characters')
-      .getPublicUrl(storagePath);
-
+    const { data: { publicUrl } } = supabase.storage.from('characters').getPublicUrl(storagePath);
     return NextResponse.json({ ok: true, path: publicUrl });
+
   } catch (e) {
-    console.error('POST /api/characters/upload error:', e);
+    console.error('[upload] unhandled error:', e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
