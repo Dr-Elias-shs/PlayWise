@@ -511,6 +511,19 @@ export default function CharacterImportTool() {
     setTimeout(() => setSaved(false), 2000);
   }
 
+  async function syncToCloud() {
+    setSaving(true);
+    try {
+      const res  = await fetch(`/characters/registry.json?t=${Date.now()}`);
+      const data = await res.json() as CharacterRegistry;
+      await registry.save(data);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function addCharacter(c: CharacterDef) {
     const updated: CharacterRegistry = {
       characters: [...registry.characters, c],
@@ -626,6 +639,13 @@ export default function CharacterImportTool() {
               {saved ? '✓ Saved' : 'Saving…'}
             </span>
           )}
+          <button
+            onClick={syncToCloud}
+            disabled={saving}
+            className="px-4 py-2 bg-blue-100 hover:bg-blue-200 disabled:opacity-50 rounded-xl text-sm font-bold text-blue-700 transition-colors"
+          >
+            🔄 Sync to Cloud
+          </button>
           <a href="/" className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-600 transition-colors">
             Open Game →
           </a>
