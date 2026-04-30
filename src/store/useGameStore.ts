@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
+import { saveAppearance } from '@/lib/wallet';
 
 const STORAGE_KEY = 'playwise_profile_v4';
 
@@ -172,11 +173,15 @@ export const useGameStore = create<GameState>((set, get) => {
     setColor(colorId) {
       save({ ...snap(get()), colorId });
       set({ colorId });
+      const { playerEmail, playerName, characterId } = get();
+      saveAppearance(playerEmail || playerName, characterId, colorId).catch(() => {});
     },
 
     setCharacterId(characterId) {
       save({ ...snap(get()), characterId });
       set({ characterId });
+      const { playerEmail, playerName, colorId } = get();
+      saveAppearance(playerEmail || playerName, characterId, colorId).catch(() => {});
     },
 
     ownAccessory(id) {

@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { ALL_GAME_IDS } from "@/lib/learningScore";
 import { useGameStore } from "@/store/useGameStore";
+import { useCharacterRegistry, resolveOutfitStand } from "@/lib/characterRegistry";
+import { COLORS } from "@/lib/avatar-items";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,6 +23,8 @@ interface SpecialistEntry {
   student_name: string;
   avg_accuracy: number; sessions_count: number; mastered: boolean;
 }
+
+interface PlayerAppearance { characterId: string; colorId: string; equippedClothingId?: string | null; }
 
 type BoardType = 'learners' | 'myClass' | 'improved' | 'accuracy' | 'explorers' | 'specialist';
 
@@ -72,9 +76,25 @@ function ScoreBar({ value, max = 100, color }: { value: number; max?: number; co
   );
 }
 
-function EntryRow({ rank, name, grade, main, sub, extra, isMe }: {
+function TinyAvatar({ characterId = 'male', colorId = 'green', equippedClothingId }: PlayerAppearance) {
+  const registry  = useCharacterRegistry();
+  const charDef   = registry.character(characterId) ?? registry.characters[0];
+  const outfitDef = equippedClothingId ? registry.outfit(equippedClothingId) : null;
+  const outfitSrc = outfitDef ? resolveOutfitStand(outfitDef, characterId) : null;
+  const color     = COLORS.find(c => c.id === colorId);
+  const src       = outfitSrc ?? charDef?.standFrame ?? '/character/walk2.png';
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="" draggable={false}
+      style={{ width: 32, height: 32, objectFit: 'contain', filter: color?.filter ?? '', flexShrink: 0 }}
+    />
+  );
+}
+
+function EntryRow({ rank, name, grade, main, sub, extra, isMe, appearance }: {
   rank: number; name: string; grade?: string;
   main: string; sub?: string; extra?: React.ReactNode; isMe?: boolean;
+  appearance?: PlayerAppearance;
 }) {
   const top3 = rank <= 3;
   return (
@@ -87,9 +107,14 @@ function EntryRow({ rank, name, grade, main, sub, extra, isMe }: {
         rank === 3  ? 'bg-orange-50 border-orange-100' :
         'bg-white hover:bg-slate-50 border-transparent'
       }`}>
-      <span className={`w-7 text-center font-black text-sm ${
+      <span className={`w-7 text-center font-black text-sm shrink-0 ${
         top3 ? 'text-lg' : 'text-slate-400'
       }`}>{top3 ? MEDALS[rank - 1] : rank}</span>
+      <TinyAvatar
+        characterId={appearance?.characterId ?? 'male'}
+        colorId={appearance?.colorId ?? 'green'}
+        equippedClothingId={appearance?.equippedClothingId}
+      />
       <div className="flex-1 min-w-0">
         <div className={`font-bold text-sm truncate ${isMe ? 'text-violet-700' : 'text-slate-800'}`}>
           {name}{isMe && <span className="ml-1 text-[10px] bg-violet-200 text-violet-700 px-1.5 py-0.5 rounded-full font-black">YOU</span>}
@@ -106,7 +131,7 @@ function EntryRow({ rank, name, grade, main, sub, extra, isMe }: {
 // ── Main Leaderboard ──────────────────────────────────────────────────────────
 
 export function Leaderboard() {
-  const { playerGrade, playerName } = useGameStore();
+  const { playerGrade, playerName, characterId, colorId, equippedClothingId } = useGameStore();
   const [board, setBoard]           = useState<BoardType>('learners');
   const [showHints, setShowHints]   = useState(false);
   const [entries, setEntries]       = useState<LearnerEntry[]>([]);
@@ -115,6 +140,7 @@ export function Leaderboard() {
   const [loading, setLoading]       = useState(true);
   const [flash, setFlash]           = useState(false);
   const [dbReady, setDbReady]       = useState(true);
+  const [appearances, setAppearances] = useState<Record<string, PlayerAppearance>>({});
 
   const fetchAll = async () => {
     const { data, error } = await supabase
@@ -130,6 +156,26 @@ export function Leaderboard() {
     }
     setDbReady(true);
     setEntries(data ?? []);
+
+    // Fetch character appearances from player_wallets
+    const names = (data ?? []).map(e => e.student_name);
+    if (names.length > 0) {
+      const { data: wallets } = await supabase
+        .from('player_wallets')
+        .select('student_name, character_id, color_id, equipped_clothing_id')
+        .in('student_name', names);
+      if (wallets) {
+        const map: Record<string, PlayerAppearance> = {};
+        for (const w of wallets) {
+          map[w.student_name] = {
+            characterId:        (w as any).character_id        ?? 'male',
+            colorId:            (w as any).color_id            ?? 'green',
+            equippedClothingId: (w as any).equipped_clothing_id ?? null,
+          };
+        }
+        setAppearances(map);
+      }
+    }
 
     // Fetch top-5 per game for Specialists tab
     const specResults: Record<string, SpecialistEntry[]> = {};
@@ -160,6 +206,11 @@ export function Leaderboard() {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Merge current player's live appearance (local store is authoritative for self)
+  const resolvedAppearances = playerName
+    ? { ...appearances, [playerName]: { characterId, colorId, equippedClothingId } }
+    : appearances;
 
   // ── Derived lists ───────────────────────────────────────────────────────────
   const topLearners  = [...entries].sort((a, b) => b.learning_score - a.learning_score).slice(0, 10);
@@ -279,6 +330,8 @@ export function Leaderboard() {
                 ? <p className="text-center py-12 text-slate-400 text-sm">No data yet — play some games! 🚀</p>
                 : topLearners.map((e, i) => (
                   <EntryRow key={e.student_name} rank={i + 1} name={e.student_name} grade={e.grade}
+                    isMe={e.student_name === playerName}
+                    appearance={resolvedAppearances[e.student_name]}
                     main={`${e.learning_score.toFixed(1)} pts`}
                     extra={
                       <div className="flex flex-col gap-1 items-end mr-2">
@@ -312,6 +365,7 @@ export function Leaderboard() {
                 myClassEntries.map((e, i) => (
                   <EntryRow key={e.student_name} rank={i + 1} name={e.student_name}
                     isMe={e.student_name === playerName}
+                    appearance={resolvedAppearances[e.student_name]}
                     main={`${e.learning_score.toFixed(1)} pts`}
                     extra={
                       <div className="flex flex-col gap-1 items-end mr-2">
@@ -341,6 +395,8 @@ export function Leaderboard() {
                 ? <p className="text-center py-12 text-slate-400 text-sm">Keep playing — improvements appear after 2+ sessions per game.</p>
                 : mostImproved.map((e, i) => (
                   <EntryRow key={e.student_name} rank={i + 1} name={e.student_name} grade={e.grade}
+                    isMe={e.student_name === playerName}
+                    appearance={resolvedAppearances[e.student_name]}
                     main={`+${(e.improvement_delta * 100).toFixed(1)}%`}
                     sub={`${Math.round(e.avg_accuracy_all * 100)}% avg accuracy`}
                   />
@@ -359,6 +415,8 @@ export function Leaderboard() {
                 ? <p className="text-center py-12 text-slate-400 text-sm">No accuracy data yet.</p>
                 : accChamps.map((e, i) => (
                   <EntryRow key={e.student_name} rank={i + 1} name={e.student_name} grade={e.grade}
+                    isMe={e.student_name === playerName}
+                    appearance={resolvedAppearances[e.student_name]}
                     main={`${Math.round(e.avg_accuracy_all * 100)}%`}
                     extra={<ScoreBar value={e.avg_accuracy_all * 100} color="bg-emerald-500" />}
                   />
@@ -377,6 +435,8 @@ export function Leaderboard() {
                 ? <p className="text-center py-12 text-slate-400 text-sm">No variety data yet.</p>
                 : explorers.map((e, i) => (
                   <EntryRow key={e.student_name} rank={i + 1} name={e.student_name} grade={e.grade}
+                    isMe={e.student_name === playerName}
+                    appearance={resolvedAppearances[e.student_name]}
                     main={`${e.games_distinct_14d} / 7 games`}
                     extra={<ScoreBar value={e.games_distinct_14d} max={7} color="bg-blue-500" />}
                   />
@@ -406,6 +466,8 @@ export function Leaderboard() {
                 ? <p className="text-center py-8 text-slate-400 text-sm">No qualified players yet (need ≥3 sessions).</p>
                 : (specialists[specialistGame] ?? []).map((e, i) => (
                   <EntryRow key={e.student_name} rank={i + 1} name={e.student_name}
+                    isMe={e.student_name === playerName}
+                    appearance={resolvedAppearances[e.student_name]}
                     main={`${Math.round(e.avg_accuracy * 100)}%`}
                     sub={`${e.sessions_count} sessions${e.mastered ? ' · 🏆 Mastered' : ''}`}
                     extra={<ScoreBar value={e.avg_accuracy * 100} color="bg-violet-500" />}

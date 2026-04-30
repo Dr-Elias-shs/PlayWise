@@ -1,5 +1,19 @@
 import { supabase } from './supabase';
 
+// ─── Appearance sync ─────────────────────────────────────────────────────────
+
+export async function saveAppearance(
+  studentName: string,
+  characterId: string,
+  colorId:     string,
+): Promise<void> {
+  if (!studentName) return;
+  await supabase.from('player_wallets').upsert(
+    { student_name: studentName, character_id: characterId, color_id: colorId, updated_at: new Date().toISOString() },
+    { onConflict: 'student_name' },
+  );
+}
+
 // ─── Ban management ───────────────────────────────────────────────────────────
 
 export async function banPlayer(studentName: string, reason = '') {
