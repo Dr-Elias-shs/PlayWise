@@ -514,9 +514,7 @@ export default function CharacterImportTool() {
   async function syncToCloud() {
     setSaving(true);
     try {
-      const res  = await fetch(`/characters/registry.json?t=${Date.now()}`);
-      const data = await res.json() as CharacterRegistry;
-      await registry.save(data);
+      await registry.save({ characters: registry.characters, outfits: registry.outfits });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
