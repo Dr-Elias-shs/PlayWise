@@ -23,14 +23,14 @@
       "hasBuiltInLogo": true
     },
     {
-      "id": "pinky-lala",
-      "name": "PINKY LALA",
+      "id": "pinky",
+      "name": "Pinky",
       "frames": [
-        "/characters/pinky-lala/walk1.png",
-        "/characters/pinky-lala/walk2.png",
-        "/characters/pinky-lala/walk3.png"
+        "/characters/pinky/walk1.png",
+        "/characters/pinky/walk2.png",
+        "/characters/pinky/walk3.png"
       ],
-      "standFrame": "/characters/pinky-lala/walk2.png",
+      "standFrame": "/characters/pinky/walk2.png",
       "hasBuiltInLogo": false
     }
   ],
@@ -39,10 +39,7 @@
       "id": "f-jacket",
       "name": "Varsity Jacket",
       "emoji": "🧥",
-      "thumbnail": "/characters/outfits/f-jacket/thumbnail.png",
       "price": 800,
-      "category": "clothing",
-      "yFraction": 0.42,
       "sprites": {
         "male": [
           "/characters/outfits/f-jacket/male-walk1.png",
@@ -54,7 +51,10 @@
           "/characters/outfits/f-jacket/female-walk2.png",
           "/characters/outfits/f-jacket/female-walk3.png"
         ]
-      }
+      },
+      "category": "clothing",
+      "thumbnail": "/characters/outfits/f-jacket/thumbnail.png",
+      "yFraction": 0.42
     },
     {
       "id": "f-jeans",
@@ -139,10 +139,10 @@
           "/characters/outfits/all-stars/female-walk2.png",
           "/characters/outfits/all-stars/female-walk3.png"
         ],
-        "pinky-lala": [
-          "/characters/outfits/all-stars/pinky-lala-walk1.png",
-          "/characters/outfits/all-stars/pinky-lala-walk2.png",
-          "/characters/outfits/all-stars/pinky-lala-walk3.png"
+        "pinky": [
+          "/characters/outfits/all-stars/pinky-walk1.png",
+          "/characters/outfits/all-stars/pinky-walk2.png",
+          "/characters/outfits/all-stars/pinky-walk3.png"
         ]
       }
     }
