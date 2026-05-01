@@ -48,7 +48,7 @@ function UploadZone({
         }
       </button>
       <span className="text-[10px] font-bold text-slate-400 text-center leading-tight">{label}</span>
-      <input ref={ref} type="file" accept="image/png,image/webp,image/gif"
+      <input ref={ref} type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
         className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); }}
       />
@@ -471,7 +471,7 @@ function OutfitRow({
                 <span className="text-2xl opacity-30">{outfit.emoji}</span>
                 <label className="cursor-pointer text-[10px] font-bold text-violet-500 hover:text-violet-700">
                   + sprite
-                  <input type="file" accept="image/png,image/webp" className="hidden"
+                  <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden"
                     onChange={e => {
                       const f = e.target.files?.[0];
                       if (f) onUploadSprite(outfit.id, c.id, f);
@@ -711,7 +711,7 @@ export default function CharacterImportTool() {
                           </div>
                         </div>
                         <span className="text-[9px] text-slate-400 font-bold">{lbl}</span>
-                        <input type="file" accept="image/png,image/webp" className="hidden"
+                        <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden"
                           onChange={e => { const f = e.target.files?.[0]; if (f) updateCharacterFrame(c.id, i, f); }} />
                       </label>
                     ))}
@@ -786,7 +786,7 @@ export default function CharacterImportTool() {
                             {!o.thumbnail && (
                               <label className="cursor-pointer text-[10px] font-bold text-violet-500 hover:text-violet-700">
                                 + add picture
-                                <input type="file" accept="image/png,image/webp,image/jpeg" className="hidden"
+                                <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden"
                                   onChange={async e => {
                                     const f = e.target.files?.[0]; if (!f) return;
                                     const ext = f.name.split('.').pop() ?? 'png';
@@ -819,7 +819,7 @@ export default function CharacterImportTool() {
                                 <span className="text-2xl opacity-25">{o.emoji}</span>
                                 <label className="cursor-pointer text-[10px] font-bold text-violet-500 hover:text-violet-700 text-center leading-tight">
                                   + 3 frames
-                                  <input type="file" accept="image/png,image/webp"
+                                  <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp"
                                     multiple className="hidden"
                                     onChange={e => {
                                       const fs = Array.from(e.target.files ?? []);

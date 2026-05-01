@@ -6,9 +6,26 @@ export const maxDuration = 30;
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
   return createClient(url, key);
+}
+
+export async function GET() {
+  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    return NextResponse.json({ ok: false, error: 'Missing env vars', url: !!url, serviceKey: !!key, anonKey: !!anon });
+  }
+  try {
+    const supabase = createClient(url, key);
+    const { data, error } = await supabase.storage.from('characters').list('', { limit: 1 });
+    if (error) return NextResponse.json({ ok: false, error: error.message, hint: 'bucket list failed' });
+    return NextResponse.json({ ok: true, bucketAccessible: true, files: data?.length ?? 0 });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: String(e) });
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -40,7 +57,7 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabase();
     if (!supabase) {
       return NextResponse.json(
-        { error: 'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY' },
+        { error: 'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SERVICE_KEY' },
         { status: 500 },
       );
     }
