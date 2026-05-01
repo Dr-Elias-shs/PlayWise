@@ -143,16 +143,17 @@ export async function uploadCharacterFile(
   file:       File,
   targetPath: string,   // e.g. "/characters/robot/walk1.png"
 ): Promise<string> {
-  const res = await fetch(
-    `/api/characters/upload?path=${encodeURIComponent(targetPath)}`,
-    { method: 'POST', headers: { 'content-type': file.type || 'image/png' }, body: file },
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any).error ?? 'Upload failed');
-  }
-  const data = await res.json();
-  return data.path ?? targetPath;
+  // Strip the leading /characters/ — bucket is named 'characters'
+  const storagePath = targetPath.replace(/^\/characters\//, '');
+
+  const { error } = await supabase.storage
+    .from('characters')
+    .upload(storagePath, file, { contentType: file.type || 'image/png', upsert: true });
+
+  if (error) throw new Error(error.message);
+
+  const { data: { publicUrl } } = supabase.storage.from('characters').getPublicUrl(storagePath);
+  return publicUrl;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
