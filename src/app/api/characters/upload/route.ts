@@ -35,22 +35,23 @@ export async function GET() {
   });
 }
 
+// Accepts raw binary body; file path comes from ?path= query param.
+// Avoids req.formData() which breaks in Next.js custom-server (socket.io) mode.
 export async function POST(req: NextRequest) {
   try {
-    const form     = await req.formData();
-    const file     = form.get('file')  as File   | null;
-    const filePath = form.get('path')  as string | null;
+    const { searchParams } = new URL(req.url);
+    const filePath    = searchParams.get('path');
+    const contentType = req.headers.get('content-type') ?? 'image/png';
 
-    if (!file || !filePath) {
-      return NextResponse.json({ error: 'Missing file or path' }, { status: 400 });
+    if (!filePath) {
+      return NextResponse.json({ error: 'Missing ?path= query param' }, { status: 400 });
     }
     if (!filePath.startsWith('/characters/')) {
       return NextResponse.json({ error: 'Path must start with /characters/' }, { status: 400 });
     }
 
-    const bytes = Buffer.from(await file.arrayBuffer());
+    const bytes = Buffer.from(await req.arrayBuffer());
 
-    // Dev: write to local filesystem
     if (process.env.NODE_ENV === 'development') {
       const { join, dirname } = await import('path');
       const { mkdir, writeFile } = await import('fs/promises');
@@ -60,21 +61,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, path: filePath });
     }
 
-    // Prod: Supabase Storage (service role key bypasses RLS)
     const supabase = getSupabase();
     if (!supabase) {
       return NextResponse.json(
-        { error: 'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SERVICE_KEY' },
+        { error: 'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY' },
         { status: 500 },
       );
     }
 
-    // Strip /characters/ prefix — bucket is already named 'characters'
     const storagePath = filePath.replace(/^\/characters\//, '');
 
     const { error } = await supabase.storage
       .from('characters')
-      .upload(storagePath, bytes, { contentType: file.type || 'image/png', upsert: true });
+      .upload(storagePath, bytes, { contentType, upsert: true });
 
     if (error) {
       return NextResponse.json({ error: `Storage upload failed: ${error.message}` }, { status: 500 });
@@ -84,7 +83,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, path: publicUrl });
 
   } catch (e) {
-    console.error('[upload] unhandled error:', e);
+    console.error('[upload] error:', e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }

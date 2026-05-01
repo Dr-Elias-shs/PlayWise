@@ -143,10 +143,10 @@ export async function uploadCharacterFile(
   file:       File,
   targetPath: string,   // e.g. "/characters/robot/walk1.png"
 ): Promise<string> {
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('path', targetPath);
-  const res = await fetch('/api/characters/upload', { method: 'POST', body: fd });
+  const res = await fetch(
+    `/api/characters/upload?path=${encodeURIComponent(targetPath)}`,
+    { method: 'POST', headers: { 'content-type': file.type || 'image/png' }, body: file },
+  );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as any).error ?? 'Upload failed');
