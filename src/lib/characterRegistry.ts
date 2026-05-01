@@ -144,7 +144,9 @@ export async function uploadCharacterFile(
   targetPath: string,   // e.g. "/characters/robot/walk1.png"
 ): Promise<string> {
   // Step 1: get a signed upload URL from our server (uses service role key → bypasses RLS)
-  const res = await fetch(`/api/characters/upload?path=${encodeURIComponent(targetPath)}`);
+  // Strip /characters/ prefix and avoid %2F encoding so Cloudflare WAF doesn't block it
+  const relPath = targetPath.replace(/^\/characters\//, '');
+  const res = await fetch(`/api/characters/upload?p=${relPath}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as any).error ?? 'Failed to get upload URL');
