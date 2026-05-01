@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       }
       const { data, error } = await supabase.storage
         .from('characters')
-        .createSignedUploadUrl(relPath);
+        .createSignedUploadUrl(relPath, { upsert: true });
       if (error) {
         return NextResponse.json({ error: `createSignedUploadUrl: ${error.message}` }, { status: 500 });
       }
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       const supabase = createClient(url, key);
       const { data, error } = await supabase.storage.from('characters').list('', { limit: 1 });
       if (error) result = `FAIL: ${error.message}`;
-      else result = `OK: bucket accessible, ${data?.length ?? 0} top-level items`;
+      else result = `OK v7: bucket accessible, ${data?.length ?? 0} top-level items`;
     } catch (e) {
       result = `FAIL: ${String(e)}`;
     }
