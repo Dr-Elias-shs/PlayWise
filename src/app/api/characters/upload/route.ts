@@ -15,17 +15,24 @@ export async function GET() {
   const url  = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  let result = '';
   if (!url || !key) {
-    return NextResponse.json({ ok: false, error: 'Missing env vars', url: !!url, serviceKey: !!key, anonKey: !!anon });
+    result = `FAIL: missing env vars — url=${!!url} serviceKey=${!!key} anonKey=${!!anon}`;
+  } else {
+    try {
+      const supabase = createClient(url, key);
+      const { data, error } = await supabase.storage.from('characters').list('', { limit: 1 });
+      if (error) result = `FAIL: bucket list error — ${error.message}`;
+      else result = `OK: bucket accessible, ${data?.length ?? 0} top-level items`;
+    } catch (e) {
+      result = `FAIL: exception — ${String(e)}`;
+    }
   }
-  try {
-    const supabase = createClient(url, key);
-    const { data, error } = await supabase.storage.from('characters').list('', { limit: 1 });
-    if (error) return NextResponse.json({ ok: false, error: error.message, hint: 'bucket list failed' });
-    return NextResponse.json({ ok: true, bucketAccessible: true, files: data?.length ?? 0 });
-  } catch (e) {
-    return NextResponse.json({ ok: false, error: String(e) });
-  }
+
+  return new Response(`<pre style="font:16px monospace;padding:20px">${result}</pre>`, {
+    headers: { 'content-type': 'text/html' },
+  });
 }
 
 export async function POST(req: NextRequest) {

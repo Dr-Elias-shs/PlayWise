@@ -93,8 +93,8 @@ function AddCharacterModal({ onDone, onClose }: {
         standFrame: paths[1],
         hasBuiltInLogo: logo,
       });
-    } catch {
-      setErr('Upload failed — check the server');
+    } catch (e: any) {
+      setErr(e?.message ?? 'Upload failed — check the server');
     }
     setBusy(false);
   }
