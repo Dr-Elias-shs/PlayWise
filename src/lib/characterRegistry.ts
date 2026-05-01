@@ -143,12 +143,18 @@ export async function uploadCharacterFile(
   file:       File,
   targetPath: string,   // e.g. "/characters/robot/walk1.png"
 ): Promise<string> {
-  // Strip the leading /characters/ — bucket is named 'characters'
-  const storagePath = targetPath.replace(/^\/characters\//, '');
+  // Step 1: get a signed upload URL from our server (uses service role key → bypasses RLS)
+  const res = await fetch(`/api/characters/upload?path=${encodeURIComponent(targetPath)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? 'Failed to get upload URL');
+  }
+  const { token, path: storagePath } = await res.json();
 
+  // Step 2: upload directly to Supabase using the signed URL (no RLS needed)
   const { error } = await supabase.storage
     .from('characters')
-    .upload(storagePath, file, { contentType: file.type || 'image/png', upsert: true });
+    .uploadToSignedUrl(storagePath, token, file, { contentType: file.type || 'image/png' });
 
   if (error) throw new Error(error.message);
 
