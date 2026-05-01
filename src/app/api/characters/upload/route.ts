@@ -20,21 +20,26 @@ export async function GET(req: NextRequest) {
   const filePath = searchParams.get('path');
 
   if (filePath) {
-    if (!filePath.startsWith('/characters/')) {
-      return NextResponse.json({ error: 'Path must start with /characters/' }, { status: 400 });
+    try {
+      if (!filePath.startsWith('/characters/')) {
+        return NextResponse.json({ error: 'Path must start with /characters/' }, { status: 400 });
+      }
+      const supabase = getSupabase();
+      if (!supabase) {
+        return NextResponse.json({ error: 'Missing service key env var' }, { status: 500 });
+      }
+      const storagePath = filePath.replace(/^\/characters\//, '');
+      const { data, error } = await supabase.storage
+        .from('characters')
+        .createSignedUploadUrl(storagePath);
+      if (error) {
+        return NextResponse.json({ error: `createSignedUploadUrl: ${error.message}` }, { status: 500 });
+      }
+      return NextResponse.json({ token: data.token, path: storagePath });
+    } catch (e) {
+      console.error('[upload GET] error:', e);
+      return NextResponse.json({ error: String(e) }, { status: 500 });
     }
-    const supabase = getSupabase();
-    if (!supabase) {
-      return NextResponse.json({ error: 'Missing service key env var' }, { status: 500 });
-    }
-    const storagePath = filePath.replace(/^\/characters\//, '');
-    const { data, error } = await supabase.storage
-      .from('characters')
-      .createSignedUploadUrl(storagePath);
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    return NextResponse.json({ token: data.token, path: storagePath });
   }
 
   // Diagnostics
