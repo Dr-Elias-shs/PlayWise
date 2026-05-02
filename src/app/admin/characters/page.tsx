@@ -147,6 +147,143 @@ function AddCharacterModal({ onDone, onClose }: {
   );
 }
 
+// ─── Add-special-character modal ─────────────────────────────────────────────
+
+function AddSpecialCharacterModal({ onDone, onClose }: {
+  onDone: (c: CharacterDef, o: RegistryOutfit) => void;
+  onClose: () => void;
+}) {
+  const [name,       setName]     = useState('');
+  const [price,      setPrice]    = useState('5000');
+  const [emoji,      setEmoji]    = useState('⭐');
+  const [frames,     setFrames]   = useState<(File | null)[]>([null, null, null]);
+  const [previews,   setPrev]     = useState<(string | null)[]>([null, null, null]);
+  const [thumbFile,  setThumbFile]  = useState<File | null>(null);
+  const [thumbPrev,  setThumbPrev]  = useState<string | null>(null);
+  const [logo,       setLogo]     = useState(false);
+  const [busy,       setBusy]     = useState(false);
+  const [err,        setErr]      = useState('');
+
+  function setFrame(i: number, f: File) {
+    const nf = [...frames]; nf[i] = f; setFrames(nf);
+    const np = [...previews]; np[i] = URL.createObjectURL(f); setPrev(np);
+  }
+
+  async function handleSave() {
+    const id = slugify(name.trim());
+    if (!id) { setErr('Enter a name'); return; }
+    if (frames.some(f => f === null)) { setErr('Upload all 3 walk frames'); return; }
+    setBusy(true);
+    try {
+      // Upload walk frames
+      const paths: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        const ext = frames[i]!.name.split('.').pop() ?? 'png';
+        const p = await uploadCharacterFile(frames[i]!, `/characters/${id}/walk${i + 1}.${ext}`);
+        paths.push(p);
+      }
+      // Upload thumbnail if provided
+      let thumbPath: string | undefined;
+      if (thumbFile) {
+        const ext = thumbFile.name.split('.').pop() ?? 'png';
+        thumbPath = await uploadCharacterFile(thumbFile, `/characters/${id}/thumbnail.${ext}`);
+      }
+      const charDef: CharacterDef = {
+        id, name: name.trim(),
+        frames: paths as [string, string, string],
+        standFrame: paths[1],
+        hasBuiltInLogo: logo,
+      };
+      const outfit: RegistryOutfit = {
+        id:          `${id}-unlock`,
+        name:        name.trim(),
+        emoji:       emoji || '⭐',
+        price:       parseInt(price, 10) || 5000,
+        category:    'characters',
+        characterId: id,
+        yFraction:   0.44,
+        sprites:     {},
+        ...(thumbPath ? { thumbnail: thumbPath } : {}),
+      };
+      onDone(charDef, outfit);
+    } catch (e: any) {
+      setErr(e?.message ?? 'Upload failed');
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        className="bg-white rounded-3xl shadow-2xl p-7 w-full max-w-md overflow-y-auto"
+        style={{ maxHeight: '90vh' }}>
+        <h3 className="text-xl font-black text-slate-800 mb-1">✨ Add Special Character</h3>
+        <p className="text-sm text-slate-400 mb-5">Students can buy this character and use it as their main character.</p>
+
+        {/* Shop preview image */}
+        <div className="mb-5">
+          <p className="text-xs font-bold text-slate-500 mb-2">Shop preview image <span className="font-normal text-slate-400">(shown on the buy card)</span></p>
+          <div className="flex items-center gap-4">
+            <UploadZone label="Thumbnail" size={88} preview={thumbPrev ?? undefined}
+              onFile={f => { setThumbFile(f); setThumbPrev(URL.createObjectURL(f)); }} />
+            <div className="text-xs text-slate-400 leading-relaxed flex-1">
+              This is the big image shown in the shop. Usually a nice pose of the character.
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <p className="text-xs font-bold text-slate-500 mb-1">Character name</p>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Blaze"
+              className="w-full px-3 py-2 border-2 border-slate-200 focus:border-violet-500 rounded-xl font-bold text-slate-800 outline-none text-sm" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500 mb-1">Price (PlayBits)</p>
+            <input type="number" value={price} onChange={e => setPrice(e.target.value)}
+              className="w-full px-3 py-2 border-2 border-slate-200 focus:border-violet-500 rounded-xl font-bold text-slate-800 outline-none text-sm" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500 mb-1">Emoji <span className="font-normal text-slate-400">(fallback)</span></p>
+            <input value={emoji} onChange={e => setEmoji(e.target.value)}
+              className="w-full px-3 py-2 border-2 border-slate-200 focus:border-violet-500 rounded-xl font-bold text-slate-800 outline-none text-sm" />
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <p className="text-xs font-bold text-slate-500 mb-2">Walk frames <span className="font-normal text-slate-400">(PNG with transparent background)</span></p>
+          <div className="flex gap-3">
+            {['Walk 1', 'Stand', 'Walk 3'].map((lbl, i) => (
+              <UploadZone key={i} label={lbl} preview={previews[i] ?? undefined} onFile={f => setFrame(i, f)} />
+            ))}
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2 mb-5 cursor-pointer select-none">
+          <input type="checkbox" checked={logo} onChange={e => setLogo(e.target.checked)}
+            className="rounded accent-violet-600" />
+          <span className="text-sm font-bold text-slate-600">Logo already in artwork</span>
+        </label>
+
+        {err && <p className="text-red-500 text-sm font-bold mb-3">{err}</p>}
+
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-black text-sm hover:bg-slate-200">
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={busy}
+            className="flex-1 py-2.5 rounded-xl text-white font-black text-sm disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg,#f59e0b,#ef4444)' }}>
+            {busy ? 'Uploading…' : '✨ Add Character'}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Add-outfit modal ─────────────────────────────────────────────────────────
 
 // Per-character sprite state: either 1 file or 3 files
@@ -507,14 +644,15 @@ function OutfitRow({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-type Tab = 'characters' | 'outfits' | 'preview';
+type Tab = 'characters' | 'special' | 'outfits' | 'preview';
 
 export default function CharacterImportTool() {
   const registry = useCharacterRegistry();
-  const [tab,           setTab]        = useState<Tab>('characters');
-  const [addCharOpen,   setAddChar]    = useState(false);
-  const [addOutfitOpen, setAddOutfit]  = useState(false);
-  const [editOutfit,    setEditOutfit] = useState<RegistryOutfit | null>(null);
+  const [tab,             setTab]          = useState<Tab>('characters');
+  const [addCharOpen,     setAddChar]      = useState(false);
+  const [addSpecialOpen,  setAddSpecial]   = useState(false);
+  const [addOutfitOpen,   setAddOutfit]    = useState(false);
+  const [editOutfit,      setEditOutfit]   = useState<RegistryOutfit | null>(null);
   const [previewChar,   setPreviewChar]   = useState('');
   const [previewOutfit, setPreviewOutfit] = useState('');
   const [saving, setSaving]          = useState(false);
@@ -557,6 +695,22 @@ export default function CharacterImportTool() {
     };
     persist(updated);
     setAddOutfit(false);
+  }
+
+  function addSpecialCharacter(c: CharacterDef, o: RegistryOutfit) {
+    persist({
+      characters: [...registry.characters, c],
+      outfits:    [...registry.outfits, o],
+    });
+    setAddSpecial(false);
+  }
+
+  function removeSpecialCharacter(charId: string, outfitId: string) {
+    if (!confirm(`Remove special character "${charId}" and its shop entry?`)) return;
+    persist({
+      characters: registry.characters.filter(c => c.id !== charId),
+      outfits:    registry.outfits.filter(o => o.id !== outfitId),
+    });
   }
 
   function updateOutfit(o: RegistryOutfit) {
@@ -671,14 +825,15 @@ export default function CharacterImportTool() {
 
       {/* Tabs */}
       <div className="flex gap-0 border-b border-slate-200 bg-white px-8">
-        {(['characters', 'outfits', 'preview'] as Tab[]).map(t => (
+        {(['characters', 'special', 'outfits', 'preview'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-5 py-3.5 font-black text-sm capitalize transition-colors border-b-2
+            className={`px-5 py-3.5 font-black text-sm transition-colors border-b-2
               ${tab === t
                 ? 'text-violet-600 border-violet-600'
                 : 'text-slate-400 border-transparent hover:text-slate-600'}`}>
-            {t === 'characters' ? `👤 Characters (${registry.characters.length})`
-             : t === 'outfits'   ? `🎽 Outfits (${registry.outfits.length})`
+            {t === 'characters' ? `👤 Free Characters (${registry.characters.length})`
+             : t === 'special'   ? `⭐ Special Characters (${registry.outfits.filter(o => o.category === 'characters').length})`
+             : t === 'outfits'   ? `🎽 Outfits (${registry.outfits.filter(o => o.category !== 'characters').length})`
              :                     '👁 Preview'}
           </button>
         ))}
@@ -751,6 +906,75 @@ export default function CharacterImportTool() {
                 <span className="text-sm font-bold text-slate-400">New Character</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* ── Special Characters tab ── */}
+        {tab === 'special' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <p className="text-sm font-bold text-slate-700">Purchasable Characters</p>
+                <p className="text-xs text-slate-400 mt-0.5">Students can buy these and use them as their main character in the game.</p>
+              </div>
+              <button onClick={() => setAddSpecial(true)}
+                className="px-5 py-2.5 rounded-xl text-white font-black text-sm shadow-md hover:scale-105 transition-transform"
+                style={{ background: 'linear-gradient(135deg,#f59e0b,#ef4444)' }}>
+                + Add Special Character
+              </button>
+            </div>
+
+            {registry.outfits.filter(o => o.category === 'characters').length === 0 ? (
+              <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-16 text-center">
+                <div className="text-5xl mb-3">⭐</div>
+                <div className="font-black text-slate-500 text-lg">No special characters yet</div>
+                <div className="text-slate-400 text-sm mt-1">Click "Add Special Character" to create one.</div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                {registry.outfits.filter(o => o.category === 'characters').map(o => {
+                  const baseChar = o.characterId ? registry.characters.find(c => c.id === o.characterId) : null;
+                  return (
+                    <div key={o.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                      {/* Dark hero image */}
+                      <div className="bg-gradient-to-b from-slate-900 to-gray-800 flex justify-center items-center py-6 min-h-[140px]">
+                        {o.thumbnail
+                          ? <Thumb src={o.thumbnail} size={100} />
+                          : baseChar
+                          ? <Thumb src={baseChar.standFrame} size={80} />
+                          : <span className="text-5xl">{o.emoji}</span>
+                        }
+                      </div>
+                      <div className="p-4">
+                        <div className="font-black text-slate-800 text-base">{o.name}</div>
+                        <div className="text-xs text-slate-400 font-bold mt-0.5">
+                          🪙 {o.price.toLocaleString()} PlayBits
+                        </div>
+                        {baseChar && (
+                          <div className="text-xs text-violet-500 font-bold mt-0.5">
+                            → Transforms to: {baseChar.name}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => removeSpecialCharacter(o.characterId ?? o.id, o.id)}
+                          className="mt-3 text-xs text-red-400 hover:text-red-600 font-bold transition-colors">
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Add card */}
+                <button onClick={() => setAddSpecial(true)}
+                  className="bg-white rounded-2xl border-2 border-dashed border-slate-200
+                    hover:border-orange-400 hover:bg-orange-50 transition-colors
+                    flex flex-col items-center justify-center gap-2 p-5 min-h-[200px]">
+                  <span className="text-3xl text-slate-300">+</span>
+                  <span className="text-sm font-bold text-slate-400">New Special Character</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -966,9 +1190,10 @@ export default function CharacterImportTool() {
 
       {/* Modals */}
       <AnimatePresence>
-        {addCharOpen   && <AddCharacterModal onDone={addCharacter} onClose={() => setAddChar(false)} />}
-        {addOutfitOpen && <AddOutfitModal characters={registry.characters} onDone={addOutfit} onClose={() => setAddOutfit(false)} />}
-        {editOutfit    && <AddOutfitModal characters={registry.characters} existing={editOutfit} onDone={updateOutfit} onClose={() => setEditOutfit(null)} />}
+        {addCharOpen    && <AddCharacterModal onDone={addCharacter} onClose={() => setAddChar(false)} />}
+        {addSpecialOpen && <AddSpecialCharacterModal onDone={addSpecialCharacter} onClose={() => setAddSpecial(false)} />}
+        {addOutfitOpen  && <AddOutfitModal characters={registry.characters} onDone={addOutfit} onClose={() => setAddOutfit(false)} />}
+        {editOutfit     && <AddOutfitModal characters={registry.characters} existing={editOutfit} onDone={updateOutfit} onClose={() => setEditOutfit(null)} />}
       </AnimatePresence>
     </div>
   );
