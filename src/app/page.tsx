@@ -13,6 +13,7 @@ import { BrainGame } from "@/components/game/BrainGame";
 import { MultiplayerHub } from "@/components/multiplayer/MultiplayerHub";
 import { ProfileSetup } from "@/components/profile/ProfileSetup";
 import { RedeemPage } from "@/components/redeem/RedeemPage";
+import { Shop } from "@/components/world/Shop";
 import { WalletBadge } from "@/components/hub/WalletBadge";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { loginRequest } from "@/lib/msal";
@@ -67,6 +68,7 @@ type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'mul
 export default function Home() {
   const { playerName, playerEmail, playerGrade, colorId, characterId, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
   const [screen, setScreen] = useState<Screen>('login');
+  const [shopOpen, setShopOpen] = useState(false);
   const [showIntro, setShowIntro] = useState(() =>
     typeof window !== 'undefined' ? !localStorage.getItem(INTRO_SEEN_KEY) : false
   );
@@ -378,7 +380,7 @@ export default function Home() {
           <WalletBadge
             studentName={playerName}
             refreshKey={walletRefresh}
-            onClick={() => setScreen('redeem')}
+            onClick={() => setShopOpen(true)}
           />
           <div className="bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-2">
             <Trophy size={16} className="text-brand-accent" />
@@ -464,6 +466,8 @@ export default function Home() {
           <Leaderboard />
         </div>
       </div>
+
+      {shopOpen && <Shop onClose={() => setShopOpen(false)} />}
     </div>
   );
 }

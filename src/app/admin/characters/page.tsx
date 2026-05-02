@@ -164,7 +164,7 @@ function AddOutfitModal({ characters, existing, onDone, onClose }: {
   const [thumbFile,     setThumbFile]   = useState<File | null>(null);
   const [thumbPreview,  setThumbPreview] = useState<string | null>(existing?.thumbnail ?? null);
   const [price,         setPrice]       = useState(String(existing?.price ?? 500));
-  const [category,      setCategory]    = useState<'hat' | 'extra' | 'clothing'>(existing?.category ?? 'clothing');
+  const [category,      setCategory]    = useState<'hat' | 'extra' | 'clothing' | 'characters'>(existing?.category ?? 'clothing');
   const [yFrac,         setYFrac]       = useState(String(existing?.yFraction ?? 0.44));
   const [busy,          setBusy]        = useState(false);
   const [err,           setErr]         = useState('');

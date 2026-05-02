@@ -153,9 +153,11 @@ export const useGameStore = create<GameState>((set, get) => {
       const s = get();
       const p: StoredProfile = {
         name, email: email.toLowerCase().trim(), grade, colorId,
-        characterId: characterId ?? s.characterId,
+        characterId:        characterId ?? s.characterId,
+        baseCharacterId:    s.baseCharacterId,
         ownedAccessories:   s.ownedAccessories,
         ownedClothing:      s.ownedClothing,
+        ownedCharacters:    s.ownedCharacters,
         equippedId:         s.equippedId,
         equippedClothingId: s.equippedClothingId,
       };
