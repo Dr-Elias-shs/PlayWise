@@ -198,7 +198,7 @@ function AddSpecialCharacterModal({ onDone, onClose }: {
         id:          `${id}-unlock`,
         name:        name.trim(),
         emoji:       emoji || '⭐',
-        price:       parseInt(price, 10) || 5000,
+        price:       parseInt(price.replace(/[^\d]/g, ''), 10) || 5000,
         category:    'characters',
         characterId: id,
         yFraction:   0.44,
@@ -413,7 +413,7 @@ function AddOutfitModal({ characters, existing, onDone, onClose }: {
       onDone({
         id, name: name.trim(), emoji: emoji || '🎽',
         ...(thumbnailPath ? { thumbnail: thumbnailPath } : {}),
-        price:     parseInt(price, 10) || 500,
+        price:     parseInt(price.replace(/[^\d]/g, ''), 10) || 500,
         category,
         ...(category === 'characters' && characterIdField ? { characterId: characterIdField } : {}),
         yFraction: parseFloat(yFrac) || 0.44,
