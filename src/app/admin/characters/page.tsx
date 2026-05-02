@@ -149,20 +149,25 @@ function AddCharacterModal({ onDone, onClose }: {
 
 // ─── Add-special-character modal ─────────────────────────────────────────────
 
-function AddSpecialCharacterModal({ onDone, onClose }: {
+function AddSpecialCharacterModal({ existing, existingChar, onDone, onClose }: {
+  existing?:     RegistryOutfit;
+  existingChar?: CharacterDef;
   onDone: (c: CharacterDef, o: RegistryOutfit) => void;
   onClose: () => void;
 }) {
-  const [name,       setName]     = useState('');
-  const [price,      setPrice]    = useState('5000');
-  const [emoji,      setEmoji]    = useState('⭐');
-  const [frames,     setFrames]   = useState<(File | null)[]>([null, null, null]);
-  const [previews,   setPrev]     = useState<(string | null)[]>([null, null, null]);
-  const [thumbFile,  setThumbFile]  = useState<File | null>(null);
-  const [thumbPrev,  setThumbPrev]  = useState<string | null>(null);
-  const [logo,       setLogo]     = useState(false);
-  const [busy,       setBusy]     = useState(false);
-  const [err,        setErr]      = useState('');
+  const isEdit = !!existing;
+  const [name,      setName]     = useState(existing?.name ?? '');
+  const [price,     setPrice]    = useState(String(existing?.price ?? 5000));
+  const [emoji,     setEmoji]    = useState(existing?.emoji ?? '⭐');
+  const [frames,    setFrames]   = useState<(File | null)[]>([null, null, null]);
+  const [previews,  setPrev]     = useState<(string | null)[]>(
+    existingChar ? [...existingChar.frames] : [null, null, null]
+  );
+  const [thumbFile, setThumbFile] = useState<File | null>(null);
+  const [thumbPrev, setThumbPrev] = useState<string | null>(existing?.thumbnail ?? null);
+  const [logo,      setLogo]     = useState(existingChar?.hasBuiltInLogo ?? false);
+  const [busy,      setBusy]     = useState(false);
+  const [err,       setErr]      = useState('');
 
   function setFrame(i: number, f: File) {
     const nf = [...frames]; nf[i] = f; setFrames(nf);
@@ -170,39 +175,42 @@ function AddSpecialCharacterModal({ onDone, onClose }: {
   }
 
   async function handleSave() {
-    const id = slugify(name.trim());
+    const id = isEdit ? existing!.characterId! : slugify(name.trim());
     if (!id) { setErr('Enter a name'); return; }
-    if (frames.some(f => f === null)) { setErr('Upload all 3 walk frames'); return; }
+    if (!isEdit && frames.some(f => f === null)) { setErr('Upload all 3 walk frames'); return; }
     setBusy(true);
     try {
-      // Upload walk frames
-      const paths: string[] = [];
+      // Upload any new walk frames (in edit mode, only upload changed ones)
+      const existingPaths = existingChar ? [...existingChar.frames] : ['', '', ''];
+      const paths: string[] = [...existingPaths];
       for (let i = 0; i < 3; i++) {
+        if (!frames[i]) continue;
         const ext = frames[i]!.name.split('.').pop() ?? 'png';
-        const p = await uploadCharacterFile(frames[i]!, `/characters/${id}/walk${i + 1}.${ext}`);
-        paths.push(p);
+        paths[i] = await uploadCharacterFile(frames[i]!, `/characters/${id}/walk${i + 1}.${ext}`);
       }
-      // Upload thumbnail if provided
-      let thumbPath: string | undefined;
+
+      let thumbPath: string | undefined = existing?.thumbnail;
       if (thumbFile) {
         const ext = thumbFile.name.split('.').pop() ?? 'png';
         thumbPath = await uploadCharacterFile(thumbFile, `/characters/${id}/thumbnail.${ext}`);
       }
+
       const charDef: CharacterDef = {
-        id, name: name.trim(),
+        id,
+        name: name.trim() || existing?.name || id,
         frames: paths as [string, string, string],
         standFrame: paths[1],
         hasBuiltInLogo: logo,
       };
       const outfit: RegistryOutfit = {
-        id:          `${id}-unlock`,
-        name:        name.trim(),
+        id:          existing?.id ?? `${id}-unlock`,
+        name:        name.trim() || existing?.name || id,
         emoji:       emoji || '⭐',
         price:       parseInt(price.replace(/[^\d]/g, ''), 10) || 5000,
         category:    'characters',
         characterId: id,
         yFraction:   0.44,
-        sprites:     {},
+        sprites:     existing?.sprites ?? {},
         ...(thumbPath ? { thumbnail: thumbPath } : {}),
       };
       onDone(charDef, outfit);
@@ -218,10 +226,12 @@ function AddSpecialCharacterModal({ onDone, onClose }: {
       <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         className="bg-white rounded-3xl shadow-2xl p-7 w-full max-w-md overflow-y-auto"
         style={{ maxHeight: '90vh' }}>
-        <h3 className="text-xl font-black text-slate-800 mb-1">✨ Add Special Character</h3>
+        <h3 className="text-xl font-black text-slate-800 mb-1">
+          {isEdit ? `✏️ Edit: ${existing!.name}` : '✨ Add Special Character'}
+        </h3>
         <p className="text-sm text-slate-400 mb-5">Students can buy this character and use it as their main character.</p>
 
-        {/* Shop preview image */}
+        {/* Thumbnail */}
         <div className="mb-5">
           <p className="text-xs font-bold text-slate-500 mb-2">Shop preview image <span className="font-normal text-slate-400">(shown on the buy card)</span></p>
           <div className="flex items-center gap-4">
@@ -252,7 +262,9 @@ function AddSpecialCharacterModal({ onDone, onClose }: {
         </div>
 
         <div className="mb-4">
-          <p className="text-xs font-bold text-slate-500 mb-2">Walk frames <span className="font-normal text-slate-400">(PNG with transparent background)</span></p>
+          <p className="text-xs font-bold text-slate-500 mb-2">
+            Walk frames <span className="font-normal text-slate-400">(click to replace · PNG with transparent background)</span>
+          </p>
           <div className="flex gap-3">
             {['Walk 1', 'Stand', 'Walk 3'].map((lbl, i) => (
               <UploadZone key={i} label={lbl} preview={previews[i] ?? undefined} onFile={f => setFrame(i, f)} />
@@ -276,7 +288,7 @@ function AddSpecialCharacterModal({ onDone, onClose }: {
           <button onClick={handleSave} disabled={busy}
             className="flex-1 py-2.5 rounded-xl text-white font-black text-sm disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg,#f59e0b,#ef4444)' }}>
-            {busy ? 'Uploading…' : '✨ Add Character'}
+            {busy ? 'Uploading…' : isEdit ? '💾 Save Changes' : '✨ Add Character'}
           </button>
         </div>
       </motion.div>
@@ -651,6 +663,7 @@ export default function CharacterImportTool() {
   const [tab,             setTab]          = useState<Tab>('characters');
   const [addCharOpen,     setAddChar]      = useState(false);
   const [addSpecialOpen,  setAddSpecial]   = useState(false);
+  const [editSpecial,     setEditSpecial]  = useState<RegistryOutfit | null>(null);
   const [addOutfitOpen,   setAddOutfit]    = useState(false);
   const [editOutfit,      setEditOutfit]   = useState<RegistryOutfit | null>(null);
   const [previewChar,   setPreviewChar]   = useState('');
@@ -703,6 +716,14 @@ export default function CharacterImportTool() {
       outfits:    [...registry.outfits, o],
     });
     setAddSpecial(false);
+  }
+
+  function updateSpecialCharacter(c: CharacterDef, o: RegistryOutfit) {
+    persist({
+      characters: registry.characters.map(x => x.id === c.id ? c : x),
+      outfits:    registry.outfits.map(x => x.id === o.id ? o : x),
+    });
+    setEditSpecial(null);
   }
 
   function removeSpecialCharacter(charId: string, outfitId: string) {
@@ -961,11 +982,18 @@ export default function CharacterImportTool() {
                             → Transforms to: {baseChar.name}
                           </div>
                         )}
-                        <button
-                          onClick={() => removeSpecialCharacter(o.characterId ?? o.id, o.id)}
-                          className="mt-3 text-xs text-red-400 hover:text-red-600 font-bold transition-colors">
-                          Remove
-                        </button>
+                        <div className="mt-3 flex gap-3">
+                          <button
+                            onClick={() => setEditSpecial(o)}
+                            className="text-xs text-violet-500 hover:text-violet-700 font-bold transition-colors">
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => removeSpecialCharacter(o.characterId ?? o.id, o.id)}
+                            className="text-xs text-red-400 hover:text-red-600 font-bold transition-colors">
+                            Remove
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1198,6 +1226,11 @@ export default function CharacterImportTool() {
       <AnimatePresence>
         {addCharOpen    && <AddCharacterModal onDone={addCharacter} onClose={() => setAddChar(false)} />}
         {addSpecialOpen && <AddSpecialCharacterModal onDone={addSpecialCharacter} onClose={() => setAddSpecial(false)} />}
+        {editSpecial && <AddSpecialCharacterModal
+          existing={editSpecial}
+          existingChar={registry.characters.find(c => c.id === editSpecial.characterId)}
+          onDone={updateSpecialCharacter}
+          onClose={() => setEditSpecial(null)} />}
         {addOutfitOpen  && <AddOutfitModal characters={registry.characters} onDone={addOutfit} onClose={() => setAddOutfit(false)} />}
         {editOutfit     && <AddOutfitModal characters={registry.characters} existing={editOutfit} onDone={updateOutfit} onClose={() => setEditOutfit(null)} />}
       </AnimatePresence>
