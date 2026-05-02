@@ -165,6 +165,7 @@ function AddOutfitModal({ characters, existing, onDone, onClose }: {
   const [thumbPreview,  setThumbPreview] = useState<string | null>(existing?.thumbnail ?? null);
   const [price,         setPrice]       = useState(String(existing?.price ?? 500));
   const [category,      setCategory]    = useState<'hat' | 'extra' | 'clothing' | 'characters'>(existing?.category ?? 'clothing');
+  const [characterIdField, setCharacterIdField] = useState(existing?.characterId ?? '');
   const [yFrac,         setYFrac]       = useState(String(existing?.yFraction ?? 0.44));
   const [busy,          setBusy]        = useState(false);
   const [err,           setErr]         = useState('');
@@ -277,6 +278,7 @@ function AddOutfitModal({ characters, existing, onDone, onClose }: {
         ...(thumbnailPath ? { thumbnail: thumbnailPath } : {}),
         price:     parseInt(price, 10) || 500,
         category,
+        ...(category === 'characters' && characterIdField ? { characterId: characterIdField } : {}),
         yFraction: parseFloat(yFrac) || 0.44,
         sprites:   savedSprites,
       });
@@ -345,9 +347,26 @@ function AddOutfitModal({ characters, existing, onDone, onClose }: {
               <option value="hat">Hat</option>
               <option value="extra">Extra</option>
               <option value="clothing">Clothing</option>
+              <option value="characters">Character Skin</option>
             </select>
           </div>
         </div>
+
+        {category === 'characters' && (
+          <div className="mb-4">
+            <p className="text-xs font-bold text-slate-500 mb-1">
+              Character ID <span className="font-normal text-slate-400">(must match a base character, e.g. blaze)</span>
+            </p>
+            <select value={characterIdField} onChange={e => setCharacterIdField(e.target.value)}
+              className="w-full px-3 py-2 border-2 border-slate-200 focus:border-violet-500
+                rounded-xl font-bold text-slate-800 outline-none text-sm bg-white">
+              <option value="">— select character —</option>
+              {characters.map(c => (
+                <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="mb-5">
           <p className="text-xs font-bold text-slate-500 mb-1">
