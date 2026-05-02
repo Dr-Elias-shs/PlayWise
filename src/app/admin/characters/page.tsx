@@ -846,7 +846,7 @@ export default function CharacterImportTool() {
           <div>
             <div className="flex items-center justify-between mb-6">
               <p className="text-sm text-slate-500 font-medium">
-                Each character needs 3 walk frames. PNG with transparent background.
+                Free characters available to all students. Each needs 3 walk frames (PNG with transparent background).
               </p>
               <button onClick={() => setAddChar(true)}
                 className="px-5 py-2.5 rounded-xl text-white font-black text-sm shadow-md
@@ -856,8 +856,12 @@ export default function CharacterImportTool() {
               </button>
             </div>
 
+            {(() => {
+              const specialIds = new Set(registry.outfits.filter(o => o.category === 'characters').map(o => o.characterId).filter(Boolean));
+              const freeChars = registry.characters.filter(c => !specialIds.has(c.id));
+              return (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-              {registry.characters.map(c => (
+              {freeChars.map(c => (
                 <motion.div key={c.id} layout
                   className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col items-center gap-3">
                   <Thumb src={c.standFrame} size={80} />
@@ -906,6 +910,8 @@ export default function CharacterImportTool() {
                 <span className="text-sm font-bold text-slate-400">New Character</span>
               </button>
             </div>
+              );
+            })()}
           </div>
         )}
 

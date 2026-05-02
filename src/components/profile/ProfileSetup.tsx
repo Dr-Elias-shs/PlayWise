@@ -103,8 +103,12 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
           <p className="text-sm font-bold text-slate-500 mb-3 text-center">
             {isEditing ? 'Edit Profile' : 'Choose Your Character'}
           </p>
-          <div className={`grid gap-4 ${registry.characters.length <= 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
-            {registry.characters.map(c => (
+          {(() => {
+            const specialIds = new Set(registry.outfits.filter(o => o.category === 'characters').map(o => o.characterId).filter(Boolean));
+            const freeChars = registry.characters.filter(c => !specialIds.has(c.id));
+            return (
+          <div className={`grid gap-4 ${freeChars.length <= 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+            {freeChars.map(c => (
               <motion.button key={c.id}
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 onClick={() => setCharId(c.id)}
@@ -128,6 +132,8 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
               </motion.button>
             ))}
           </div>
+            );
+          })()}
         </div>
 
         {/* ── Colour grid — each swatch shows the character in that colour ── */}
