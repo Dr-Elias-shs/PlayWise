@@ -17,10 +17,11 @@ export interface RegistryOutfit {
   name:       string;
   emoji:      string;
   thumbnail?: string;   // shop card preview image (uploaded picture)
-  price:      number;
-  category:   'hat' | 'extra' | 'clothing';
-  yFraction?: number;
-  xOffset?:   number;
+  price:       number;
+  category:    'hat' | 'extra' | 'clothing' | 'characters';
+  characterId?: string; // set on character-type items — equipping transforms into this character
+  yFraction?:  number;
+  xOffset?:    number;
   /**
    * characterId → sprite(s).
    * - string   = single image used for all walk frames (character looks static while moving)

@@ -32,6 +32,17 @@
       ],
       "standFrame": "/characters/pinky/walk2.png",
       "hasBuiltInLogo": false
+    },
+    {
+      "id": "blaze",
+      "name": "Blaze",
+      "frames": [
+        "/characters/blaze/blaze-walk1.png",
+        "/characters/blaze/blaze-walk2.png",
+        "/characters/blaze/blaze-walk3.png"
+      ],
+      "standFrame": "/characters/blaze/blaze.png",
+      "hasBuiltInLogo": false
     }
   ],
   "outfits": [
@@ -119,6 +130,17 @@
       },
       "category": "clothing",
       "yFraction": 0.44
+    },
+    {
+      "id": "blaze-transform",
+      "name": "Blaze",
+      "emoji": "🔥",
+      "thumbnail": "/characters/blaze/blaze.png",
+      "price": 40000,
+      "category": "characters",
+      "characterId": "blaze",
+      "yFraction": 0.44,
+      "sprites": {}
     },
     {
       "id": "all-stars",

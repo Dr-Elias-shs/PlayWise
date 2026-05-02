@@ -15,16 +15,20 @@ interface StoredProfile {
   email:              string;
   grade:              string;
   colorId:            string;
-  characterId:      string;
+  characterId:        string;
+  baseCharacterId:    string;
   ownedAccessories:   string[];
   ownedClothing:      string[];
+  ownedCharacters:    string[];
   equippedId:         string | null;
   equippedClothingId: string | null;
 }
 
 function defaults(): StoredProfile {
   return { name: '', email: '', grade: '', colorId: 'green', characterId: 'male',
-           ownedAccessories: [], ownedClothing: [], equippedId: null, equippedClothingId: null };
+           baseCharacterId: 'male',
+           ownedAccessories: [], ownedClothing: [], ownedCharacters: [],
+           equippedId: null, equippedClothingId: null };
 }
 
 function loadProfile(): StoredProfile {
@@ -39,14 +43,17 @@ function loadProfile(): StoredProfile {
                ?? localStorage.getItem('playwise_avatar');
     const v3 = v3raw ? JSON.parse(v3raw) : null;
     const av = avraw ? JSON.parse(avraw) : null;
+    const charId = av?.characterType ?? 'male';
     return {
       name:               v3?.name  ?? '',
       email:              v3?.email ?? '',
       grade:              v3?.grade ?? '',
       colorId:            av?.colorId ?? VARIANT_TO_COLOR[v3?.avatar ?? ''] ?? 'green',
-      characterId:      av?.characterType ?? 'male',
+      characterId:        charId,
+      baseCharacterId:    av?.baseCharacterId ?? charId,
       ownedAccessories:   av?.ownedAccessories  ?? [],
       ownedClothing:      av?.ownedClothing      ?? [],
+      ownedCharacters:    av?.ownedCharacters    ?? [],
       equippedId:         av?.equippedId         ?? null,
       equippedClothingId: av?.equippedClothingId ?? null,
     };
@@ -60,8 +67,9 @@ function save(p: StoredProfile) {
 function snap(s: GameState): StoredProfile {
   return {
     name: s.playerName, email: s.playerEmail, grade: s.playerGrade,
-    colorId: s.colorId, characterId: s.characterId,
+    colorId: s.colorId, characterId: s.characterId, baseCharacterId: s.baseCharacterId,
     ownedAccessories: s.ownedAccessories, ownedClothing: s.ownedClothing,
+    ownedCharacters: s.ownedCharacters,
     equippedId: s.equippedId, equippedClothingId: s.equippedClothingId,
   };
 }
@@ -74,9 +82,11 @@ interface GameState {
 
   // ── Character appearance ──────────────────────────────────────────────────
   colorId:            string;
-  characterId:      string;
+  characterId:        string;
+  baseCharacterId:    string;
   ownedAccessories:   string[];
   ownedClothing:      string[];
+  ownedCharacters:    string[];
   equippedId:         string | null;
   equippedClothingId: string | null;
 
@@ -87,11 +97,13 @@ interface GameState {
 
   // Avatar
   setColor:           (id: string) => void;
-  setCharacterId:   (type: 'male' | 'female') => void;
+  setCharacterId:     (type: string) => void;
   ownAccessory:       (id: string) => void;
   equipAccessory:     (id: string | null) => void;
   ownClothing:        (id: string) => void;
   equipClothing:      (id: string | null) => void;
+  ownCharacter:       (id: string) => void;
+  equipCharacter:     (targetCharId: string | null) => void;
 
   // ── Sound ─────────────────────────────────────────────────────────────────
   soundEnabled:    boolean;
@@ -129,9 +141,11 @@ export const useGameStore = create<GameState>((set, get) => {
     playerEmail:        stored.email,
     playerGrade:        stored.grade,
     colorId:            stored.colorId,
-    characterId:      stored.characterId,
+    characterId:        stored.characterId,
+    baseCharacterId:    stored.baseCharacterId,
     ownedAccessories:   stored.ownedAccessories,
     ownedClothing:      stored.ownedClothing,
+    ownedCharacters:    stored.ownedCharacters,
     equippedId:         stored.equippedId,
     equippedClothingId: stored.equippedClothingId,
 
@@ -162,8 +176,9 @@ export const useGameStore = create<GameState>((set, get) => {
       if (p.name || p.email) {
         set({
           playerName: p.name, playerEmail: p.email, playerGrade: p.grade,
-          colorId: p.colorId, characterId: p.characterId,
+          colorId: p.colorId, characterId: p.characterId, baseCharacterId: p.baseCharacterId,
           ownedAccessories: p.ownedAccessories, ownedClothing: p.ownedClothing,
+          ownedCharacters: p.ownedCharacters,
           equippedId: p.equippedId, equippedClothingId: p.equippedClothingId,
         });
       }
@@ -204,6 +219,26 @@ export const useGameStore = create<GameState>((set, get) => {
     equipClothing(equippedClothingId) {
       save({ ...snap(get()), equippedClothingId });
       set({ equippedClothingId });
+    },
+
+    ownCharacter(id) {
+      const ownedCharacters = [...get().ownedCharacters, id];
+      save({ ...snap(get()), ownedCharacters });
+      set({ ownedCharacters });
+    },
+
+    equipCharacter(targetCharId) {
+      const s = get();
+      if (targetCharId !== null) {
+        // Save the current base character (if not already transformed) then switch
+        const base = s.ownedCharacters.includes(s.characterId) ? s.baseCharacterId : s.characterId;
+        save({ ...snap(s), baseCharacterId: base, characterId: targetCharId });
+        set({ baseCharacterId: base, characterId: targetCharId });
+      } else {
+        // Revert to original character
+        save({ ...snap(s), characterId: s.baseCharacterId });
+        set({ characterId: s.baseCharacterId });
+      }
     },
 
     // ── Sound ─────────────────────────────────────────────────────────────────
