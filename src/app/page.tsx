@@ -63,12 +63,11 @@ function HubGameCard({ config, onClick, multiplayerBadge }: {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 
-type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer' | 'redeem';
+type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer' | 'redeem' | 'shop';
 
 export default function Home() {
   const { playerName, playerEmail, playerGrade, colorId, characterId, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
   const [screen, setScreen] = useState<Screen>('login');
-  const [shopOpen, setShopOpen] = useState(false);
   const [showIntro, setShowIntro] = useState(() =>
     typeof window !== 'undefined' ? !localStorage.getItem(INTRO_SEEN_KEY) : false
   );
@@ -348,6 +347,11 @@ export default function Home() {
     return <RedeemPage studentName={playerName} onBack={() => setScreen('hub')} onCoinsChanged={() => setWalletRefresh(r => r + 1)} />;
   }
 
+  // ── Character shop ──
+  if (screen === 'shop') {
+    return <Shop onClose={() => setScreen('hub')} pageMode />;
+  }
+
   // ── Multiplayer hub ──
   if (screen === 'multiplayer') {
     return (
@@ -380,7 +384,7 @@ export default function Home() {
           <WalletBadge
             studentName={playerName}
             refreshKey={walletRefresh}
-            onClick={() => setShopOpen(true)}
+            onClick={() => setScreen('shop')}
           />
           <div className="bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-2">
             <Trophy size={16} className="text-brand-accent" />
@@ -467,7 +471,6 @@ export default function Home() {
         </div>
       </div>
 
-      {shopOpen && <Shop onClose={() => setShopOpen(false)} />}
     </div>
   );
 }
