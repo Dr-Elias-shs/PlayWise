@@ -8,6 +8,14 @@ export const metadata: Metadata = {
   title: "PlayWise",
   description: "Educational Gaming Platform",
   manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "PlayWise",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: "/favicon.ico",
     apple: "/playwise-logo.png",
@@ -16,6 +24,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#4F46E5",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 import { MsalProvider } from "@/components/MsalProvider";

@@ -1,0 +1,14 @@
+  UPDATE learning_scores      
+  SET                                                                         
+      mastery_score       = 11.10,
+      accuracy_score      = 62.80,       
+      progress_score      = 43.70,
+      diversity_score     = 85.70,                                            
+      playbits_score      = 57.50,
+      learning_score      = 43.80,                                            
+      games_distinct_14d  = 6,
+      avg_accuracy_all    = 0.6280,      
+      improvement_delta   = -0.0250,                                          
+      total_mastered      = 2,
+      total_playbits      = 199                                               
+  WHERE student_name = 'Elvie Tannoury';
