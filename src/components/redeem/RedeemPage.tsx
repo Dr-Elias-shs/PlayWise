@@ -12,9 +12,9 @@ const STATUS_STYLE: Record<string, string> = {
   rejected: 'bg-red-100 text-red-600',
 };
 
-interface Props { studentName: string; onBack: () => void; onCoinsChanged: () => void; }
+interface Props { studentName: string; playerEmail?: string; onBack: () => void; onCoinsChanged: () => void; }
 
-export function RedeemPage({ studentName, onBack, onCoinsChanged }: Props) {
+export function RedeemPage({ studentName, playerEmail, onBack, onCoinsChanged }: Props) {
   const [coins, setCoins] = useState(0);
   const [items, setItems] = useState<ShopItem[]>([]);
   const [history, setHistory] = useState<Redemption[]>([]);
@@ -23,11 +23,14 @@ export function RedeemPage({ studentName, onBack, onCoinsChanged }: Props) {
   const [redeeming, setRedeeming] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
+  const dbKey = (playerEmail || studentName || '').toLowerCase().trim();
+
   const load = async () => {
+    if (!dbKey) return;
     const [wallet, shopData, histData] = await Promise.all([
-      getWallet(studentName),
+      getWallet(dbKey),
       getShopItems(),
-      getMyRedemptions(studentName),
+      getMyRedemptions(dbKey),
     ]);
     setCoins(wallet?.coins ?? 0);
     setItems(shopData);
@@ -35,7 +38,7 @@ export function RedeemPage({ studentName, onBack, onCoinsChanged }: Props) {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [dbKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
@@ -46,7 +49,7 @@ export function RedeemPage({ studentName, onBack, onCoinsChanged }: Props) {
     if (coins < item.cost) return;
     setRedeeming(item.id);
     try {
-      await redeemItem(studentName, item.id, item.name, item.emoji, item.cost);
+      await redeemItem(dbKey, item.id, item.name, item.emoji, item.cost);
       setCoins(c => c - item.cost);
       await load();
       onCoinsChanged();

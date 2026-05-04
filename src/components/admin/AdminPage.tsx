@@ -355,9 +355,12 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                             className={`hover:bg-slate-50 transition-colors cursor-pointer group ${w.banned ? 'bg-red-50/60' : ''}`}>
                             <td className="px-4 py-3 text-slate-400 font-bold text-xs">{i + 1}</td>
                             <td className="px-4 py-3 font-bold text-slate-800 group-hover:text-violet-600 transition-colors">
-                              <span className={w.banned ? 'line-through text-slate-400' : ''}>{walletLabel(w)}</span>
-                              {w.banned && <span className="ml-2 text-[10px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">🚫 Banned</span>}
-                              {!w.banned && <span className="ml-2 opacity-0 group-hover:opacity-100 text-[10px] uppercase text-violet-400">View Details →</span>}
+                              <div className="flex flex-col">
+                                <span className={w.banned ? 'line-through text-slate-400' : ''}>{walletLabel(w)}</span>
+                                <span className="text-[10px] text-slate-400 font-mono mt-0.5">{w.student_name}</span>
+                              </div>
+                              {w.banned && <span className="mt-1 inline-block text-[10px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">🚫 Banned</span>}
+                              {!w.banned && <span className="mt-1 opacity-0 group-hover:opacity-100 text-[10px] uppercase text-violet-400">View Details →</span>}
                             </td>
                             <td className="px-4 py-3">
                               {w.grade

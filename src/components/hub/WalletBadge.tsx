@@ -6,18 +6,21 @@ import { supabase } from '@/lib/supabase';
 
 interface Props {
   studentName: string;
+  playerEmail?: string;
   onClick?: () => void;
   refreshKey?: number;
 }
 
-export function WalletBadge({ studentName, onClick, refreshKey }: Props) {
+export function WalletBadge({ studentName, playerEmail, onClick, refreshKey }: Props) {
   const [coins, setCoins] = useState<number | null>(null);
   const [pop, setPop] = useState(false);
   const prevRef = useRef<number | null>(null);
 
+  const dbKey = (playerEmail || studentName || '').toLowerCase().trim();
+
   const fetch = () => {
-    if (!studentName) return;
-    getWallet(studentName).then(w => {
+    if (!dbKey) return;
+    getWallet(dbKey).then(w => {
       const c = w?.coins ?? 0;
       if (prevRef.current !== null && c > prevRef.current) {
         setPop(true);
@@ -30,21 +33,21 @@ export function WalletBadge({ studentName, onClick, refreshKey }: Props) {
 
   // Initial fetch + re-fetch after refreshKey changes (with delay to let write land)
   useEffect(() => {
-    if (!studentName) return;
+    if (!dbKey) return;
     const t = setTimeout(fetch, refreshKey ? 1200 : 0);
     return () => clearTimeout(t);
-  }, [studentName, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dbKey, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Supabase Realtime — auto-update whenever player_wallets row changes
   useEffect(() => {
-    if (!studentName) return;
+    if (!dbKey) return;
     const channel = supabase
-      .channel(`wallet-${studentName}`)
+      .channel(`wallet-${dbKey}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'player_wallets',
-        filter: `student_name=eq.${studentName}`,
+        filter: `student_name=eq.${dbKey}`,
       }, (payload: any) => {
         const c = payload.new?.coins ?? 0;
         if (prevRef.current !== null && c > prevRef.current) {
@@ -57,7 +60,7 @@ export function WalletBadge({ studentName, onClick, refreshKey }: Props) {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [studentName]);
+  }, [dbKey]);
 
   if (coins === null) return null;
 

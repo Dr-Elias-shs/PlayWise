@@ -68,18 +68,18 @@ type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'mul
 
 export default function Home() {
   const { playerName, playerEmail, playerGrade, colorId, characterId, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
-  const { playerName: worldName, setPlayerName: setWorldName, syncWithDatabase: syncWorld } = useWorldStore();
+  const { playerName: worldName, playerEmail: worldEmail, setPlayerName: setWorldName, syncWithDatabase: syncWorld } = useWorldStore();
   const [screen, setScreen] = useState<Screen>('login');
   const [showIntro, setShowIntro] = useState(() =>
     typeof window !== 'undefined' ? !localStorage.getItem(INTRO_SEEN_KEY) : false
   );
 
-  // Sync Hub player name into World store (for Shop/World currency sync)
+  // Sync Hub player name and email into World store (for Shop/World currency sync)
   useEffect(() => {
-    if (playerName && playerName !== worldName) {
-      setWorldName(playerName);
+    if (playerName && (playerName !== worldName || playerEmail !== worldEmail)) {
+      setWorldName(playerName, playerEmail);
     }
-  }, [playerName, worldName, setWorldName]);
+  }, [playerName, playerEmail, worldName, worldEmail, setWorldName]);
   // Time-management guard — only active after login, skipped on localhost
   const isLocal = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
   const { loading: tmLoading, access, refresh: tmRefresh } = useTimeGuard(isLocal ? '' : (playerGrade ?? ''), screen === 'hub' || screen === 'game');
@@ -353,7 +353,7 @@ export default function Home() {
 
   // ── Redeem page ──
   if (screen === 'redeem') {
-    return <RedeemPage studentName={playerName} onBack={() => setScreen('hub')} onCoinsChanged={() => setWalletRefresh(r => r + 1)} />;
+    return <RedeemPage studentName={playerName} playerEmail={playerEmail} onBack={() => setScreen('hub')} onCoinsChanged={() => setWalletRefresh(r => r + 1)} />;
   }
 
   // ── Character shop ──
@@ -392,9 +392,10 @@ export default function Home() {
           {/* Wallet */}
           <WalletBadge
             studentName={playerName}
+            playerEmail={playerEmail}
             refreshKey={walletRefresh}
             onClick={() => {
-              if (playerName) syncWorld(playerName);
+              if (playerName) syncWorld(playerName, playerEmail);
               setScreen('shop');
             }}
           />
