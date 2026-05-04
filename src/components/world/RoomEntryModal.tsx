@@ -97,13 +97,15 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
       advanceCurriculumQuestion(playerGrade, room.key);
       const elapsed = Math.round((Date.now() - questionStartRef.current) / 1000);
       setTimeout(() => {
-        addPlayBits(10);
+        // Update local state without triggering auto-sync to DB (we call addCoins manually below)
+        addPlayBits(10, false);
         if (!multiplayer) {
           markRoomComplete(room.key);
           if (isCorrectRoom) advanceMission();
         }
         if (playerName && playerName !== 'Player') {
-          addCoins(playerName, 0, elapsed, false, '', room.key, playerEmail).catch(() => {});
+          // Pass 10 coins to Supabase to match the local store
+          addCoins(playerName, 10, elapsed, false, '', room.key, playerEmail).catch(() => {});
         }
         onCorrect?.();
         setPhase('correct');

@@ -80,9 +80,11 @@ export function HiddenSpotModal({ spot, onClose }: Props) {
     if (idx === q.answer) {
       playSound('correct');
       setTimeout(() => {
-        addPlayBits(15);
+        // Update local state without triggering auto-sync to DB (we call addCoins manually below)
+        addPlayBits(15, false);
         markSecretFound(spot.id);
         if (playerName && playerName !== 'Player') {
+          // Sync 15 coins to Supabase
           addCoins(playerName, 15, 0, false, '', 'world-secret', playerEmail).catch(() => {});
         }
         setPhase('correct');

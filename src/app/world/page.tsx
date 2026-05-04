@@ -136,7 +136,7 @@ function MapCard({ map, onSelect, locked }: { map: MapMeta; onSelect: () => void
 // ── Lobby ──────────────────────────────────────────────────────────────────────
 
 function WorldLobby({ onEnter, onMultiplayer }: { onEnter: (mapId: string) => void; onMultiplayer?: (mapId: string) => void }) {
-  const { playerName, setPlayerName, playBits, completedRooms } = useWorldStore();
+  const { playerName, setPlayerName, playBits, completedRooms, syncWithDatabase } = useWorldStore();
   const { colorId, playerName: hubName } = useGameStore();
 
   // Resolve name: hub store → world store → localStorage fallback (in that order)
@@ -153,10 +153,13 @@ function WorldLobby({ onEnter, onMultiplayer }: { onEnter: (mapId: string) => vo
   const [editingName, setEditingName] = useState(!resolvedName);
   const [showShop, setShowShop] = useState(false);
 
-  // Sync resolved name into world store once on mount
+  // Sync resolved name into world store once on mount + Sync Bits from DB
   useEffect(() => {
     if (resolvedName && playerName !== resolvedName) {
       setPlayerName(resolvedName);
+    }
+    if (resolvedName && resolvedName !== 'Player') {
+      syncWithDatabase(resolvedName);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

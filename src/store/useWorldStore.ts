@@ -22,11 +22,12 @@ interface WorldState {
   currentMissionIndex: number;
   foundSecrets:        Set<string>;
   setPlayerName:       (name: string) => void;
-  addPlayBits:         (amount: number) => void;
+  addPlayBits:         (amount: number, syncToDB?: boolean) => void;
   markRoomComplete:    (room: RoomKey) => void;
   advanceMission:      () => void;
   resetProgress:       () => void;
   markSecretFound:     (id: string) => void;
+  syncWithDatabase:    (studentName: string) => Promise<void>;
 }
 
 function load(): { playerName: string; playBits: number; completedRooms: Set<RoomKey>; currentMissionIndex: number; foundSecrets: Set<string> } {
@@ -65,17 +66,50 @@ function persist(name: string, bits: number, rooms: Set<RoomKey>, missionIdx: nu
 export const useWorldStore = create<WorldState>((set, get) => ({
   ...load(),
 
+  async syncWithDatabase(studentName) {
+    if (!studentName || studentName === 'Player') return;
+    try {
+      const { getWallet } = await import('@/lib/wallet');
+      const wallet = await getWallet(studentName);
+      if (wallet) {
+        const bits = wallet.coins ?? 0;
+        set({ playBits: bits });
+        const { playerName, completedRooms, currentMissionIndex, foundSecrets } = get();
+        persist(playerName, bits, completedRooms, currentMissionIndex, foundSecrets);
+      }
+    } catch (err) {
+      console.error('Failed to sync world store with DB:', err);
+    }
+  },
+
   setPlayerName(playerName) {
     set({ playerName });
     const { playBits, completedRooms, currentMissionIndex, foundSecrets } = get();
     persist(playerName, playBits, completedRooms, currentMissionIndex, foundSecrets);
+    get().syncWithDatabase(playerName);
   },
 
-  addPlayBits(amount) {
+  async addPlayBits(amount, syncToDB = true) {
     const playBits = Math.max(0, get().playBits + amount);
     set({ playBits });
     const { playerName, completedRooms, currentMissionIndex, foundSecrets } = get();
     persist(playerName, playBits, completedRooms, currentMissionIndex, foundSecrets);
+
+    // Sync change to Supabase if player is identified and requested
+    if (syncToDB && playerName && playerName !== 'Player') {
+      try {
+        const { addCoins, spendCoins } = await import('@/lib/wallet');
+        if (amount > 0) {
+          // EARNING bits
+          await addCoins(playerName, amount, 0, false);
+        } else if (amount < 0) {
+          // SPENDING bits (shop)
+          await spendCoins(playerName, Math.abs(amount));
+        }
+      } catch (err) {
+        console.error('Failed to sync bits to Supabase:', err);
+      }
+    }
   },
 
   markRoomComplete(room) {

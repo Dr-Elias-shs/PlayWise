@@ -94,7 +94,7 @@ function WallOverlay({ walls, mw, mh, show }: {
 
 export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; mapId?: string }) {
   const activeMapId = mapIdProp ?? DEFAULT_MAP_ID;
-  const { playerName, playBits, completedRooms, currentMissionIndex, resetProgress, foundSecrets } = useWorldStore();
+  const { playerName, playBits, completedRooms, currentMissionIndex, resetProgress, foundSecrets, syncWithDatabase } = useWorldStore();
 
   const MISSION_SEQUENCE: RoomKey[] = [
     'math', 'science', 'computer', 'robotics', 'library', 'history',
@@ -102,6 +102,13 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
   ];
   const currentMissionKey = MISSION_SEQUENCE[currentMissionIndex] || null;
   const currentRoom = ROOMS.find(r => r.key === currentMissionKey);
+
+  // ── Sync with DB on mount ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (playerName && playerName !== 'Player') {
+      syncWithDatabase(playerName);
+    }
+  }, [playerName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // DOM refs
   const outerRef = useRef<HTMLDivElement>(null);  // clipping viewport

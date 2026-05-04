@@ -191,6 +191,18 @@ export async function addCoins(
   });
 }
 
+export async function spendCoins(studentName: string, amount: number) {
+  if (!studentName || amount <= 0) return;
+  const wallet = await getWallet(studentName);
+  if (!wallet || wallet.coins < amount) return { error: 'Not enough coins' };
+
+  return supabase.from('player_wallets').update({
+    coins:          Math.max(0, wallet.coins - amount),
+    total_redeemed: (wallet.total_redeemed ?? 0) + amount,
+    updated_at:     new Date().toISOString(),
+  }).eq('student_name', studentName);
+}
+
 // ─── Shop ─────────────────────────────────────────────────────────────────────
 
 export async function getShopItems() {

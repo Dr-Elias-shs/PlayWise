@@ -15,6 +15,7 @@ import { ProfileSetup } from "@/components/profile/ProfileSetup";
 import { RedeemPage } from "@/components/redeem/RedeemPage";
 import { Shop } from "@/components/world/Shop";
 import { WalletBadge } from "@/components/hub/WalletBadge";
+import { useWorldStore } from "@/store/useWorldStore";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { loginRequest } from "@/lib/msal";
 import { Leaderboard } from "@/components/hub/Leaderboard";
@@ -67,10 +68,18 @@ type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'mul
 
 export default function Home() {
   const { playerName, playerEmail, playerGrade, colorId, characterId, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
+  const { playerName: worldName, setPlayerName: setWorldName, syncWithDatabase: syncWorld } = useWorldStore();
   const [screen, setScreen] = useState<Screen>('login');
   const [showIntro, setShowIntro] = useState(() =>
     typeof window !== 'undefined' ? !localStorage.getItem(INTRO_SEEN_KEY) : false
   );
+
+  // Sync Hub player name into World store (for Shop/World currency sync)
+  useEffect(() => {
+    if (playerName && playerName !== worldName) {
+      setWorldName(playerName);
+    }
+  }, [playerName, worldName, setWorldName]);
   // Time-management guard — only active after login, skipped on localhost
   const isLocal = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
   const { loading: tmLoading, access, refresh: tmRefresh } = useTimeGuard(isLocal ? '' : (playerGrade ?? ''), screen === 'hub' || screen === 'game');
@@ -384,7 +393,10 @@ export default function Home() {
           <WalletBadge
             studentName={playerName}
             refreshKey={walletRefresh}
-            onClick={() => setScreen('shop')}
+            onClick={() => {
+              if (playerName) syncWorld(playerName);
+              setScreen('shop');
+            }}
           />
           <div className="bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-2">
             <Trophy size={16} className="text-brand-accent" />
