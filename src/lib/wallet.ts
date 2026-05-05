@@ -277,6 +277,26 @@ export async function getAllWallets() {
   return data ?? [];
 }
 
+export async function mergeWallets(keepEmail: string, deleteEmail: string): Promise<void> {
+  const [{ data: keep }, { data: drop }] = await Promise.all([
+    supabase.from('player_wallets').select('*').eq('student_name', keepEmail).maybeSingle(),
+    supabase.from('player_wallets').select('*').eq('student_name', deleteEmail).maybeSingle(),
+  ]);
+  if (!keep || !drop) return;
+
+  await supabase.from('player_wallets').update({
+    coins:             keep.coins + drop.coins,
+    total_earned:      keep.total_earned + drop.total_earned,
+    total_redeemed:    keep.total_redeemed + drop.total_redeemed,
+    play_time_seconds: keep.play_time_seconds + drop.play_time_seconds,
+    games_played:      keep.games_played + drop.games_played,
+    grade:             keep.grade || drop.grade,
+    updated_at:        new Date().toISOString(),
+  }).eq('student_name', keepEmail);
+
+  await supabase.from('player_wallets').delete().eq('student_name', deleteEmail);
+}
+
 export async function getAllRedemptions() {
   const { data } = await supabase
     .from('redemptions')

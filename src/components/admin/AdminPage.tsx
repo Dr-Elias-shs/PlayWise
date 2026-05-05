@@ -8,7 +8,7 @@ import {
   getAllScores, getAllTransactions, getAllSessions,
   getGlobalConfig, setGlobalConfig,
   getAllGradeRequests, resolveGradeRequest,
-  banPlayer, unbanPlayer,
+  banPlayer, unbanPlayer, mergeWallets,
   type GradeChangeRequest,
 } from '@/lib/wallet';
 import { ALL_GAMES } from '@/lib/gameConfigs';
@@ -160,6 +160,8 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   const [gradeRequests, setGradeRequests] = useState<GradeChangeRequest[]>([]);
   const [banTarget,   setBanTarget]   = useState<Wallet | null>(null);
   const [banReason,   setBanReason]   = useState('');
+  const [mergeModal,  setMergeModal]  = useState<{ keep: Wallet; drop: Wallet } | null>(null);
+  const [merging,     setMerging]     = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -341,6 +343,13 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                             return a.student_name.localeCompare(b.student_name);
                           });
 
+                        // Build set of display names that appear more than once (duplicate accounts)
+                        const nameCounts = new Map<string, Wallet[]>();
+                        filtered.forEach(w => {
+                          const key = walletLabel(w).toLowerCase();
+                          nameCounts.set(key, [...(nameCounts.get(key) ?? []), w]);
+                        });
+
                         if (filtered.length === 0) return (
                           <tr><td colSpan={8} className="text-center py-10 text-slate-400">
                             {wallets.length === 0 ? 'No students yet. Play some games!' : 'No students match your filters.'}
@@ -382,22 +391,39 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                             <td className="px-4 py-3 text-slate-500">₿ {w.total_earned.toLocaleString()}</td>
                             <td className="px-4 py-3 text-slate-500">₿ {w.total_redeemed.toLocaleString()}</td>
                             <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                              {w.banned ? (
-                                <button
-                                  onClick={async () => {
-                                    await unbanPlayer(w.student_name);
-                                    setWallets(prev => prev.map(p => p.student_name === w.student_name ? { ...p, banned: false, ban_reason: '' } : p));
-                                  }}
-                                  className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
-                                  ✓ Unban
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => { setBanTarget(w); setBanReason(''); }}
-                                  className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100">
-                                  🚫 Ban
-                                </button>
-                              )}
+                              <div className="flex flex-col gap-1 items-start">
+                                {w.banned ? (
+                                  <button
+                                    onClick={async () => {
+                                      await unbanPlayer(w.student_name);
+                                      setWallets(prev => prev.map(p => p.student_name === w.student_name ? { ...p, banned: false, ban_reason: '' } : p));
+                                    }}
+                                    className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
+                                    ✓ Unban
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => { setBanTarget(w); setBanReason(''); }}
+                                    className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100">
+                                    🚫 Ban
+                                  </button>
+                                )}
+                                {(() => {
+                                  const dupes = nameCounts.get(walletLabel(w).toLowerCase()) ?? [];
+                                  if (dupes.length < 2) return null;
+                                  const others = dupes.filter(d => d.student_name !== w.student_name);
+                                  const drop = others[0];
+                                  const keep = w.coins >= drop.coins ? w : drop;
+                                  const toDrop = w.coins >= drop.coins ? drop : w;
+                                  return (
+                                    <button
+                                      onClick={() => setMergeModal({ keep, drop: toDrop })}
+                                      className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors">
+                                      🔀 Merge
+                                    </button>
+                                  );
+                                })()}
+                              </div>
                             </td>
                           </motion.tr>
                         ));
@@ -1600,6 +1626,78 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                   </>
                 );
               })()}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Merge confirmation modal ── */}
+      <AnimatePresence>
+        {mergeModal && (
+          <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4"
+            onClick={e => e.target === e.currentTarget && !merging && setMergeModal(null)}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl p-7 w-full max-w-sm">
+              <div className="text-center mb-5">
+                <div className="text-5xl mb-3">🔀</div>
+                <h3 className="text-xl font-black text-slate-800">Merge Duplicate Accounts</h3>
+                <p className="text-sm text-slate-400 mt-1">
+                  Coins and stats will be added together into one account.
+                </p>
+              </div>
+              <div className="space-y-3 mb-5">
+                <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-3">
+                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wide mb-1">Keep</p>
+                  <p className="font-black text-slate-800">{walletLabel(mergeModal.keep)}</p>
+                  <p className="text-[11px] font-mono text-slate-400">{mergeModal.keep.student_name}</p>
+                  <p className="text-sm font-bold text-amber-600 mt-1">₿ {mergeModal.keep.coins.toLocaleString()} coins</p>
+                </div>
+                <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-3">
+                  <p className="text-[10px] font-black text-red-500 uppercase tracking-wide mb-1">Merge in & Delete</p>
+                  <p className="font-black text-slate-800">{walletLabel(mergeModal.drop)}</p>
+                  <p className="text-[11px] font-mono text-slate-400">{mergeModal.drop.student_name}</p>
+                  <p className="text-sm font-bold text-amber-600 mt-1">₿ {mergeModal.drop.coins.toLocaleString()} coins</p>
+                </div>
+                <div className="rounded-2xl bg-amber-50 border-2 border-amber-200 p-3 text-center">
+                  <p className="text-xs text-slate-500 font-medium">Result</p>
+                  <p className="text-lg font-black text-amber-600">
+                    ₿ {(mergeModal.keep.coins + mergeModal.drop.coins).toLocaleString()} coins
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setMergeModal(null)} disabled={merging}
+                  className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200 disabled:opacity-50">
+                  Cancel
+                </button>
+                <button
+                  disabled={merging}
+                  onClick={async () => {
+                    setMerging(true);
+                    await mergeWallets(mergeModal.keep.student_name, mergeModal.drop.student_name);
+                    setWallets(prev => {
+                      const keep = prev.find(p => p.student_name === mergeModal.keep.student_name)!;
+                      const drop = prev.find(p => p.student_name === mergeModal.drop.student_name)!;
+                      return prev
+                        .filter(p => p.student_name !== mergeModal.drop.student_name)
+                        .map(p => p.student_name !== mergeModal.keep.student_name ? p : {
+                          ...keep,
+                          coins:             keep.coins + drop.coins,
+                          total_earned:      keep.total_earned + drop.total_earned,
+                          total_redeemed:    keep.total_redeemed + drop.total_redeemed,
+                          play_time_seconds: keep.play_time_seconds + drop.play_time_seconds,
+                          games_played:      keep.games_played + drop.games_played,
+                          grade:             keep.grade || drop.grade,
+                        });
+                    });
+                    setMerging(false);
+                    setMergeModal(null);
+                  }}
+                  className="flex-1 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black transition-colors disabled:opacity-50">
+                  {merging ? 'Merging…' : '🔀 Confirm Merge'}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
