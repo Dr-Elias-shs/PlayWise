@@ -32,15 +32,17 @@ export function itemTopFraction(item: AccessoryItem): number {
   return item.yFraction ?? CAT_Y[item.category] ?? 0;
 }
 
+// Hue-rotate values are calibrated for the character sprite's base hue (~20°).
+// Formula: target_hue - 20 = rotation. E.g. red(0°): 0-20 = -20 = 340deg.
 export const COLORS: ColorOption[] = [
   { id: 'green',  name: 'Forest',  filter: '',                                          swatch: '#22c55e' },
-  { id: 'blue',   name: 'Ocean',   filter: 'hue-rotate(180deg)',                        swatch: '#3b82f6' },
-  { id: 'red',    name: 'Fire',    filter: 'hue-rotate(100deg)',                        swatch: '#ef4444' },
-  { id: 'purple', name: 'Cosmic',  filter: 'hue-rotate(260deg)',                        swatch: '#a855f7' },
-  { id: 'yellow', name: 'Sunny',   filter: 'hue-rotate(60deg)',                         swatch: '#eab308' },
+  { id: 'blue',   name: 'Ocean',   filter: 'hue-rotate(220deg)',                        swatch: '#3b82f6' },
+  { id: 'red',    name: 'Fire',    filter: 'hue-rotate(340deg)',                        swatch: '#ef4444' },
+  { id: 'purple', name: 'Cosmic',  filter: 'hue-rotate(250deg)',                        swatch: '#a855f7' },
+  { id: 'yellow', name: 'Sunny',   filter: 'hue-rotate(40deg)',                         swatch: '#eab308' },
   { id: 'pink',   name: 'Blossom', filter: 'hue-rotate(310deg)',                        swatch: '#ec4899' },
-  { id: 'orange', name: 'Sunset',  filter: 'hue-rotate(30deg)',                         swatch: '#f97316' },
-  { id: 'teal',   name: 'Aqua',    filter: 'hue-rotate(150deg)',                        swatch: '#14b8a6' },
+  { id: 'orange', name: 'Sunset',  filter: 'hue-rotate(10deg)',                         swatch: '#f97316' },
+  { id: 'teal',   name: 'Aqua',    filter: 'hue-rotate(160deg)',                        swatch: '#14b8a6' },
   { id: 'shadow', name: 'Shadow',  filter: 'grayscale(1) brightness(0.4)',              swatch: '#374151' },
   { id: 'golden', name: 'Golden',  filter: 'sepia(1) hue-rotate(15deg) saturate(2.5)', swatch: '#d97706' },
 ];
