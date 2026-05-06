@@ -137,6 +137,11 @@ export async function getWallet(studentName: string) {
   return data;
 }
 
+// Diminishing returns thresholds per game per day (multiplication has its own system)
+const DAILY_FULL_PLAYS  = 3; // plays 1–3: 100%
+const DAILY_HALF_PLAYS  = 6; // plays 4–6: 50%
+                              // plays 7+:   0%
+
 export async function addCoins(
   studentName: string,   // display name (UI only)
   amount: number,
@@ -149,6 +154,24 @@ export async function addCoins(
   // Use email as DB identifier when available, otherwise fall back to name
   const dbKey      = studentEmail.trim().toLowerCase() || studentName;
   const displayName = studentName;
+
+  // Daily per-game diminishing returns — skip for multiplication (has its own system)
+  if (amount > 0 && gameId !== 'unknown' && !gameId.startsWith('multiplication-')) {
+    const todayUTC = new Date().toISOString().split('T')[0];
+    const { count } = await supabase
+      .from('game_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('student_name', dbKey)
+      .eq('game_id', gameId)
+      .gte('created_at', `${todayUTC}T00:00:00.000Z`);
+
+    const playsToday = count ?? 0;
+    if (playsToday >= DAILY_HALF_PLAYS) {
+      amount = 0;
+    } else if (playsToday >= DAILY_FULL_PLAYS) {
+      amount = Math.floor(amount * 0.5);
+    }
+  }
 
   if (amount > 0) {
     supabase.from('coin_transactions').insert({
