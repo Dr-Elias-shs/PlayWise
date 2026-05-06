@@ -151,6 +151,13 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
     return () => gameAudio.stopMusic();
   }, []);
 
+  // ── Auto-close room modal when player walks away — clears any active penalty ──
+  useEffect(() => {
+    if (enteredRoom && nearbyRoom?.key !== enteredRoom.key) {
+      setEnteredRoom(null);
+    }
+  }, [nearbyRoom]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Show completion screen when all missions done ────────────────────────
   useEffect(() => {
     if (currentMissionIndex >= MISSION_SEQUENCE.length && completedRooms.size >= MISSION_SEQUENCE.length) {
