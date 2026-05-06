@@ -411,10 +411,15 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                                 {(() => {
                                   const dupes = nameCounts.get(walletLabel(w).toLowerCase()) ?? [];
                                   if (dupes.length < 2) return null;
-                                  const others = dupes.filter(d => d.student_name !== w.student_name);
-                                  const drop = others[0];
-                                  const keep = w.coins >= drop.coins ? w : drop;
-                                  const toDrop = w.coins >= drop.coins ? drop : w;
+                                  const other = dupes.find(d => d.student_name !== w.student_name)!;
+                                  // Always keep the email-keyed wallet — it's what the game loads on login.
+                                  // Fall back to coin count only if both or neither look like an email.
+                                  const wIsEmail    = w.student_name.includes('@');
+                                  const otherIsEmail = other.student_name.includes('@');
+                                  let keep: Wallet, toDrop: Wallet;
+                                  if (wIsEmail && !otherIsEmail)       { keep = w;     toDrop = other; }
+                                  else if (!wIsEmail && otherIsEmail)  { keep = other; toDrop = w;     }
+                                  else                                  { keep = w.coins >= other.coins ? w : other; toDrop = w.coins >= other.coins ? other : w; }
                                   return (
                                     <button
                                       onClick={() => setMergeModal({ keep, drop: toDrop })}
