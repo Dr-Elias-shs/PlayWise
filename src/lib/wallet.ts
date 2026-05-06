@@ -165,7 +165,7 @@ export async function addCoins(
   }
 
   const { data: existing } = await supabase
-    .from('player_wallets').select('*').eq('student_name', dbKey).single();
+    .from('player_wallets').select('*').eq('student_name', dbKey).maybeSingle();
 
   if (existing) {
     return supabase.from('player_wallets').update({

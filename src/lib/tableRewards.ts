@@ -136,14 +136,16 @@ export async function awardTableCoins(
   isMultiplayer:  boolean,
   playTimeSeconds:number,
   playerGrade:    string,
+  studentEmail:   string = '',
 ): Promise<RewardBreakdown> {
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const today  = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const dbKey  = studentEmail.trim().toLowerCase() || studentName;
 
   // ── 1. Fetch this table's history ─────────────────────────────────────────
   const { data: tableRow } = await supabase
     .from('table_progress')
     .select('*')
-    .eq('student_name', studentName)
+    .eq('student_name', dbKey)
     .eq('table_number', tableNumber)
     .maybeSingle();
 
@@ -151,7 +153,7 @@ export async function awardTableCoins(
   const { data: todayRows } = await supabase
     .from('table_progress')
     .select('table_number')
-    .eq('student_name', studentName)
+    .eq('student_name', dbKey)
     .eq('last_session_date', today);
 
   const distinctToday = new Set((todayRows ?? []).map((r: any) => r.table_number as number));
@@ -164,7 +166,7 @@ export async function awardTableCoins(
   const { data: dailyRow } = await supabase
     .from('student_daily')
     .select('*')
-    .eq('student_name', studentName)
+    .eq('student_name', dbKey)
     .eq('date', today)
     .maybeSingle();
 
@@ -193,7 +195,7 @@ export async function awardTableCoins(
 
   // ── 5. Persist table progress ─────────────────────────────────────────────
   await supabase.from('table_progress').upsert({
-    student_name:        studentName,
+    student_name:        dbKey,
     table_number:        tableNumber,
     last_accuracy:       accuracy,
     best_accuracy:       Math.max(accuracy, tableRow?.best_accuracy ?? 0),
@@ -207,7 +209,7 @@ export async function awardTableCoins(
   // ── 6. Persist variety bonus flags if thresholds crossed ─────────────────
   if (result.awardVariety4 || result.awardVariety6) {
     await supabase.from('student_daily').upsert({
-      student_name:           studentName,
+      student_name:           dbKey,
       date:                   today,
       variety_4_bonus_given:  (dailyRow?.variety_4_bonus_given ?? false) || result.awardVariety4,
       variety_6_bonus_given:  (dailyRow?.variety_6_bonus_given ?? false) || result.awardVariety6,
@@ -216,8 +218,8 @@ export async function awardTableCoins(
 
   // ── 7. Award coins + update learning score ───────────────────────────────
   await Promise.all([
-    addCoins(studentName, result.total, playTimeSeconds, true, playerGrade, `multiplication-${tableNumber}`),
-    recordGameResult(studentName, 'multiplication', correctCount, totalQuestions, playerGrade),
+    addCoins(studentName, result.total, playTimeSeconds, true, playerGrade, `multiplication-${tableNumber}`, studentEmail),
+    recordGameResult(dbKey, 'multiplication', correctCount, totalQuestions, playerGrade),
   ]);
 
   return result;

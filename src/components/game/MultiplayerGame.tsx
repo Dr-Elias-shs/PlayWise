@@ -377,7 +377,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
   useEffect(() => {
     if (!isGameOver || focusNumber === null) return;
 
-    const { score: s, correctCount: cc, wrongCount: wc, roomData: rd, playerGrade } = useGameStore.getState();
+    const { score: s, correctCount: cc, wrongCount: wc, roomData: rd, playerGrade, playerEmail } = useGameStore.getState();
 
     saveScore(playerName, focusNumber, s)
       .then(({ error }: { error: any }) => {
@@ -390,7 +390,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
     const isMulti = players.length > 1;
     const total = cc + wc;
 
-    awardTableCoins(playerName, focusNumber, cc, total, won, isMulti, DURATION, playerGrade)
+    awardTableCoins(playerName, focusNumber, cc, total, won, isMulti, DURATION, playerGrade, playerEmail)
       .then(breakdown => {
         setCoinsEarned(breakdown.total);
         setRewardBreakdown(breakdown);
