@@ -124,29 +124,29 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     get().completedRooms.forEach(k => next.add(k));
     next.add(room);
     set({ completedRooms: next });
-    const { playerName, playBits, currentMissionIndex, foundSecrets } = get();
-    persist(playerName, playBits, next, currentMissionIndex, foundSecrets);
+    const { playerName, playerEmail, playBits, currentMissionIndex, foundSecrets } = get();
+    persist(playerName, playerEmail, playBits, next, currentMissionIndex, foundSecrets);
   },
 
   advanceMission() {
     const nextIdx = get().currentMissionIndex + 1;
     set({ currentMissionIndex: nextIdx });
-    const { playerName, playBits, completedRooms, foundSecrets } = get();
-    persist(playerName, playBits, completedRooms, nextIdx, foundSecrets);
+    const { playerName, playerEmail, playBits, completedRooms, foundSecrets } = get();
+    persist(playerName, playerEmail, playBits, completedRooms, nextIdx, foundSecrets);
   },
 
   markSecretFound(id) {
     const next = new Set(get().foundSecrets);
     next.add(id);
     set({ foundSecrets: next });
-    const { playerName, playBits, completedRooms, currentMissionIndex } = get();
-    persist(playerName, playBits, completedRooms, currentMissionIndex, next);
+    const { playerName, playerEmail, playBits, completedRooms, currentMissionIndex } = get();
+    persist(playerName, playerEmail, playBits, completedRooms, currentMissionIndex, next);
   },
 
   resetProgress() {
-    const { playerName, playBits, foundSecrets } = get();
+    const { playerName, playerEmail, playBits, foundSecrets } = get();
     const empty = new Set<RoomKey>();
     set({ completedRooms: empty, currentMissionIndex: 0 });
-    persist(playerName, playBits, empty, 0, foundSecrets);
+    persist(playerName, playerEmail, playBits, empty, 0, foundSecrets);
   },
 }));
