@@ -167,7 +167,7 @@ export async function addCoins(
 
     const playsToday = count ?? 0;
     if (playsToday >= DAILY_HALF_PLAYS) {
-      amount = 0;
+      amount = 1;
     } else if (playsToday >= DAILY_FULL_PLAYS) {
       amount = Math.floor(amount * 0.5);
     }
