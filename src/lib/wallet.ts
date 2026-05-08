@@ -393,6 +393,33 @@ export async function updateRedemptionStatus(id: string, status: 'approved' | 'r
   return supabase.from('redemptions').update({ status }).eq('id', id);
 }
 
+export async function syncGradesToLearningScores(): Promise<number> {
+  // Fetch all wallets that have a grade
+  const { data: wallets } = await supabase
+    .from('player_wallets')
+    .select('student_name, grade')
+    .not('grade', 'is', null)
+    .neq('grade', '');
+  if (!wallets || wallets.length === 0) return 0;
+
+  // For each, update learning_scores grade if entry exists and grade is blank
+  let fixed = 0;
+  await Promise.all(wallets.map(async w => {
+    const { data: ls } = await supabase
+      .from('learning_scores')
+      .select('student_name, grade')
+      .eq('student_name', w.student_name)
+      .maybeSingle();
+    if (ls && (!ls.grade || ls.grade === '')) {
+      await supabase.from('learning_scores')
+        .update({ grade: w.grade })
+        .eq('student_name', w.student_name);
+      fixed++;
+    }
+  }));
+  return fixed;
+}
+
 export function formatPlayTime(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
   const m = Math.floor(seconds / 60);

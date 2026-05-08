@@ -8,7 +8,7 @@ import {
   getAllScores, getAllTransactions, getAllSessions,
   getGlobalConfig, setGlobalConfig,
   getAllGradeRequests, resolveGradeRequest,
-  banPlayer, unbanPlayer, mergeWallets,
+  banPlayer, unbanPlayer, mergeWallets, syncGradesToLearningScores,
   type GradeChangeRequest,
 } from '@/lib/wallet';
 import { ALL_GAMES } from '@/lib/gameConfigs';
@@ -164,6 +164,8 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   const [merging,     setMerging]     = useState(false);
   const [mergingAll,  setMergingAll]  = useState(false);
   const [mergeAllResult, setMergeAllResult] = useState<string | null>(null);
+  const [fixingGrades, setFixingGrades] = useState(false);
+  const [gradeFixResult, setGradeFixResult] = useState<string | null>(null);
 
   const handleMergeAll = async () => {
     setMergingAll(true);
@@ -357,12 +359,29 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                     {mergeAllResult && (
                       <span className="font-black text-emerald-600">{mergeAllResult}</span>
                     )}
+                    {gradeFixResult && (
+                      <span className="font-black text-blue-600">{gradeFixResult}</span>
+                    )}
                     <button
                       onClick={handleMergeAll}
                       disabled={mergingAll}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600
                         disabled:opacity-50 text-white font-black rounded-xl transition-colors text-xs">
                       {mergingAll ? '⏳ Merging…' : '🔀 Merge All Duplicates'}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setFixingGrades(true);
+                        setGradeFixResult(null);
+                        const fixed = await syncGradesToLearningScores();
+                        setFixingGrades(false);
+                        setGradeFixResult(fixed > 0 ? `✅ Fixed ${fixed} grade${fixed !== 1 ? 's' : ''} in leaderboard` : '✅ All grades already correct');
+                        setTimeout(() => setGradeFixResult(null), 4000);
+                      }}
+                      disabled={fixingGrades}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600
+                        disabled:opacity-50 text-white font-black rounded-xl transition-colors text-xs">
+                      {fixingGrades ? '⏳ Fixing…' : '🏫 Fix Leaderboard Grades'}
                     </button>
                   </div>
                 </div>
