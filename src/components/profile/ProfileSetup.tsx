@@ -24,7 +24,6 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
   } = useGameStore();
   const registry = useCharacterRegistry();
 
-  const [name,        setName]     = useState(playerName   || '');
   const [colorId,     setColorId]  = useState(storedColorId || 'green');
   const [characterId, setCharId]   = useState(storedCharId  || 'male');
   const [grade,       setGrade]    = useState(playerGrade   || '');
@@ -60,13 +59,8 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
   }, []);
 
   const handleSave = () => {
-    const stripped = name.trim().split('').filter(c => c.codePointAt(0)! < 0x1F000).join('');
-    const trimmed  = stripped.replace(/[^\w\sÀ-öø-ÿ؀-ۿ\-'.]/g, '').trim();
-    if (trimmed.length < 2)  { setError('Name must be at least 2 characters'); return; }
-    if (trimmed.length > 20) { setError('Name must be 20 characters or less');  return; }
     if (!grade && !gradeAlreadySet) { setError('Please select your grade'); return; }
-    // Keep existing grade locked — only name, color, and character can change
-    setProfile(trimmed, playerEmail ?? '', colorId, gradeAlreadySet ? playerGrade! : grade, characterId as string);
+    setProfile(playerName, playerEmail ?? '', colorId, gradeAlreadySet ? playerGrade! : grade, characterId as string);
     onDone();
   };
 
@@ -174,17 +168,16 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
           </div>
         </div>
 
-        {/* ── Name ── */}
+        {/* ── Name (read-only from Microsoft account) ── */}
         <div className="mb-4">
           <p className="text-sm font-bold text-slate-500 mb-2">Your name</p>
-          <input type="text" value={name}
-            onChange={e => { setName(e.target.value); setError(''); }}
-            onKeyDown={e => e.key === 'Enter' && handleSave()}
-            placeholder="Enter your name..."
-            maxLength={20}
-            className="w-full px-4 py-3 border-2 border-slate-200 focus:border-violet-500
-              rounded-2xl text-lg font-bold text-slate-800 outline-none transition-colors"
-          />
+          <div className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl bg-slate-50
+            flex items-center justify-between">
+            <span className="text-lg font-bold text-slate-800">{playerName}</span>
+            <span className="text-[10px] bg-slate-200 text-slate-500 font-bold px-2 py-0.5 rounded-full">
+              from school account
+            </span>
+          </div>
         </div>
 
         {/* ── Grade ── */}

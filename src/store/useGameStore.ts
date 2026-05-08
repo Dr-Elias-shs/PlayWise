@@ -190,15 +190,15 @@ export const useGameStore = create<GameState>((set, get) => {
     setColor(colorId) {
       save({ ...snap(get()), colorId });
       set({ colorId });
-      const { playerEmail, playerName, characterId } = get();
-      saveAppearance(playerEmail || playerName, characterId, colorId).catch(() => {});
+      const { playerEmail, playerName, characterId, equippedId, equippedClothingId } = get();
+      saveAppearance(playerEmail || playerName, characterId, colorId, equippedId, equippedClothingId).catch(() => {});
     },
 
     setCharacterId(characterId) {
       save({ ...snap(get()), characterId });
       set({ characterId });
-      const { playerEmail, playerName, colorId } = get();
-      saveAppearance(playerEmail || playerName, characterId, colorId).catch(() => {});
+      const { playerEmail, playerName, colorId, equippedId, equippedClothingId } = get();
+      saveAppearance(playerEmail || playerName, characterId, colorId, equippedId, equippedClothingId).catch(() => {});
     },
 
     ownAccessory(id) {
@@ -210,6 +210,8 @@ export const useGameStore = create<GameState>((set, get) => {
     equipAccessory(equippedId) {
       save({ ...snap(get()), equippedId });
       set({ equippedId });
+      const { playerEmail, playerName, characterId, colorId, equippedClothingId } = get();
+      saveAppearance(playerEmail || playerName, characterId, colorId, equippedId, equippedClothingId).catch(() => {});
     },
 
     ownClothing(id) {
@@ -221,6 +223,8 @@ export const useGameStore = create<GameState>((set, get) => {
     equipClothing(equippedClothingId) {
       save({ ...snap(get()), equippedClothingId });
       set({ equippedClothingId });
+      const { playerEmail, playerName, characterId, colorId, equippedId } = get();
+      saveAppearance(playerEmail || playerName, characterId, colorId, equippedId, equippedClothingId).catch(() => {});
     },
 
     ownCharacter(id) {
@@ -231,16 +235,19 @@ export const useGameStore = create<GameState>((set, get) => {
 
     equipCharacter(targetCharId) {
       const s = get();
+      let newCharId: string;
       if (targetCharId !== null) {
-        // Save the current base character (if not already transformed) then switch
         const base = s.ownedCharacters.includes(s.characterId) ? s.baseCharacterId : s.characterId;
         save({ ...snap(s), baseCharacterId: base, characterId: targetCharId });
         set({ baseCharacterId: base, characterId: targetCharId });
+        newCharId = targetCharId;
       } else {
-        // Revert to original character
         save({ ...snap(s), characterId: s.baseCharacterId });
         set({ characterId: s.baseCharacterId });
+        newCharId = s.baseCharacterId;
       }
+      const { playerEmail, playerName, colorId, equippedId, equippedClothingId } = get();
+      saveAppearance(playerEmail || playerName, newCharId, colorId, equippedId, equippedClothingId).catch(() => {});
     },
 
     // ── Sound ─────────────────────────────────────────────────────────────────

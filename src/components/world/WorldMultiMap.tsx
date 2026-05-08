@@ -7,7 +7,7 @@ import { WalkingCharacter, CHAR_H, CHAR_HW } from './WalkingCharacter';
 import { HiddenSpotModal } from './HiddenSpotModal';
 import { VotingOverlay, ResultFlash } from './VotingOverlay';
 
-import { COLORS, ACCESSORIES, itemTopFraction } from '@/lib/avatar-items';
+import { COLORS, resolveAccessory, itemTopFraction } from '@/lib/avatar-items';
 import {
   ROOMS, WALLS as DEFAULT_WALLS, MAP_W, MAP_H, DOOR_RADIUS,
   DEFAULT_HIDDEN_SPOTS, HiddenSpotDef,
@@ -125,7 +125,7 @@ function TeammateArrow({ rp, viewport, myX, myY, scale }: {
 
 function RemoteSprite({ p, scale, isSpecialist }: { p: RemotePlayer; scale: number; isSpecialist: boolean }) {
   const color = COLORS.find(c => c.id === p.color_id);
-  const acc   = ACCESSORIES.find(a => a.id === p.equipped_id) ?? null;
+  const acc   = resolveAccessory(p.equipped_id);
   const px = p.renderX * scale * ZOOM;
   const py = p.renderY * scale * ZOOM;
   const fs = Math.round(CHAR_H * 0.30);

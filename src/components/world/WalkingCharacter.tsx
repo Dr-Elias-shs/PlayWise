@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef } from 'react';
-import { ACCESSORIES, itemTopFraction } from '@/lib/avatar-items';
+import { resolveAccessory, itemTopFraction } from '@/lib/avatar-items';
 import { useCharacterRegistry, resolveOutfitFrame } from '@/lib/characterRegistry';
 
 export const CHAR_H  = 72;
@@ -23,8 +23,8 @@ export const WalkingCharacter = forwardRef<HTMLDivElement, Props>(
     const charDef       = registry.character(characterId) ?? registry.characters[0];
     const frames        = charDef?.frames ?? ['/character/walk1.png', '/character/walk2.png', '/character/walk3.png'];
 
-    // Hat / extra: look up from ACCESSORIES for emoji + positioning
-    const accItem       = ACCESSORIES.find(a => a.id === equippedAccId) ?? null;
+    // Hat / extra: look up from ACCESSORIES for emoji + positioning (with admin overrides)
+    const accItem       = resolveAccessory(equippedAccId);
 
     // Clothing: look up from registry
     const outfitDef     = equippedClothingId ? registry.outfit(equippedClothingId) : null;

@@ -162,6 +162,39 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   const [banReason,   setBanReason]   = useState('');
   const [mergeModal,  setMergeModal]  = useState<{ keep: Wallet; drop: Wallet } | null>(null);
   const [merging,     setMerging]     = useState(false);
+  const [mergingAll,  setMergingAll]  = useState(false);
+  const [mergeAllResult, setMergeAllResult] = useState<string | null>(null);
+
+  const handleMergeAll = async () => {
+    setMergingAll(true);
+    setMergeAllResult(null);
+    // Group all wallets by exact display name (case-insensitive)
+    const groups = new Map<string, Wallet[]>();
+    wallets.forEach(w => {
+      const key = walletLabel(w).toLowerCase();
+      groups.set(key, [...(groups.get(key) ?? []), w]);
+    });
+    const dupeGroups = Array.from(groups.values()).filter(g => g.length > 1);
+    let merged = 0;
+    for (const group of dupeGroups) {
+      // Keep the email-keyed wallet; if multiple email wallets exist keep the one with most coins
+      const emailWallets = group.filter(w => w.student_name.includes('@'));
+      const nameWallets  = group.filter(w => !w.student_name.includes('@'));
+      let keep = emailWallets.length > 0
+        ? emailWallets.reduce((a, b) => a.coins >= b.coins ? a : b)
+        : group.reduce((a, b) => a.coins >= b.coins ? a : b);
+      const drops = group.filter(w => w.student_name !== keep.student_name);
+      for (const drop of drops) {
+        await mergeWallets(keep.student_name, drop.student_name);
+        // Update local keep coins so subsequent merges in same group accumulate correctly
+        keep = { ...keep, coins: keep.coins + drop.coins };
+        merged++;
+      }
+    }
+    setMergingAll(false);
+    setMergeAllResult(merged > 0 ? `✅ Merged ${merged} duplicate account${merged !== 1 ? 's' : ''}` : '✅ No duplicates found');
+    await load();
+  };
 
   const load = async () => {
     setLoading(true);
@@ -261,11 +294,17 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
             )}
           </button>
         ))}
-        {/* Characters tool — separate page */}
-        <a href="/admin/characters"
-          className="ml-auto px-4 py-2 font-bold text-sm rounded-t-xl text-violet-600 hover:bg-violet-50 transition-colors flex items-center gap-1.5">
-          🎨 Characters
-        </a>
+        {/* Separate tools */}
+        <div className="ml-auto flex items-center gap-1">
+          <a href="/admin/characters"
+            className="px-4 py-2 font-bold text-sm rounded-t-xl text-violet-600 hover:bg-violet-50 transition-colors flex items-center gap-1.5">
+            🎨 Characters
+          </a>
+          <a href="/admin/accessories"
+            className="px-4 py-2 font-bold text-sm rounded-t-xl text-violet-600 hover:bg-violet-50 transition-colors flex items-center gap-1.5">
+            🎒 Accessories
+          </a>
+        </div>
       </div>
 
       <div className="p-6 max-w-6xl mx-auto">
@@ -306,7 +345,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                     <option value="name">Sort: Name A–Z</option>
                     <option value="banned">Sort: Banned First</option>
                   </select>
-                  {/* Stats summary */}
+                  {/* Stats summary + Merge All */}
                   <div className="ml-auto flex items-center gap-4 text-xs text-slate-400 font-medium">
                     <span>{wallets.length} total students</span>
                     {wallets.filter(w => w.banned).length > 0 && (
@@ -315,6 +354,16 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                         🚫 {wallets.filter(w => w.banned).length} banned
                       </button>
                     )}
+                    {mergeAllResult && (
+                      <span className="font-black text-emerald-600">{mergeAllResult}</span>
+                    )}
+                    <button
+                      onClick={handleMergeAll}
+                      disabled={mergingAll}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600
+                        disabled:opacity-50 text-white font-black rounded-xl transition-colors text-xs">
+                      {mergingAll ? '⏳ Merging…' : '🔀 Merge All Duplicates'}
+                    </button>
                   </div>
                 </div>
 

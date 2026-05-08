@@ -32,6 +32,32 @@ export function itemTopFraction(item: AccessoryItem): number {
   return item.yFraction ?? CAT_Y[item.category] ?? 0;
 }
 
+// ─── Runtime position overrides (loaded from global_config on startup) ────────
+type PosOverride = { yFraction?: number; xOffset?: number };
+let _overrides: Record<string, PosOverride> = {};
+
+export function setAccessoryPositionOverrides(data: Record<string, PosOverride>) {
+  _overrides = data ?? {};
+}
+
+export function getAccessoryPositionOverrides(): Record<string, PosOverride> {
+  return _overrides;
+}
+
+/** Returns the accessory with any admin-saved position overrides applied. */
+export function resolveAccessory(id: string | null | undefined): AccessoryItem | null {
+  if (!id) return null;
+  const item = ACCESSORIES.find(a => a.id === id);
+  if (!item) return null;
+  const ov = _overrides[id];
+  if (!ov) return item;
+  return {
+    ...item,
+    ...(ov.yFraction !== undefined ? { yFraction: ov.yFraction } : {}),
+    ...(ov.xOffset   !== undefined ? { xOffset:   ov.xOffset   } : {}),
+  };
+}
+
 // Hue-rotate values are calibrated for the character sprite's base hue (~20°).
 // Formula: target_hue - 20 = rotation. E.g. red(0°): 0-20 = -20 = 340deg.
 export const COLORS: ColorOption[] = [

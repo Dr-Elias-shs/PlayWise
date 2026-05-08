@@ -162,7 +162,8 @@ async function recomputeLearningScore(studentName: string, grade: string): Promi
 
   await supabase.from('learning_scores').upsert({
     student_name:           studentName,
-    grade,
+    // Only update grade when non-empty — never overwrite an existing grade with ''
+    ...(grade ? { grade } : {}),
     mastery_score:          Math.round(masteryScore   * 10) / 10,
     accuracy_score:         Math.round(accuracyScore  * 10) / 10,
     progress_score:         Math.round(progressScore  * 10) / 10,

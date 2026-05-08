@@ -149,8 +149,6 @@ function WorldLobby({ onEnter, onMultiplayer }: { onEnter: (mapId: string) => vo
     } catch { return ''; }
   })();
 
-  const [name, setName]         = useState(resolvedName);
-  const [editingName, setEditingName] = useState(!resolvedName);
   const [showShop, setShowShop] = useState(false);
 
   // Sync resolved name into world store once on mount + Sync Bits from DB
@@ -165,13 +163,6 @@ function WorldLobby({ onEnter, onMultiplayer }: { onEnter: (mapId: string) => vo
 
   const color = COLORS.find(c => c.id === colorId);
   const progress = Math.round((completedRooms.size / ROOMS.length) * 100);
-
-  function confirmName() {
-    const n = name.trim();
-    if (!n) return;
-    setPlayerName(n);
-    setEditingName(false);
-  }
 
   const readyToPlay = playerName !== 'Player' && playerName.trim().length > 0;
 
@@ -224,47 +215,16 @@ function WorldLobby({ onEnter, onMultiplayer }: { onEnter: (mapId: string) => vo
                 </motion.div>
               </div>
 
-              {/* Name */}
-              {editingName ? (
-                <div className="space-y-2">
-                  <input
-                    className="w-full rounded-2xl px-3 py-2 text-slate-800 font-bold text-center outline-none
-                      focus:ring-2 focus:ring-emerald-400 text-sm"
-                    placeholder="Your name…"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && confirmName()}
-                    maxLength={20}
-                    autoFocus
-                  />
-                  <button
-                    onClick={confirmName}
-                    disabled={!name.trim()}
-                    className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40
-                      text-white font-black rounded-xl text-sm transition-colors"
-                  >
-                    Confirm
-                  </button>
+              {/* Name (read-only from school account) */}
+              <div>
+                <span className="text-white font-black text-xl">{playerName}</span>
+                <div
+                  className="inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-bold"
+                  style={{ background: color?.swatch + '33', color: color?.swatch }}
+                >
+                  {color?.name} Explorer
                 </div>
-              ) : (
-                <div>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-white font-black text-xl">{playerName}</span>
-                    <button
-                      onClick={() => setEditingName(true)}
-                      className="text-white/40 hover:text-white/80 text-xs transition-colors"
-                    >
-                      ✏️
-                    </button>
-                  </div>
-                  <div
-                    className="inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-bold"
-                    style={{ background: color?.swatch + '33', color: color?.swatch }}
-                  >
-                    {color?.name} Explorer
-                  </div>
-                </div>
-              )}
+              </div>
 
               {/* PlayBits */}
               <div
@@ -383,19 +343,6 @@ function WorldLobby({ onEnter, onMultiplayer }: { onEnter: (mapId: string) => vo
               ))}
             </div>
 
-            {/* Need name prompt */}
-            {!readyToPlay && (
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-3 bg-amber-500/20 border border-amber-400/30 rounded-2xl p-4"
-              >
-                <span className="text-2xl">⚠️</span>
-                <p className="text-amber-300 text-sm font-bold">
-                  Enter your name on the left before entering a world!
-                </p>
-              </motion.div>
-            )}
           </div>
         </div>
       </div>

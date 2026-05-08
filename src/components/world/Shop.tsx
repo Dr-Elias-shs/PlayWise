@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 import { useWorldStore }  from '@/store/useWorldStore';
-import { COLORS, ACCESSORIES, AccessoryItem, itemTopFraction } from '@/lib/avatar-items';
+import { COLORS, ACCESSORIES, AccessoryItem, itemTopFraction, resolveAccessory } from '@/lib/avatar-items';
 import { useCharacterRegistry, resolveOutfitStand, type RegistryOutfit } from '@/lib/characterRegistry';
 
 type Tab = 'colors' | 'accessories' | 'clothing' | 'characters';
@@ -66,8 +66,8 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
   const characterOutfits = registry.outfits.filter(o => o.category === 'characters');
 
   const previewAccItem: AccessoryItem | undefined =
-    ACCESSORIES.find(a => a.id === previewAcc) ??
-    (tab !== 'clothing' && tab !== 'characters' ? ACCESSORIES.find(a => a.id === equippedId) : undefined);
+    resolveAccessory(previewAcc) ??
+    (tab !== 'clothing' && tab !== 'characters' ? resolveAccessory(equippedId) ?? undefined : undefined);
   const previewOutfit: RegistryOutfit | undefined =
     registry.outfit(previewAcc ?? '') ??
     (tab === 'clothing' ? registry.outfit(equippedClothingId ?? '') : undefined);

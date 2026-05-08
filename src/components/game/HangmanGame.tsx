@@ -264,7 +264,7 @@ function HangmanSVG({ wrongCount, shake }: { wrongCount: number; shake: boolean 
 // ─── Main game ────────────────────────────────────────────────────────────────
 
 export function HangmanGame({ onBack }: { onBack: () => void }) {
-  const { playerName, playerEmail } = useGameStore();
+  const { playerName, playerEmail, playerGrade } = useGameStore();
   const [language, setLanguage]   = useState<Language | null>(null);
   const [level, setLevel]         = useState<Level | null>(null);
   const [word, setWord]           = useState('');
@@ -305,7 +305,7 @@ export function HangmanGame({ onBack }: { onBack: () => void }) {
         applyDailyFreshness(dbKey, 'hangman', rawCoins).then(coins => {
           setCoinsEarned(coins);
           addCoins(playerName, coins, elapsed, true, '', 'hangman', playerEmail).catch(() => {});
-          recordGameResult(playerName, 'hangman', lettersGuessedCorrect, totalLetters).catch(() => {});
+          recordGameResult(playerName, 'hangman', lettersGuessedCorrect, totalLetters, playerGrade ?? '').catch(() => {});
         });
       }
       setGameStatus('won');
@@ -316,7 +316,7 @@ export function HangmanGame({ onBack }: { onBack: () => void }) {
       const totalAttempts = guessedRight + wrongCount;
       if (playerName) {
         addCoins(playerName, 0, elapsed, false, '', 'hangman', playerEmail).catch(() => {});
-        recordGameResult(playerName, 'hangman', guessedRight, totalAttempts).catch(() => {});
+        recordGameResult(playerName, 'hangman', guessedRight, totalAttempts, playerGrade ?? '').catch(() => {});
       }
       setGameStatus('lost');
     }

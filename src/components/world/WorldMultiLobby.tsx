@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useWorldStore } from '@/store/useWorldStore';
 import { useWorldMultiStore } from '@/store/useWorldMultiStore';
 
-import { COLORS, ACCESSORIES, itemTopFraction } from '@/lib/avatar-items';
+import { COLORS, resolveAccessory, itemTopFraction } from '@/lib/avatar-items';
 
 // ── Animated lobby scene ──────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ interface Props {
 
 function PlayerChip({ p }: { p: WorldPlayer }) {
   const color  = COLORS.find(c => c.id === p.color_id);
-  const acc    = ACCESSORIES.find(a => a.id === p.equipped_id) ?? null;
+  const acc    = resolveAccessory(p.equipped_id);
   const H      = 40;
   const fs     = Math.round(H * 0.30);
   return (

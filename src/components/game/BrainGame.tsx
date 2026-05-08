@@ -501,7 +501,7 @@ function generateProblem(level: Level): Problem {
 // ─── Main game ────────────────────────────────────────────────────────────────
 
 export function BrainGame({ onBack }: { onBack: () => void }) {
-  const { playerName, playerEmail }  = useGameStore();
+  const { playerName, playerEmail, playerGrade }  = useGameStore();
   const [level, setLevel]       = useState<Level | null>(null);
   const [problem, setProblem]   = useState<Problem | null>(null);
   const [step, setStep]         = useState(0);
@@ -571,7 +571,7 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
           applyDailyFreshness(dbKey, 'brain', total).then(capped => {
             setCoinsEarned(capped);
             addCoins(playerName, capped, elapsed, true, '', 'brain', playerEmail).catch(() => {});
-            recordGameResult(playerName, 'brain', correctSteps, totalSteps).catch(() => {});
+            recordGameResult(playerName, 'brain', correctSteps, totalSteps, playerGrade ?? '').catch(() => {});
           });
         }
         setOwlMood('celebrate');
