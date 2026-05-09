@@ -25,7 +25,7 @@ const LANG_CONFIG: Record<Language, { label: string; emoji: string; native: stri
 const KEYBOARDS: Record<Language, string[]> = {
   english: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),
   french:  [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), 'É','È','Ê','À','Â','Î','Ô','Ù','Û','Ç'],
-  arabic:  ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي'],
+  arabic:  ['ا','ب','ت','ث','ج','ح','خ','د','ذ','ر','ز','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ك','ل','م','ن','ه','و','ي','ة'],
 };
 
 const KB_COLS: Record<Language, number> = { english: 7, french: 9, arabic: 7 };
