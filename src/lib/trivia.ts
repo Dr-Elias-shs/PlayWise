@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 
 export const TRIVIA_CATEGORIES = [
   { id: 'history',    label: 'History',             emoji: '🏛️' },
-  { id: 'sls',        label: 'Sagesse Life Skills',  emoji: '🌱' },
+  { id: 'sls',        label: 'Sagessian Life Skills', emoji: '🌱' },
   { id: 'math',       label: 'Math',                emoji: '🔢' },
   { id: 'languages',  label: 'Languages',           emoji: '📖' },
   { id: 'football',   label: 'Football',            emoji: '⚽' },
