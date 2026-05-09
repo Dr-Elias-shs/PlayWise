@@ -272,6 +272,20 @@ export const memoryGame: GameConfig = {
   generateQuestion: () => ({ displayText: '', answer: 0, choices: [], formatChoice: n => String(n) }),
 };
 
+// ─── Trivia ───────────────────────────────────────────────────────────────────
+
+export const triviaGame: GameConfig = {
+  id: 'trivia',
+  title: 'Trivia Challenge',
+  description: 'History, sports, science & more — test your knowledge!',
+  emoji: '🎯',
+  bgStyle:     'linear-gradient(135deg, #0f172a, #1e1b4b, #312e81)',
+  cardStyle:   'linear-gradient(135deg, #4f46e5, #6d28d9)',
+  accentStyle: 'linear-gradient(135deg, #4f46e5, #6d28d9)',
+  duration: 0,
+  generateQuestion: () => ({ displayText: '', answer: 0, choices: [], formatChoice: n => String(n) }),
+};
+
 // ─── All games ────────────────────────────────────────────────────────────────
 
 export const ALL_GAMES: GameConfig[] = [
@@ -282,4 +296,5 @@ export const ALL_GAMES: GameConfig[] = [
   brainGame,
   hangmanGame,
   memoryGame,
+  triviaGame,
 ];
