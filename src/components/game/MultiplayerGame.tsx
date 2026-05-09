@@ -313,6 +313,8 @@ function GameOver({ score, maxStreak, correctCount, wrongCount, coinsEarned, bre
 
 // ─── Main Game ────────────────────────────────────────────────────────────────
 
+const MAX_LIVES = 5;
+
 export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
   const {
     focusNumber, setFocusNumber, score, streak, maxStreak,
@@ -341,6 +343,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
   const [particles, setParticles] = useState<{ id: number; color: string; angle: number }[]>([]);
   const [floatingPts, setFloatingPts] = useState<{ pts: number; id: number } | null>(null);
   const [shakeWrong, setShakeWrong] = useState(false);
+  const [lives, setLives] = useState(MAX_LIVES);
   const ptId = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -378,6 +381,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
     if (!isGameOver || focusNumber === null) return;
 
     const { score: s, correctCount: cc, wrongCount: wc, roomData: rd, playerGrade, playerEmail } = useGameStore.getState();
+    const lostAllLives = wc >= MAX_LIVES;
 
     saveScore(playerName, focusNumber, s)
       .then(({ error }: { error: any }) => {
@@ -390,13 +394,18 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
     const isMulti = players.length > 1;
     const total = cc + wc;
 
-    awardTableCoins(playerName, focusNumber, cc, total, won, isMulti, DURATION, playerGrade, playerEmail)
-      .then(breakdown => {
-        setCoinsEarned(breakdown.total);
-        setRewardBreakdown(breakdown);
-        if (breakdown.newMastered) console.log(`🏆 ${playerName} mastered ×${focusNumber}!`);
-      })
-      .catch(err => console.error('Reward save failed:', err));
+    if (lostAllLives) {
+      setCoinsEarned(0);
+      setRewardBreakdown(null);
+    } else {
+      awardTableCoins(playerName, focusNumber, cc, total, won, isMulti, DURATION, playerGrade, playerEmail)
+        .then(breakdown => {
+          setCoinsEarned(breakdown.total);
+          setRewardBreakdown(breakdown);
+          if (breakdown.newMastered) console.log(`🏆 ${playerName} mastered ×${focusNumber}!`);
+        })
+        .catch(err => console.error('Reward save failed:', err));
+    }
   }, [isGameOver]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = useCallback((choice: number) => {
@@ -431,6 +440,11 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
       if (soundEnabled) playSound('wrong');
       setShakeWrong(true);
       setTimeout(() => setShakeWrong(false), 500);
+      setLives(prev => {
+        const next = prev - 1;
+        if (next <= 0) { clearInterval(timerRef.current!); setTimeout(() => setIsGameOver(true), 600); }
+        return next;
+      });
       setTimeout(nextQuestion, 1800);
     }
   }, [isAnswering, question, timeLeft, streak, soundEnabled, incrementScore, incrementWrong, nextQuestion]);
@@ -438,6 +452,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
   const handlePlayAgain = () => {
     resetGame();
     setIsGameOver(false);
+    setLives(MAX_LIVES);
     setTimeLeft(DURATION);
     nextQuestion();
     timerRef.current = setInterval(() => {
@@ -514,6 +529,15 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
             className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-xl transition-colors">
             {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
+        </div>
+
+        {/* Lives */}
+        <div className="flex justify-center gap-0.5">
+          {Array.from({ length: MAX_LIVES }).map((_, i) => (
+            <motion.span key={i}
+              animate={i === MAX_LIVES - lives ? { scale: [1.4, 1] } : {}}
+              className="text-lg leading-none">{i < lives ? '❤️' : '🖤'}</motion.span>
+          ))}
         </div>
 
         {/* Score row */}

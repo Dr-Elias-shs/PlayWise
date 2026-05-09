@@ -500,6 +500,8 @@ function generateProblem(level: Level): Problem {
 
 // ─── Main game ────────────────────────────────────────────────────────────────
 
+const MAX_LIVES = 5;
+
 export function BrainGame({ onBack }: { onBack: () => void }) {
   const { playerName, playerEmail, playerGrade }  = useGameStore();
   const [level, setLevel]       = useState<Level | null>(null);
@@ -509,6 +511,7 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
   const [owlMood, setOwlMood]   = useState<OwlMood>('idle');
   const [streak, setStreak]     = useState(0);
   const [mistakes, setMistakes] = useState(0);
+  const [outOfLives, setOutOfLives] = useState(false);
   const [coinsEarned, setCoinsEarned] = useState(0);
   const [ttsEnabled, setTtsEnabled] = useState(() => {
     if (typeof window === 'undefined') return true;
@@ -542,7 +545,7 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
     setLevel(lvl);
     setProblem(generateProblem(lvl));
     setStep(0); setDone(false);
-    setOwlMood('idle'); setStreak(0); setMistakes(0);
+    setOwlMood('idle'); setStreak(0); setMistakes(0); setOutOfLives(false);
     pendingCoins.current = 0; setCoinsEarned(0);
     startRef.current = Date.now();
   }, []);
@@ -581,10 +584,21 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
         setOwlMood('thinking');
       }
     } else {
-      setMistakes(m => m + 1);
+      const newMistakes = mistakes + 1;
+      setMistakes(newMistakes);
       setStreak(0);
+      if (newMistakes >= MAX_LIVES) {
+        const elapsed = Math.round((Date.now() - startRef.current) / 1000);
+        if (playerName) {
+          recordGameResult(playerName, 'brain', step, problem.steps.length, playerGrade ?? '').catch(() => {});
+        }
+        setCoinsEarned(0);
+        setOutOfLives(true);
+        setOwlMood('wrong');
+        setDone(true);
+      }
     }
-  }, [problem, step, streak, mistakes, level, playerName]);
+  }, [problem, step, streak, mistakes, level, playerName, playerGrade]);
 
   if (!level || !problem) {
     return (
@@ -641,6 +655,15 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
+      {/* Lives */}
+      <div className="w-full max-w-md mb-2 relative z-10 flex justify-center gap-1">
+        {Array.from({ length: MAX_LIVES }).map((_, i) => (
+          <span key={i} style={{ fontSize: '20px' }}>
+            {i < MAX_LIVES - mistakes ? '❤️' : '🖤'}
+          </span>
+        ))}
+      </div>
+
       {/* Owl + Scenario */}
       <div className="w-full max-w-md mb-4 relative z-10 space-y-3">
         <div className="flex items-center justify-between">
@@ -692,22 +715,25 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
               initial={{ scale: 0.7, y: 50, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 250, damping: 20, delay: 0.1 }}>
               <div className="flex justify-center mb-1">
-                <OwlCharacter mood="celebrate" />
+                <OwlCharacter mood={outOfLives ? 'wrong' : 'celebrate'} />
               </div>
-              <h2 className="text-3xl font-black text-white mb-1">Problem Solved! 🎉</h2>
-              {mistakes === 0 && (
+              <h2 className="text-3xl font-black text-white mb-1">{outOfLives ? 'Out of Lives! 💔' : 'Problem Solved! 🎉'}</h2>
+              {!outOfLives && mistakes === 0 && (
                 <motion.p initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5 }}
                   className="text-yellow-300 font-black text-sm mb-2">⭐ Perfect — No mistakes!</motion.p>
               )}
-              <p className="text-white/60 text-sm mb-4">{problem.finalMessage}</p>
+              {outOfLives && (
+                <p className="text-red-300 font-bold text-sm mb-2">You used all {MAX_LIVES} lives — better luck next time!</p>
+              )}
+              <p className="text-white/60 text-sm mb-4">{outOfLives ? 'No PlayBits awarded this round.' : problem.finalMessage}</p>
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.4 }}
-                className="inline-block bg-yellow-400/20 border border-yellow-400/40 rounded-2xl px-5 py-2 mb-5">
-                <span className="text-yellow-300 font-black text-xl">+{coinsEarned} 🪙</span>
+                className={`inline-block rounded-2xl px-5 py-2 mb-5 ${outOfLives ? 'bg-red-500/20 border border-red-500/40' : 'bg-yellow-400/20 border border-yellow-400/40'}`}>
+                <span className={`font-black text-xl ${outOfLives ? 'text-red-300' : 'text-yellow-300'}`}>+{coinsEarned} 🪙</span>
               </motion.div>
               <div className="flex gap-3 justify-center">
                 <button onClick={() => startProblem(level)}
                   className="flex items-center gap-2 px-5 py-3 bg-indigo-500 hover:bg-indigo-400 text-white font-bold rounded-2xl transition-colors text-sm">
-                  <RotateCcw size={15} /> Next Problem
+                  <RotateCcw size={15} /> {outOfLives ? 'Try Again' : 'Next Problem'}
                 </button>
                 <button onClick={onBack}
                   className="px-5 py-3 bg-white/15 hover:bg-white/25 text-white font-bold rounded-2xl transition-colors text-sm">

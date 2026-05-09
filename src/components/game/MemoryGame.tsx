@@ -202,9 +202,9 @@ function MemoryCard({ card, onClick, disabled }: {
 
 // ─── Game over ────────────────────────────────────────────────────────────────
 
-function GameOver({ level, matches, flips, elapsed, coins, onPlayAgain, onBack }: {
+function GameOver({ level, matches, flips, elapsed, coins, lostAllLives, onPlayAgain, onBack }: {
   level: Level; matches: number; flips: number; elapsed: number;
-  coins: number; onPlayAgain: () => void; onBack: () => void;
+  coins: number; lostAllLives?: boolean; onPlayAgain: () => void; onBack: () => void;
 }) {
   const totalPairs = GRID[level].pairs;
   const minFlips = totalPairs * 2;
@@ -236,14 +236,14 @@ function GameOver({ level, matches, flips, elapsed, coins, onPlayAgain, onBack }
         className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 w-full max-w-md text-center relative z-10">
 
         <motion.div animate={{ rotate: [0, -10, 10, 0] }} transition={{ repeat: Infinity, duration: 3 }}
-          className="text-7xl mb-3">🧠</motion.div>
-        <h2 className="text-4xl font-black text-white mb-1">Complete!</h2>
-        <p className={`text-xl font-bold mb-4 ${grade.color}`}>{grade.label}</p>
+          className="text-7xl mb-3">{lostAllLives ? '💔' : '🧠'}</motion.div>
+        <h2 className="text-4xl font-black text-white mb-1">{lostAllLives ? 'Out of Lives!' : 'Complete!'}</h2>
+        <p className={`text-xl font-bold mb-4 ${grade.color}`}>{lostAllLives ? 'Better luck next time!' : grade.label}</p>
 
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: 'spring' }}
-          className="bg-gradient-to-r from-amber-400 to-yellow-500 rounded-2xl p-4 mb-5 shadow-lg">
+          className={`rounded-2xl p-4 mb-5 shadow-lg ${lostAllLives ? 'bg-gradient-to-r from-red-600 to-red-700' : 'bg-gradient-to-r from-amber-400 to-yellow-500'}`}>
           <div className="text-3xl font-black text-white">+{coins} ₿</div>
-          <div className="text-yellow-100 text-sm font-medium">PlayBits earned!</div>
+          <div className="text-yellow-100 text-sm font-medium">{lostAllLives ? 'No PlayBits — try again!' : 'PlayBits earned!'}</div>
         </motion.div>
 
         <div className="grid grid-cols-2 gap-3 mb-6">
@@ -279,6 +279,8 @@ function GameOver({ level, matches, flips, elapsed, coins, onPlayAgain, onBack }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
+const MAX_LIVES = 5;
+
 export function MemoryGame({ onBack }: { onBack: () => void }) {
   const { playerName, playerEmail, playerGrade, soundEnabled, setSoundEnabled } = useGameStore();
 
@@ -291,6 +293,8 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
   const [elapsed, setElapsed] = useState(0);
   const [isGameOver, setIsGameOver] = useState(false);
   const [coins, setCoins] = useState(0);
+  const [lives, setLives] = useState(MAX_LIVES);
+  const [lostAllLives, setLostAllLives] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const totalPairs = level ? GRID[level].pairs : 0;
@@ -300,6 +304,7 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
     setCards(buildCards(level));
     setFlipped([]); setLocked(false);
     setMatches(0); setFlips(0); setElapsed(0); setIsGameOver(false);
+    setLives(MAX_LIVES); setLostAllLives(false);
     timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
     return () => clearInterval(timerRef.current!);
   }, [level]);
@@ -349,15 +354,24 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
         }, 500);
       } else {
         if (soundEnabled) setTimeout(() => playSound('wrong'), 280);
+        const newLives = lives - 1;
+        setLives(newLives);
         setTimeout(() => {
           setCards(prev => prev.map(c =>
             c.id === id1 || c.id === id2 ? { ...c, isFlipped: false } : c
           ));
-          setFlipped([]); setLocked(false);
+          if (newLives <= 0) {
+            clearInterval(timerRef.current!);
+            setLostAllLives(true);
+            setCoins(0);
+            setIsGameOver(true);
+          } else {
+            setFlipped([]); setLocked(false);
+          }
         }, 1000);
       }
     }
-  }, [locked, flipped, cards, soundEnabled]);
+  }, [locked, flipped, cards, soundEnabled, lives]);
 
   if (!level) {
     return (
@@ -373,6 +387,7 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
     return (
       <GameOver
         level={level} matches={matches} flips={flips} elapsed={elapsed} coins={coins}
+        lostAllLives={lostAllLives}
         onPlayAgain={() => { clearInterval(timerRef.current!); setLevel(null); }}
         onBack={() => { clearInterval(timerRef.current!); onBack(); }}
       />
@@ -421,11 +436,23 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
       </div>
 
       {/* Progress */}
-      <div className="px-4 mb-3">
+      <div className="px-4 mb-2">
         <div className="h-2 bg-white/10 rounded-full overflow-hidden">
           <motion.div className="h-full rounded-full bg-gradient-to-r from-violet-400 to-purple-500"
             animate={{ width: `${(matches / totalPairs) * 100}%` }} transition={{ duration: 0.4 }} />
         </div>
+      </div>
+
+      {/* Lives */}
+      <div className="px-4 mb-3 flex justify-center gap-1">
+        {Array.from({ length: MAX_LIVES }).map((_, i) => (
+          <motion.span key={i}
+            animate={i === lives ? { scale: [1.4, 1] } : {}}
+            transition={{ duration: 0.3 }}
+            style={{ fontSize: '20px' }}>
+            {i < lives ? '❤️' : '🖤'}
+          </motion.span>
+        ))}
       </div>
 
       {/* Grid */}

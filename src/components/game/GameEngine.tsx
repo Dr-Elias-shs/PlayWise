@@ -73,7 +73,7 @@ function GameOver({ config, score, maxStreak, correctCount, wrongCount, coinsEar
         <motion.div animate={{ rotate: [0, -10, 10, 0] }} transition={{ repeat: Infinity, duration: 3 }}
           className="text-7xl mb-3">{config.emoji}</motion.div>
 
-        <h2 className="text-4xl font-black text-white mb-1">Time's Up!</h2>
+        <h2 className="text-4xl font-black text-white mb-1">{wrongCount >= 5 ? '💔 Out of Lives!' : "Time's Up!"}</h2>
         <p className={`text-xl font-bold mb-4 ${grade.color}`}>{grade.label}</p>
 
         <CoinReward coins={coinsEarned} />
@@ -120,6 +120,8 @@ function streakLabel(streak: number) {
   return null;
 }
 
+const MAX_LIVES = 5;
+
 export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () => void }) {
   const { playerName, soundEnabled, setSoundEnabled, score, streak, maxStreak,
           correctCount, wrongCount, incrementScore, incrementWrong, resetGame } = useGameStore();
@@ -128,6 +130,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
   const [question, setQuestion] = useState<Question | null>(null);
   const [timeLeft, setTimeLeft] = useState(config.duration);
   const [isGameOver, setIsGameOver] = useState(false);
+  const [lives, setLives] = useState(MAX_LIVES);
   const [coinsEarned, setCoinsEarned] = useState(0);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [isAnswering, setIsAnswering] = useState(false);
@@ -161,23 +164,27 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
 
   useEffect(() => {
     if (isGameOver) {
-      const { score: s, correctCount: cc, maxStreak: ms, playerGrade, playerEmail } = useGameStore.getState();
-      const elapsed = config.duration - timeLeft;
+      const { score: s, correctCount: cc, maxStreak: ms, playerGrade, playerEmail, wrongCount: wc } = useGameStore.getState();
+      const elapsed   = config.duration - timeLeft;
+      const lostAllLives = wc >= MAX_LIVES;
 
       saveScore(playerName, 0, s, config.id)
         .then(({ error }: { error: any }) => {
           if (error) console.error('Score save failed:', error.message);
         });
 
-      const rawCoins = calcCoins(cc, ms, false, false);
+      // No coins if all lives were lost
+      const rawCoins = lostAllLives ? 0 : calcCoins(cc, ms, false, false);
       const dbKey    = playerEmail || playerName;
       applyDailyFreshness(dbKey, config.id, rawCoins).then(coins => {
-        setCoinsEarned(coins);
-        addCoins(playerName, coins, elapsed, true, playerGrade, config.id, playerEmail)
-          .then(({ error }: any) => {
-            if (error) console.error('Coin save failed:', error.message);
-          });
-        recordGameResult(playerName, config.id, cc, cc + (useGameStore.getState().wrongCount ?? 0), playerGrade).catch(() => {});
+        setCoinsEarned(lostAllLives ? 0 : coins);
+        if (!lostAllLives && coins > 0) {
+          addCoins(playerName, coins, elapsed, true, playerGrade, config.id, playerEmail)
+            .then(({ error }: any) => {
+              if (error) console.error('Coin save failed:', error.message);
+            });
+        }
+        recordGameResult(playerName, config.id, cc, cc + wc, playerGrade).catch(() => {});
       });
     }
   }, [isGameOver]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -206,6 +213,11 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
       if (soundEnabled) playSound('wrong');
       setShakeWrong(true);
       setTimeout(() => setShakeWrong(false), 500);
+      setLives(prev => {
+        const next = prev - 1;
+        if (next <= 0) { clearInterval(timerRef.current!); setTimeout(() => setIsGameOver(true), 600); }
+        return next;
+      });
       setTimeout(nextQuestion, 1800);
     }
   }, [isAnswering, question, timeLeft, streak, soundEnabled, incrementScore, incrementWrong, nextQuestion]);
@@ -213,7 +225,8 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
   const handlePlayAgain = () => {
     resetGame();
     setIsGameOver(false);
-    setLevel(null); // go back to level picker
+    setLives(MAX_LIVES);
+    setLevel(null);
   };
 
   if (!level) {
@@ -276,6 +289,15 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
                 {LEVEL_CONFIG[level].emoji} {LEVEL_CONFIG[level].label} ×{LEVEL_CONFIG[level].multiplier}
               </div>
             )}
+          </div>
+
+          {/* Lives */}
+          <div className="flex gap-0.5">
+            {Array.from({ length: MAX_LIVES }).map((_, i) => (
+              <motion.span key={i}
+                animate={i === MAX_LIVES - lives ? { scale: [1.4, 1] } : {}}
+                className="text-lg leading-none">{i < lives ? '❤️' : '🖤'}</motion.span>
+            ))}
           </div>
 
           {streak >= 3 && (
