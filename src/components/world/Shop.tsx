@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { useWorldStore }  from '@/store/useWorldStore';
 import { COLORS, ACCESSORIES, AccessoryItem, itemTopFraction, resolveAccessory } from '@/lib/avatar-items';
 import { useCharacterRegistry, resolveOutfitStand, type RegistryOutfit } from '@/lib/characterRegistry';
+import { useAccessoryPositions } from '@/hooks/useAccessoryPositions';
 
 type Tab = 'colors' | 'accessories' | 'clothing' | 'characters';
 
@@ -56,6 +57,7 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
     ownClothing, equipClothing,
     ownCharacter, equipCharacter,
   } = useGameStore();
+  useAccessoryPositions();
   const registry    = useCharacterRegistry();
   const charDef     = registry.character(characterId) ?? registry.characters[0];
   const { playBits, addPlayBits } = useWorldStore();
