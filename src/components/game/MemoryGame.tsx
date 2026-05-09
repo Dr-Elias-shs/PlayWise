@@ -280,6 +280,7 @@ function GameOver({ level, matches, flips, elapsed, coins, lostAllLives, onPlayA
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 const MAX_LIVES = 5;
+const PREVIEW_SECONDS: Record<Level, number> = { easy: 3, medium: 5, hard: 7 };
 
 export function MemoryGame({ onBack }: { onBack: () => void }) {
   const { playerName, playerEmail, playerGrade, soundEnabled, setSoundEnabled } = useGameStore();
@@ -295,18 +296,42 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
   const [coins, setCoins] = useState(0);
   const [lives, setLives] = useState(MAX_LIVES);
   const [lostAllLives, setLostAllLives] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const [previewCountdown, setPreviewCountdown] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const totalPairs = level ? GRID[level].pairs : 0;
 
   useEffect(() => {
     if (!level) return;
-    setCards(buildCards(level));
-    setFlipped([]); setLocked(false);
+    const newCards = buildCards(level);
+    const previewSecs = PREVIEW_SECONDS[level];
+
+    // Preview phase: show all cards face-up
+    setCards(newCards.map(c => ({ ...c, isFlipped: true })));
+    setFlipped([]); setLocked(true);
     setMatches(0); setFlips(0); setElapsed(0); setIsGameOver(false);
     setLives(MAX_LIVES); setLostAllLives(false);
-    timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-    return () => clearInterval(timerRef.current!);
+    setPreview(true);
+    setPreviewCountdown(previewSecs);
+
+    let remaining = previewSecs;
+    const cdInterval = setInterval(() => {
+      remaining -= 1;
+      setPreviewCountdown(remaining);
+      if (remaining <= 0) {
+        clearInterval(cdInterval);
+        setCards(newCards.map(c => ({ ...c, isFlipped: false })));
+        setLocked(false);
+        setPreview(false);
+        timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(cdInterval);
+      clearInterval(timerRef.current!);
+    };
   }, [level]);
 
   useEffect(() => {
@@ -443,17 +468,48 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      {/* Lives */}
-      <div className="px-4 mb-3 flex justify-center gap-1">
-        {Array.from({ length: MAX_LIVES }).map((_, i) => (
-          <motion.span key={i}
-            animate={i === lives ? { scale: [1.4, 1] } : {}}
-            transition={{ duration: 0.3 }}
-            style={{ fontSize: '20px' }}>
-            {i < lives ? '❤️' : '🖤'}
-          </motion.span>
-        ))}
-      </div>
+      {/* Preview banner / Lives */}
+      {preview ? (
+        <div className="px-4 mb-3">
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl px-4 py-3 flex flex-col items-center gap-2"
+            style={{ background: 'linear-gradient(135deg, #b45309, #d97706)' }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-white font-black text-base">🧠 Memorize the positions!</span>
+              <motion.span
+                key={previewCountdown}
+                initial={{ scale: 1.6, color: '#fef08a' }}
+                animate={{ scale: 1, color: '#ffffff' }}
+                transition={{ duration: 0.3 }}
+                className="text-2xl font-black text-white"
+              >
+                {previewCountdown}s
+              </motion.span>
+            </div>
+            <div className="w-full h-2 bg-black/20 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full rounded-full bg-yellow-300"
+                initial={{ width: '100%' }}
+                animate={{ width: '0%' }}
+                transition={{ duration: PREVIEW_SECONDS[level], ease: 'linear' }}
+              />
+            </div>
+          </motion.div>
+        </div>
+      ) : (
+        <div className="px-4 mb-3 flex justify-center gap-1">
+          {Array.from({ length: MAX_LIVES }).map((_, i) => (
+            <motion.span key={i}
+              animate={i === lives ? { scale: [1.4, 1] } : {}}
+              transition={{ duration: 0.3 }}
+              style={{ fontSize: '20px' }}>
+              {i < lives ? '❤️' : '🖤'}
+            </motion.span>
+          ))}
+        </div>
+      )}
 
       {/* Grid */}
       <div className="flex-1 flex items-center justify-center px-4 pb-4">
