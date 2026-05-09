@@ -66,13 +66,26 @@ export async function getAllTriviaForAdmin(
   return (data ?? []) as TriviaQuestion[];
 }
 
+async function adminPost(body: unknown): Promise<{ inserted?: number; error?: string }> {
+  const res = await fetch('/api/trivia-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
 export async function addTriviaQuestion(
   q: Omit<TriviaQuestion, 'id' | 'created_at'>,
 ): Promise<TriviaQuestion> {
+  const json = await adminPost({ rows: [q] });
+  if (json.error) throw new Error(json.error);
+  // Re-fetch the newly inserted row for its id
   const { data, error } = await supabase
     .from('trivia_questions')
-    .insert(q)
-    .select()
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .single();
   if (error) throw error;
   return data as TriviaQuestion;
@@ -82,13 +95,23 @@ export async function updateTriviaQuestion(
   id: string,
   q: Partial<Omit<TriviaQuestion, 'id' | 'created_at'>>,
 ): Promise<void> {
-  const { error } = await supabase.from('trivia_questions').update(q).eq('id', id);
-  if (error) throw error;
+  const res = await fetch('/api/trivia-admin', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, updates: q }),
+  });
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
 }
 
 export async function deleteTriviaQuestion(id: string): Promise<void> {
-  const { error } = await supabase.from('trivia_questions').delete().eq('id', id);
-  if (error) throw error;
+  const res = await fetch('/api/trivia-admin', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id }),
+  });
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
 }
 
 export async function bulkInsertTrivia(
@@ -97,12 +120,9 @@ export async function bulkInsertTrivia(
   const CHUNK = 50;
   let total = 0;
   for (let i = 0; i < questions.length; i += CHUNK) {
-    const { data, error } = await supabase
-      .from('trivia_questions')
-      .insert(questions.slice(i, i + CHUNK))
-      .select('id');
-    if (error) throw error;
-    total += (data ?? []).length;
+    const json = await adminPost({ rows: questions.slice(i, i + CHUNK) });
+    if (json.error) throw new Error(json.error);
+    total += json.inserted ?? 0;
   }
   return total;
 }
