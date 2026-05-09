@@ -280,7 +280,7 @@ function GameOver({ level, matches, flips, elapsed, coins, lostAllLives, onPlayA
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 const MAX_LIVES = 5;
-const PREVIEW_SECONDS: Record<Level, number> = { easy: 3, medium: 5, hard: 7 };
+const PREVIEW_SECONDS: Record<Level, number> = { easy: 5, medium: 8, hard: 10 };
 
 export function MemoryGame({ onBack }: { onBack: () => void }) {
   const { playerName, playerEmail, playerGrade, soundEnabled, setSoundEnabled } = useGameStore();
