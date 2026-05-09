@@ -19,6 +19,7 @@ import { WiseWorldIntro } from '@/components/world/WiseWorldIntro';
 import { useTimeGuard } from '@/hooks/useTimeGuard';
 import { TimeGate } from '@/components/TimeGate';
 import { useHeartbeat } from '@/hooks/useHeartbeat';
+import { useAccessoryPositions } from '@/hooks/useAccessoryPositions';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -373,6 +374,7 @@ export default function WorldPage() {
   const worldProfile = (() => { try { return JSON.parse(localStorage.getItem('playwise_profile_v2') ?? '{}'); } catch { return {}; } })();
   const worldGame = multiRoomCode ? 'WiseWorld Multiplayer' : selectedMap ? 'WiseWorld' : 'World Lobby';
   useHeartbeat(worldProfile.email ?? '', worldProfile.name ?? '', playerGrade, worldGame);
+  useAccessoryPositions();
 
   useEffect(() => {
     // Always allow on localhost so you can test without affecting students

@@ -22,7 +22,7 @@ import { Leaderboard } from "@/components/hub/Leaderboard";
 import { ALL_GAMES, GameConfig } from "@/lib/gameConfigs";
 import { OwlMini } from "@/components/game/OwlCharacter";
 import { getGlobalConfig, checkBanned, getWallet } from "@/lib/wallet";
-import { setAccessoryPositionOverrides } from "@/lib/avatar-items";
+import { useAccessoryPositions } from "@/hooks/useAccessoryPositions";
 import { PlayWiseIntro, INTRO_SEEN_KEY } from "@/components/PlayWiseIntro";
 import { useTimeGuard } from "@/hooks/useTimeGuard";
 import { TimeGate } from "@/components/TimeGate";
@@ -120,12 +120,7 @@ export default function Home() {
     });
   }, [playerGrade, isLocal]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load accessory position overrides from DB once on startup
-  useEffect(() => {
-    getGlobalConfig('accessory_positions').then(data => {
-      if (data) setAccessoryPositionOverrides(data);
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useAccessoryPositions();
 
   // After MSAL login — use email as stable ID, display name for UI
   useEffect(() => {
