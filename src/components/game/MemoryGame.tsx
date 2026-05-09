@@ -299,11 +299,15 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
   const [preview, setPreview] = useState(false);
   const [previewCountdown, setPreviewCountdown] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const flipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const totalPairs = level ? GRID[level].pairs : 0;
 
   useEffect(() => {
     if (!level) return;
+    // Cancel any stale flip callback from a previous game
+    if (flipTimeoutRef.current) { clearTimeout(flipTimeoutRef.current); flipTimeoutRef.current = null; }
+
     const newCards = buildCards(level);
     const previewSecs = PREVIEW_SECONDS[level];
 
@@ -331,6 +335,7 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
     return () => {
       clearInterval(cdInterval);
       clearInterval(timerRef.current!);
+      if (flipTimeoutRef.current) { clearTimeout(flipTimeoutRef.current); flipTimeoutRef.current = null; }
     };
   }, [level]);
 
@@ -370,7 +375,8 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
 
       if (!isNaN(c1.value) && c1.value === c2.value) {
         if (soundEnabled) setTimeout(() => playSound('correct'), 180);
-        setTimeout(() => {
+        flipTimeoutRef.current = setTimeout(() => {
+          flipTimeoutRef.current = null;
           setCards(prev => prev.map(c =>
             c.id === id1 || c.id === id2 ? { ...c, isMatched: true } : c
           ));
@@ -381,7 +387,8 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
         if (soundEnabled) setTimeout(() => playSound('wrong'), 280);
         const newLives = lives - 1;
         setLives(newLives);
-        setTimeout(() => {
+        flipTimeoutRef.current = setTimeout(() => {
+          flipTimeoutRef.current = null;
           setCards(prev => prev.map(c =>
             c.id === id1 || c.id === id2 ? { ...c, isFlipped: false } : c
           ));
@@ -430,7 +437,7 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
 
       {/* Header */}
       <div className="px-4 pt-4 pb-2 flex items-center gap-3">
-        <button onClick={() => { clearInterval(timerRef.current!); setLevel(null); }}
+        <button onClick={() => { if (flipTimeoutRef.current) clearTimeout(flipTimeoutRef.current); clearInterval(timerRef.current!); setLevel(null); }}
           className="bg-white/10 hover:bg-white/20 text-white rounded-xl px-3 py-2 text-sm font-bold transition-colors">✕</button>
 
         <div className="flex-1 flex items-center gap-2">
