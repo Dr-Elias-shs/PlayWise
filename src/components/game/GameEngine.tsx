@@ -35,9 +35,10 @@ TimerBar.displayName = 'TimerBar';
 
 // ─── Game Over screen ─────────────────────────────────────────────────────────
 
-function GameOver({ config, score, maxStreak, correctCount, wrongCount, coinsEarned, onPlayAgain, onBack }: {
+function GameOver({ config, score, maxStreak, correctCount, wrongCount, coinsEarned, notEnoughAnswers, onPlayAgain, onBack }: {
   config: GameConfig;
   score: number; maxStreak: number; correctCount: number; wrongCount: number; coinsEarned: number;
+  notEnoughAnswers: boolean;
   onPlayAgain: () => void; onBack: () => void;
 }) {
   const accuracy = correctCount + wrongCount > 0
@@ -73,10 +74,17 @@ function GameOver({ config, score, maxStreak, correctCount, wrongCount, coinsEar
         <motion.div animate={{ rotate: [0, -10, 10, 0] }} transition={{ repeat: Infinity, duration: 3 }}
           className="text-7xl mb-3">{config.emoji}</motion.div>
 
-        <h2 className="text-4xl font-black text-white mb-1">{wrongCount >= 5 ? '💔 Out of Lives!' : "Time's Up!"}</h2>
+        <h2 className="text-4xl font-black text-white mb-1">
+          {wrongCount >= MAX_LIVES ? '💔 Out of Lives!' : notEnoughAnswers ? '📚 Not Enough!' : "⏱️ Time's Up!"}
+        </h2>
         <p className={`text-xl font-bold mb-4 ${grade.color}`}>{grade.label}</p>
 
         <CoinReward coins={coinsEarned} />
+        {notEnoughAnswers && wrongCount < MAX_LIVES && (
+          <p className="text-amber-300 text-sm font-bold mt-2 mb-1">
+            ⚠️ Answer at least {MIN_CORRECT_EASY} correctly on Easy to earn PlayBits!
+          </p>
+        )}
 
         <div className="grid grid-cols-2 gap-3 my-5">
           {[
@@ -121,6 +129,7 @@ function streakLabel(streak: number) {
 }
 
 const MAX_LIVES = 5;
+const MIN_CORRECT_EASY = 10; // Easy: must answer at least 10 correctly to earn anything
 
 export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () => void }) {
   const { playerName, soundEnabled, setSoundEnabled, score, streak, maxStreak,
@@ -132,6 +141,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
   const [isGameOver, setIsGameOver] = useState(false);
   const [lives, setLives] = useState(MAX_LIVES);
   const [coinsEarned, setCoinsEarned] = useState(0);
+  const [notEnoughAnswers, setNotEnoughAnswers] = useState(false);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [isAnswering, setIsAnswering] = useState(false);
   const [particles, setParticles] = useState<{ id: number; color: string; angle: number }[]>([]);
@@ -167,14 +177,16 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
       const { score: s, correctCount: cc, maxStreak: ms, playerGrade, playerEmail, wrongCount: wc } = useGameStore.getState();
       const elapsed   = config.duration - timeLeft;
       const lostAllLives = wc >= MAX_LIVES;
+      const tooFew = level === 'easy' && cc < MIN_CORRECT_EASY;
+      setNotEnoughAnswers(tooFew);
 
       saveScore(playerName, 0, s, config.id)
         .then(({ error }: { error: any }) => {
           if (error) console.error('Score save failed:', error.message);
         });
 
-      // No coins if all lives were lost
-      const rawCoins = lostAllLives ? 0 : calcCoins(cc, ms, false, false);
+      // No coins if all lives were lost or minimum threshold not met on Easy
+      const rawCoins = (lostAllLives || tooFew) ? 0 : calcCoins(cc, ms, false, false);
       const dbKey    = playerEmail || playerName;
       applyDailyFreshness(dbKey, config.id, rawCoins).then(coins => {
         setCoinsEarned(lostAllLives ? 0 : coins);
@@ -226,6 +238,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
     resetGame();
     setIsGameOver(false);
     setLives(MAX_LIVES);
+    setNotEnoughAnswers(false);
     setLevel(null);
   };
 
@@ -237,6 +250,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
     return (
       <GameOver config={config} score={score} maxStreak={maxStreak}
         correctCount={correctCount} wrongCount={wrongCount} coinsEarned={coinsEarned}
+        notEnoughAnswers={notEnoughAnswers}
         onPlayAgain={handlePlayAgain}
         onBack={() => { resetGame(); onBack(); }}
       />
