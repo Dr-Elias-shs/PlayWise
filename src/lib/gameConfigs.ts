@@ -47,6 +47,7 @@ export interface GameConfig {
   cardStyle: string;
   accentStyle: string;
   duration: number;
+  durationByLevel?: Partial<Record<Level, number>>;
   generateQuestion: (level?: Level) => Question;
 }
 
@@ -122,18 +123,83 @@ export const divisionGame: GameConfig = {
 
 // ─── Grade 5 — Fractions ──────────────────────────────────────────────────────
 
-const SAME_DENOMS: Record<'easy' | 'medium', number[]> = {
-  easy:   [2, 3, 4],
-  medium: [6, 8, 10, 12],
-};
+// Easy: same denominator, addition only
+const EASY_DENOMS = [2, 3, 4, 5, 6];
 
-// Friendly denominator pairs for Hard — LCD is always manageable
-const DIFF_PAIRS: [number, number][] = [
-  [2, 3], [2, 4], [2, 6], [2, 8],
-  [3, 4], [3, 6], [3, 9],
-  [4, 8], [4, 12],
-  [5, 10],
+// Medium: different denominators — friendly pairs, LCD ≤ 12
+const MEDIUM_DIFF_PAIRS: [number, number][] = [
+  [2, 3], [2, 4], [2, 6], [3, 4], [3, 6], [4, 6],
 ];
+
+// Hard: different denominators — harder pairs, LCD up to 40
+const HARD_DIFF_PAIRS: [number, number][] = [
+  [3, 4], [4, 5], [5, 6], [3, 7], [4, 9],
+  [5, 8], [6, 8], [5, 10], [3, 8], [4, 7], [6, 10],
+];
+
+function diffDenomQuestion(pairs: [number, number][]): Question {
+  const [da, db] = pairs[randInt(0, pairs.length - 1)];
+  const lcd = lcm(da, db);
+  const fa = lcd / da;
+  const fb = lcd / db;
+  const useAdd = Math.random() > 0.45;
+
+  let dN1: number, dD1: number, dN2: number, dD2: number, ansNum: number, op: string;
+
+  if (useAdd) {
+    op = '+';
+    dD1 = da; dD2 = db;
+    dN1 = randInt(1, da - 1);
+    const n1 = dN1 * fa;
+    const maxN2 = Math.min(db - 1, Math.floor((lcd - n1 - 1) / fb));
+    dN2 = maxN2 >= 1 ? randInt(1, maxN2) : 1;
+    ansNum = n1 + dN2 * fb;
+  } else {
+    op = '−';
+    const na = randInt(1, da - 1);
+    const nb = randInt(1, db - 1);
+    const na_s = na * fa;
+    const nb_s = nb * fb;
+    if (na_s > nb_s) {
+      dD1 = da; dN1 = na; dD2 = db; dN2 = nb;
+      ansNum = na_s - nb_s;
+    } else if (nb_s > na_s) {
+      dD1 = db; dN1 = nb; dD2 = da; dN2 = na;
+      ansNum = nb_s - na_s;
+    } else {
+      // Equal fractions — fall back to addition
+      op = '+';
+      dD1 = da; dN1 = na; dD2 = db; dN2 = nb;
+      ansNum = na_s + nb_s;
+    }
+  }
+
+  const [sNum, sDen] = simplify(ansNum, lcd);
+  const answerDisplay = `${sNum}/${sDen}`;
+
+  const wrongSet = new Set<string>();
+  for (let off = 1; wrongSet.size < 3 && off <= 12; off++) {
+    for (const delta of [off, -off]) {
+      const w = sNum + delta;
+      if (w > 0 && w !== sNum && wrongSet.size < 3) {
+        const [ws, wd] = simplify(w, sDen);
+        const s = `${ws}/${wd}`;
+        if (s !== answerDisplay) wrongSet.add(s);
+      }
+    }
+  }
+
+  const allChoices = [answerDisplay, ...Array.from(wrongSet).slice(0, 3)];
+  const shuffled = allChoices.sort(() => Math.random() - 0.5);
+
+  return {
+    displayText: `${dN1}/${dD1}  ${op}  ${dN2}/${dD2}`,
+    answer: shuffled.indexOf(answerDisplay),
+    choices: [0, 1, 2, 3],
+    formatChoice: n => shuffled[n] ?? '?',
+    hint: '= ?',
+  };
+}
 
 export const fractionGame: GameConfig = {
   id: 'fractions',
@@ -144,95 +210,18 @@ export const fractionGame: GameConfig = {
   cardStyle:   'linear-gradient(135deg, #ec4899, #f43f5e)',
   accentStyle: 'linear-gradient(135deg, #ec4899, #f43f5e)',
   duration: 60,
+  durationByLevel: { easy: 60, medium: 90, hard: 120 },
   generateQuestion: (level = 'medium') => {
+    if (level === 'hard')   return diffDenomQuestion(HARD_DIFF_PAIRS);
+    if (level === 'medium') return diffDenomQuestion(MEDIUM_DIFF_PAIRS);
 
-    // ── Hard: different denominators (always generates a valid question) ────────
-    if (level === 'hard') {
-      const [da, db] = DIFF_PAIRS[randInt(0, DIFF_PAIRS.length - 1)];
-      const lcd = lcm(da, db);
-      const fa = lcd / da;  // scale factor: 1/da = fa/lcd
-      const fb = lcd / db;
-      const useAdd = Math.random() > 0.45;
-
-      let dN1: number, dD1: number, dN2: number, dD2: number, ansNum: number, op: string;
-
-      if (useAdd) {
-        op = '+';
-        dD1 = da; dD2 = db;
-        // Pick dN1, then pick dN2 so that n1 + n2 < lcd (proper fraction result)
-        dN1 = randInt(1, da - 1);
-        const n1 = dN1 * fa;
-        const maxN2 = Math.min(db - 1, Math.floor((lcd - n1 - 1) / fb));
-        dN2 = maxN2 >= 1 ? randInt(1, maxN2) : 1;
-        ansNum = n1 + dN2 * fb;
-      } else {
-        op = '−';
-        const na = randInt(1, da - 1);
-        const nb = randInt(1, db - 1);
-        const na_s = na * fa;
-        const nb_s = nb * fb;
-        if (na_s > nb_s) {
-          // a/da − b/db
-          dD1 = da; dN1 = na; dD2 = db; dN2 = nb;
-          ansNum = na_s - nb_s;
-        } else if (nb_s > na_s) {
-          // b/db − a/da (swap so result is positive)
-          dD1 = db; dN1 = nb; dD2 = da; dN2 = na;
-          ansNum = nb_s - na_s;
-        } else {
-          // Equal fractions — fall back to addition
-          op = '+';
-          dD1 = da; dN1 = na; dD2 = db; dN2 = nb;
-          ansNum = na_s + nb_s;
-        }
-      }
-
-      const [sNum, sDen] = simplify(ansNum, lcd);
-      const answerDisplay = `${sNum}/${sDen}`;
-
-      const wrongSet = new Set<string>();
-      for (let off = 1; wrongSet.size < 3 && off <= 12; off++) {
-        for (const delta of [off, -off]) {
-          const w = sNum + delta;
-          if (w > 0 && w !== sNum && wrongSet.size < 3) {
-            const [ws, wd] = simplify(w, sDen);
-            const s = `${ws}/${wd}`;
-            if (s !== answerDisplay) wrongSet.add(s);
-          }
-        }
-      }
-
-      const allChoices = [answerDisplay, ...Array.from(wrongSet).slice(0, 3)];
-      const shuffled = allChoices.sort(() => Math.random() - 0.5);
-
-      return {
-        displayText: `${dN1}/${dD1}  ${op}  ${dN2}/${dD2}`,
-        answer: shuffled.indexOf(answerDisplay),
-        choices: [0, 1, 2, 3],
-        formatChoice: n => shuffled[n] ?? '?',
-        hint: '= ?',
-      };
-    }
-
-    // ── Easy / Medium: same denominator ──────────────────────────────────────
-    const pool = SAME_DENOMS[level as 'easy' | 'medium'];
-    const denom = pool[randInt(0, pool.length - 1)];
-    const addOnly = level === 'easy';
-    const op = addOnly || Math.random() > 0.45 ? '+' : '−';
-    let num1: number, num2: number, answer: number;
-
-    if (op === '+') {
-      num1 = randInt(1, denom - 1);
-      num2 = randInt(1, denom - num1);
-      answer = num1 + num2;
-    } else {
-      num1 = randInt(2, denom);
-      num2 = randInt(1, num1 - 1);
-      answer = num1 - num2;
-    }
-
+    // Easy: same denominator, addition only
+    const denom = EASY_DENOMS[randInt(0, EASY_DENOMS.length - 1)];
+    const num1 = randInt(1, denom - 1);
+    const num2 = randInt(1, denom - num1);
+    const answer = num1 + num2;
     return {
-      displayText: `${num1}/${denom}  ${op}  ${num2}/${denom}`,
+      displayText: `${num1}/${denom}  +  ${num2}/${denom}`,
       answer,
       choices: makeChoices(answer, 1, denom, 4),
       formatChoice: n => `${n}/${denom}`,

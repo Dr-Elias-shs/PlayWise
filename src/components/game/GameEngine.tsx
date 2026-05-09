@@ -172,6 +172,13 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
     return () => clearInterval(timerRef.current!);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // When level is selected, reset timer to the level-appropriate duration
+  useEffect(() => {
+    if (!level) return;
+    const lvlDuration = config.durationByLevel?.[level] ?? config.duration;
+    setTimeLeft(lvlDuration);
+  }, [level]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (isGameOver) {
       const { score: s, correctCount: cc, maxStreak: ms, playerGrade, playerEmail, wrongCount: wc } = useGameStore.getState();
@@ -260,6 +267,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
   if (!question) return null;
 
   const label = streakLabel(streak);
+  const totalDuration = level ? (config.durationByLevel?.[level] ?? config.duration) : config.duration;
   const timerAccent = config.id === 'addition' ? 'from-cyan-400 to-teal-400'
     : config.id === 'division' ? 'from-amber-400 to-orange-400'
     : config.id === 'fractions' ? 'from-pink-400 to-rose-400'
@@ -278,7 +286,7 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
           >✕</button>
 
           <div className="flex-1">
-            <TimerBar timeLeft={timeLeft} total={config.duration} accent={timerAccent} />
+            <TimerBar timeLeft={timeLeft} total={totalDuration} accent={timerAccent} />
           </div>
 
           <div className="bg-white/20 rounded-xl px-3 py-1 text-center min-w-[48px]">
