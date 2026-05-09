@@ -420,11 +420,13 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
       <GameOver
         level={level} matches={matches} flips={flips} elapsed={elapsed} coins={coins}
         lostAllLives={lostAllLives}
-        onPlayAgain={() => { clearInterval(timerRef.current!); setLevel(null); }}
-        onBack={() => { clearInterval(timerRef.current!); onBack(); }}
+        onPlayAgain={() => { if (flipTimeoutRef.current) clearTimeout(flipTimeoutRef.current); clearInterval(timerRef.current!); setCards([]); setLevel(null); }}
+        onBack={() => { if (flipTimeoutRef.current) clearTimeout(flipTimeoutRef.current); clearInterval(timerRef.current!); onBack(); }}
       />
     );
   }
+
+  if (cards.length === 0) return null; // transitional frame between X and new game loading
 
   const { cols } = GRID[level];
   const mins = Math.floor(elapsed / 60), secs = elapsed % 60;
@@ -437,7 +439,7 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
 
       {/* Header */}
       <div className="px-4 pt-4 pb-2 flex items-center gap-3">
-        <button onClick={() => { if (flipTimeoutRef.current) clearTimeout(flipTimeoutRef.current); clearInterval(timerRef.current!); setLevel(null); }}
+        <button onClick={() => { if (flipTimeoutRef.current) clearTimeout(flipTimeoutRef.current); clearInterval(timerRef.current!); setCards([]); setLevel(null); }}
           className="bg-white/10 hover:bg-white/20 text-white rounded-xl px-3 py-2 text-sm font-bold transition-colors">✕</button>
 
         <div className="flex-1 flex items-center gap-2">
