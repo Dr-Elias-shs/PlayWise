@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { ALL_GAME_IDS } from "@/lib/learningScore";
 import { useGameStore } from "@/store/useGameStore";
 import { useCharacterRegistry, resolveOutfitStand } from "@/lib/characterRegistry";
-import { COLORS } from "@/lib/avatar-items";
+import { COLORS, resolveAccessory, itemTopFraction } from "@/lib/avatar-items";
+import { useAccessoryPositions } from "@/hooks/useAccessoryPositions";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -24,7 +25,7 @@ interface SpecialistEntry {
   avg_accuracy: number; sessions_count: number; mastered: boolean;
 }
 
-interface PlayerAppearance { characterId: string; colorId: string; equippedClothingId?: string | null; }
+interface PlayerAppearance { characterId: string; colorId: string; equippedClothingId?: string | null; equippedId?: string | null; }
 
 type BoardType = 'learners' | 'myClass' | 'improved' | 'accuracy' | 'explorers' | 'specialist';
 
@@ -76,18 +77,38 @@ function ScoreBar({ value, max = 100, color }: { value: number; max?: number; co
   );
 }
 
-function TinyAvatar({ characterId = 'male', colorId = 'green', equippedClothingId }: PlayerAppearance) {
+const TINY_H = 32;
+
+function TinyAvatar({ characterId = 'male', colorId = 'green', equippedClothingId, equippedId }: PlayerAppearance) {
   const registry  = useCharacterRegistry();
   const charDef   = registry.character(characterId) ?? registry.characters[0];
   const outfitDef = equippedClothingId ? registry.outfit(equippedClothingId) : null;
   const outfitSrc = outfitDef ? resolveOutfitStand(outfitDef, characterId) : null;
   const color     = COLORS.find(c => c.id === colorId);
   const src       = outfitSrc ?? charDef?.standFrame ?? '/character/walk2.png';
+  const accItem   = resolveAccessory(equippedId);
+
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" draggable={false}
-      style={{ width: 32, height: 32, objectFit: 'contain', filter: color?.filter ?? '', flexShrink: 0 }}
-    />
+    <div style={{ position: 'relative', width: TINY_H, height: TINY_H, flexShrink: 0 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" draggable={false}
+        style={{ width: TINY_H, height: TINY_H, objectFit: 'contain', filter: color?.filter ?? '' }}
+      />
+      {accItem && (
+        <div style={{
+          position: 'absolute',
+          top: itemTopFraction(accItem) * TINY_H,
+          left: `calc(50% + ${accItem.xOffset ?? 0}px)`,
+          transform: 'translateX(-50%)',
+          fontSize: Math.round(TINY_H * 0.38),
+          lineHeight: 1,
+          pointerEvents: 'none',
+          zIndex: 3,
+        }}>
+          {accItem.emoji}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -114,6 +135,7 @@ function EntryRow({ rank, name, grade, main, sub, extra, isMe, appearance }: {
         characterId={appearance?.characterId ?? 'male'}
         colorId={appearance?.colorId ?? 'green'}
         equippedClothingId={appearance?.equippedClothingId}
+        equippedId={appearance?.equippedId}
       />
       <div className="flex-1 min-w-0">
         <div className={`font-bold text-sm truncate ${isMe ? 'text-violet-700' : 'text-slate-800'}`}>
@@ -131,7 +153,8 @@ function EntryRow({ rank, name, grade, main, sub, extra, isMe, appearance }: {
 // ── Main Leaderboard ──────────────────────────────────────────────────────────
 
 export function Leaderboard() {
-  const { playerGrade, playerName, characterId, colorId, equippedClothingId } = useGameStore();
+  const { playerGrade, playerName, characterId, colorId, equippedClothingId, equippedId } = useGameStore();
+  useAccessoryPositions();
   const [board, setBoard]           = useState<BoardType>('learners');
   const [showHints, setShowHints]   = useState(false);
   const [entries, setEntries]       = useState<LearnerEntry[]>([]);
@@ -162,7 +185,7 @@ export function Leaderboard() {
     if (names.length > 0) {
       const { data: wallets } = await supabase
         .from('player_wallets')
-        .select('student_name, character_id, color_id, equipped_clothing_id')
+        .select('student_name, character_id, color_id, equipped_clothing_id, equipped_id')
         .in('student_name', names);
       if (wallets) {
         const map: Record<string, PlayerAppearance> = {};
@@ -171,6 +194,7 @@ export function Leaderboard() {
             characterId:        (w as any).character_id        ?? 'male',
             colorId:            (w as any).color_id            ?? 'green',
             equippedClothingId: (w as any).equipped_clothing_id ?? null,
+            equippedId:         (w as any).equipped_id         ?? null,
           };
         }
         setAppearances(map);
@@ -209,7 +233,7 @@ export function Leaderboard() {
 
   // Merge current player's live appearance (local store is authoritative for self)
   const resolvedAppearances = playerName
-    ? { ...appearances, [playerName]: { characterId, colorId, equippedClothingId } }
+    ? { ...appearances, [playerName]: { characterId, colorId, equippedClothingId, equippedId } }
     : appearances;
 
   // ── Derived lists ───────────────────────────────────────────────────────────
