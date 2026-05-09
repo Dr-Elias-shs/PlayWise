@@ -13,11 +13,12 @@ import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 
 interface Card {
   id: number;
-  pairId: number;
+  pairId: number;  // used for emoji matching only
+  value: number;   // computed numeric value — math cards match by this
   content: string;
   isFlipped: boolean;
   isMatched: boolean;
-  isEmoji: boolean;   // affects display size
+  isEmoji: boolean;
 }
 
 type GameType = 'picture' | 'simple-math' | 'hard-math';
@@ -106,6 +107,18 @@ function hardMathPairs(count: number): { q: string; a: string }[] {
   return pairs;
 }
 
+/** Evaluate a card's content to a number so any equivalent expressions match. */
+function evalCard(content: string): number {
+  const s = content.trim();
+  const n = Number(s);
+  if (!isNaN(n)) return n;
+  if (s.includes('×')) { const [a, b] = s.split('×').map(x => Number(x.trim())); return a * b; }
+  if (s.includes('÷')) { const [a, b] = s.split('÷').map(x => Number(x.trim())); return a / b; }
+  if (s.includes('+')) { const [a, b] = s.split('+').map(x => Number(x.trim())); return a + b; }
+  if (s.includes('-')) { const [a, b] = s.split('-').map(x => Number(x.trim())); return a - b; }
+  return NaN;
+}
+
 function buildCards(level: Level): Card[] {
   const { pairs: count, type } = GRID[level];
   const raw =
@@ -116,8 +129,11 @@ function buildCards(level: Level): Card[] {
   const isEmoji = type === 'picture';
   const flat: Omit<Card, 'id'>[] = [];
   raw.forEach((p, i) => {
-    flat.push({ pairId: i, content: p.q, isFlipped: false, isMatched: false, isEmoji });
-    flat.push({ pairId: i, content: p.a, isFlipped: false, isMatched: false, isEmoji });
+    // For emoji, value = pairId (identity match). For math, value = evaluated number.
+    const qVal = isEmoji ? i : evalCard(p.q);
+    const aVal = isEmoji ? i : evalCard(p.a);
+    flat.push({ pairId: i, value: qVal, content: p.q, isFlipped: false, isMatched: false, isEmoji });
+    flat.push({ pairId: i, value: aVal, content: p.a, isFlipped: false, isMatched: false, isEmoji });
   });
   return shuffle(flat).map((c, id) => ({ ...c, id }));
 }
@@ -322,7 +338,7 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
       const c1 = cards.find(c => c.id === id1)!;
       const c2 = cards.find(c => c.id === id2)!;
 
-      if (c1.pairId === c2.pairId) {
+      if (!isNaN(c1.value) && c1.value === c2.value) {
         if (soundEnabled) setTimeout(() => playSound('correct'), 180);
         setTimeout(() => {
           setCards(prev => prev.map(c =>
