@@ -21,371 +21,459 @@ function q(
   return { question, options, correct_index, category, grade, difficulty, source: 'seed' };
 }
 
-// ─── HISTORY ──────────────────────────────────────────────────────────────────
+// ─── HISTORY (30) ─────────────────────────────────────────────────────────────
 
 const history: SeedQ[] = [
-  // Grade 1 — Easy
-  q('What is the capital city of Lebanon?', ['Beirut','Tripoli','Sidon','Tyre'], 0, 'history', '1', 'easy'),
-  q('What tree is on the Lebanese flag?', ['Cedar','Palm','Olive','Pine'], 0, 'history', '1', 'easy'),
-  q('How many colors does the Lebanese flag have?', ['3','2','4','5'], 0, 'history', '1', 'easy'),
-  q('Lebanon is a country in which part of the world?', ['Middle East','Africa','Europe','Asia Far East'], 0, 'history', '1', 'easy'),
-
-  // Grade 2 — Easy
-  q('What river runs through Beirut?', ['Beirut River','Litani','Nahr el-Kalb','Orontes'], 0, 'history', '2', 'easy'),
-  q('Which sea borders Lebanon to the west?', ['Mediterranean Sea','Red Sea','Dead Sea','Black Sea'], 0, 'history', '2', 'easy'),
-  q('Lebanon is famous for its ancient city called:', ['Byblos','Rome','Athens','Cairo'], 0, 'history', '2', 'easy'),
-  q('Which country borders Lebanon to the north and east?', ['Syria','Jordan','Israel','Turkey'], 0, 'history', '2', 'easy'),
-
-  // Grade 3 — Easy
-  q('What ancient civilization built Baalbek?', ['Phoenicians / Romans','Greeks','Egyptians','Persians'], 0, 'history', '3', 'easy'),
-  q('The Phoenicians were famous for creating what?', ['The alphabet','Gunpowder','The wheel','Paper'], 0, 'history', '3', 'easy'),
-  q('Which empire ruled Lebanon for hundreds of years before independence?', ['Ottoman Empire','British Empire','French Empire','Roman Empire'], 0, 'history', '3', 'easy'),
-
-  // Grade 3 — Medium
-  q('In what year did Lebanon gain independence?', ['1943','1920','1958','1975'], 0, 'history', '3', 'medium'),
-  q('What is the name of the famous Roman temples in Baalbek?', ['Temple of Jupiter','Temple of Zeus','Temple of Ares','Temple of Poseidon'], 0, 'history', '3', 'medium'),
-
-  // Grade 4 — Easy
-  q('Which ancient people are credited with spreading the alphabet to Europe?', ['Phoenicians','Romans','Greeks','Egyptians'], 0, 'history', '4', 'easy'),
-  q('The ancient city of Carthage was founded by people from which Lebanese city?', ['Tyre','Sidon','Byblos','Beirut'], 0, 'history', '4', 'easy'),
-
-  // Grade 4 — Medium
-  q('Lebanon was under French mandate starting from which year?', ['1920','1916','1945','1943'], 0, 'history', '4', 'medium'),
-  q('Who is considered the father of Lebanese independence?', ['Bechara El Khoury','Riad El Solh','Camille Chamoun','Fouad Chehab'], 0, 'history', '4', 'medium'),
-  q('What major event began in Lebanon in 1975?', ['Civil War','War of Independence','Arab Spring','Crusades'], 0, 'history', '4', 'medium'),
-
-  // Grade 4 — Hard
-  q('Which pharaoh of Egypt sent tribute to the Phoenician city of Byblos for cedar wood?', ['Ramesses II','Tutankhamun','Sneferu','Thutmose III'], 2, 'history', '4', 'hard'),
-
-  // Grade 5 — Easy
-  q('The city of Byblos gave us which important word?', ['Bible','Book','Ballot','Babel'], 0, 'history', '5', 'easy'),
-  q('Which crusader order built Byblos Castle?', ['Crusaders (Franks)','Knights Templar','Hospitallers','Teutonic Knights'], 0, 'history', '5', 'easy'),
-
-  // Grade 5 — Medium
-  q('What was the first country to recognize Lebanese independence?', ['Syria','France','United States','Egypt'], 0, 'history', '5', 'medium'),
-  q('The Taif Agreement of 1989 ended which conflict in Lebanon?', ['Civil War','War with Israel','Ottoman occupation','French mandate'], 0, 'history', '5', 'medium'),
-  q('Baalbek was known in ancient times by what name?', ['Heliopolis','Alexandria','Palmyra','Antioch'], 0, 'history', '5', 'medium'),
-
-  // Grade 5 — Hard
-  q('Who was the Phoenician princess who, according to Greek myth, gave Europe its name?', ['Europa','Dido','Astarte','Cleopatra'], 0, 'history', '5', 'hard'),
-  q('Which Lebanese poet and philosopher wrote "The Prophet"?', ['Gibran Khalil Gibran','Nizar Qabbani','Mikhail Naimy','Said Akl'], 0, 'history', '5', 'hard'),
-
-  // Grade 6 — Easy
-  q('World War I ended in which year?', ['1918','1914','1920','1916'], 0, 'history', '6', 'easy'),
-  q('World War II ended in which year?', ['1945','1939','1943','1950'], 0, 'history', '6', 'easy'),
-
-  // Grade 6 — Medium
-  q('Which agreement gave France control of Lebanon after World War I?', ['Sykes-Picot Agreement','Balfour Declaration','Treaty of Versailles','San Remo Conference'], 3, 'history', '6', 'medium'),
-  q('The United Nations was founded in which year?', ['1945','1919','1939','1955'], 0, 'history', '6', 'medium'),
-  q('The Roman god Jupiter was equivalent to which Greek god?', ['Zeus','Ares','Apollo','Hermes'], 0, 'history', '6', 'medium'),
-
-  // Grade 6 — Hard
-  q('Which ancient Phoenician city is believed to have had the first alphabet?', ['Byblos','Tyre','Sidon','Carthage'], 0, 'history', '6', 'hard'),
-  q('Emperor Justinian rebuilt the famous law school in which Lebanese city?', ['Beirut','Sidon','Tyre','Tripoli'], 0, 'history', '6', 'hard'),
+  q('What is the capital city of Lebanon?',
+    ['Beirut','Tripoli','Sidon','Jounieh'], 0, 'history', '1', 'easy'),
+  q('What tree is shown on the Lebanese flag?',
+    ['Palm','Cedar','Olive','Pine'], 1, 'history', '1', 'easy'),
+  q('Which sea lies to the west of Lebanon?',
+    ['Red Sea','Black Sea','Mediterranean Sea','Dead Sea'], 2, 'history', '2', 'easy'),
+  q('Lebanon declared independence from France in which year?',
+    ['1958','1920','1967','1943'], 3, 'history', '3', 'medium'),
+  q('The ancient Phoenicians lived in the area of modern-day:',
+    ['Lebanon','Greece','Egypt','Turkey'], 0, 'history', '4', 'medium'),
+  q('Who built the famous temples at Baalbek?',
+    ['Greeks','Romans','Persians','Ottomans'], 1, 'history', '3', 'easy'),
+  q('Byblos, one of the world\'s oldest cities, is located in:',
+    ['Syria','Jordan','Israel','Lebanon'], 3, 'history', '4', 'easy'),
+  q('The Lebanese Civil War began in which year?',
+    ['1943','1967','1982','1975'], 3, 'history', '5', 'medium'),
+  q('Gibran Khalil Gibran is famous for writing:',
+    ['The Prophet','The Alchemist','Les Misérables','The Stranger'], 0, 'history', '5', 'medium'),
+  q('Which empire ruled Lebanon for roughly 400 years before WWI?',
+    ['Roman','Ottoman','French','British'], 1, 'history', '5', 'medium'),
+  q('The Phoenicians are credited with giving the world:',
+    ['Numbers','The wheel','The alphabet','Gunpowder'], 2, 'history', '4', 'easy'),
+  q('Which Phoenician city is said to have founded Carthage in North Africa?',
+    ['Sidon','Byblos','Beirut','Tyre'], 3, 'history', '5', 'hard'),
+  q('Lebanese Independence Day is celebrated on:',
+    ['November 22','July 4','March 21','May 6'], 0, 'history', '4', 'easy'),
+  q('World War II ended in which year?',
+    ['1939','1945','1950','1918'], 1, 'history', '6', 'easy'),
+  q('The Roman god Jupiter is equivalent to the Greek god:',
+    ['Ares','Poseidon','Zeus','Apollo'], 2, 'history', '5', 'medium'),
+  q('Napoleon Bonaparte was the emperor of which country?',
+    ['Italy','Spain','Britain','France'], 3, 'history', '5', 'easy'),
+  q('The Great Wall of China was mainly completed during which dynasty?',
+    ['Ming','Han','Tang','Qing'], 0, 'history', '6', 'medium'),
+  q('The first humans to land on the Moon were from which country?',
+    ['Russia','China','United Kingdom','United States'], 3, 'history', '5', 'easy'),
+  q('Julius Caesar was the leader of ancient:',
+    ['Greece','Persia','Rome','Egypt'], 2, 'history', '5', 'medium'),
+  q('World War I started in which year?',
+    ['1918','1939','1905','1914'], 3, 'history', '6', 'easy'),
+  q('The Taif Agreement of 1989 ended Lebanon\'s:',
+    ['Civil War','War with Syria','War with Israel','Ottoman rule'], 0, 'history', '6', 'medium'),
+  q('Ancient Egypt was ruled by leaders called:',
+    ['Sultans','Pharaohs','Emperors','Khans'], 1, 'history', '4', 'easy'),
+  q('Which ancient civilization built the Great Pyramids of Giza?',
+    ['Romans','Greeks','Egyptians','Persians'], 2, 'history', '3', 'easy'),
+  q('The United Nations was founded after which war?',
+    ['World War II','World War I','Korean War','Cold War'], 0, 'history', '6', 'easy'),
+  q('Cleopatra was the queen of which ancient kingdom?',
+    ['Persia','Egypt','Greece','Rome'], 1, 'history', '4', 'easy'),
+  q('The ancient city of Byblos gave us which English word?',
+    ['Bible','Book','Ballot','Babel'], 0, 'history', '5', 'medium'),
+  q('Alexander the Great was a king from:',
+    ['Rome','Athens','Sparta','Macedonia'], 3, 'history', '6', 'medium'),
+  q('The French Mandate over Lebanon began after which war?',
+    ['World War II','Napoleon\'s Wars','Crusades','World War I'], 3, 'history', '6', 'hard'),
+  q('Which country borders Lebanon to the north and east?',
+    ['Jordan','Israel','Turkey','Syria'], 3, 'history', '2', 'easy'),
+  q('The first Olympic Games were held in ancient:',
+    ['Rome','Egypt','Greece','Persia'], 2, 'history', '5', 'easy'),
 ];
 
-// ─── SLS (Sagesse Life Skills) ────────────────────────────────────────────────
+// ─── SLS – SAGESSIAN LIFE SKILLS (30) ────────────────────────────────────────
 
 const sls: SeedQ[] = [
-  // Grade 1 — Easy
-  q('What do you say when someone helps you?', ['Thank you','Sorry','Please','Hello'], 0, 'sls', '1', 'easy'),
-  q('What should you do before eating food?', ['Wash your hands','Play games','Watch TV','Sleep'], 0, 'sls', '1', 'easy'),
-  q('Where do you go to learn and study?', ['School','Hospital','Market','Park'], 0, 'sls', '1', 'easy'),
-  q('What is a good way to solve a fight with a friend?', ['Talk and listen','Ignore them','Shout','Walk away forever'], 0, 'sls', '1', 'easy'),
-
-  // Grade 2 — Easy
-  q('What should you do if a stranger offers you candy?', ['Say no and find an adult','Take it and say thank you','Follow them','Share with friends'], 0, 'sls', '2', 'easy'),
-  q('How many hours of sleep should a young child get each night?', ['About 9-11 hours','About 4-5 hours','About 6-7 hours','About 12-14 hours'], 0, 'sls', '2', 'easy'),
-  q('What do we call someone who tells a teacher when they see bullying?', ['A helper / upstander','A bully','A bystander','A troublemaker'], 0, 'sls', '2', 'easy'),
-  q('Which of these is a healthy food choice?', ['An apple','A bag of chips','A soda','A candy bar'], 0, 'sls', '2', 'easy'),
-
-  // Grade 3 — Easy
-  q('What is teamwork?', ['Working together to reach a goal','Doing everything alone','Competing to win','Letting others do the work'], 0, 'sls', '3', 'easy'),
-  q('What should you do if you feel angry?', ['Take deep breaths and calm down','Hit something','Shout at everyone','Run away'], 0, 'sls', '3', 'easy'),
-
-  // Grade 3 — Medium
-  q('What is empathy?', ['Understanding how others feel','Feeling sorry for yourself','Ignoring others','Being very smart'], 0, 'sls', '3', 'medium'),
-  q('What does "honesty" mean?', ['Always telling the truth','Being very smart','Helping others','Sharing everything'], 0, 'sls', '3', 'medium'),
-  q('Which behavior shows respect?', ['Listening when others speak','Interrupting people','Talking over others','Looking at your phone'], 0, 'sls', '3', 'medium'),
-
-  // Grade 4 — Easy
-  q('What is peer pressure?', ['Being influenced to do something by people your age','A pressure test at the doctor','Homework pressure','Sports pressure'], 0, 'sls', '4', 'easy'),
-
-  // Grade 4 — Medium
-  q('What is a "growth mindset"?', ['Believing you can improve with effort','Thinking you are already perfect','Avoiding hard tasks','Getting bigger physically'], 0, 'sls', '4', 'medium'),
-  q('Which is an example of a healthy way to manage stress?', ['Exercise or deep breathing','Skipping meals','Playing video games all day','Ignoring the problem'], 0, 'sls', '4', 'medium'),
-  q('What does "responsibility" mean?', ['Being in charge of your duties','Telling others what to do','Having many toys','Getting good grades only'], 0, 'sls', '4', 'medium'),
-
-  // Grade 4 — Hard
-  q('Which of these describes "active listening"?', ['Maintaining eye contact, nodding, and not interrupting','Thinking about your reply while they talk','Checking your phone','Finishing their sentences'], 0, 'sls', '4', 'hard'),
-
-  // Grade 5 — Medium
-  q('What is "digital citizenship"?', ['Using technology responsibly and ethically','Owning a smartphone','Playing online games','Having many followers'], 0, 'sls', '5', 'medium'),
-  q('Which is an example of a "life skill"?', ['Cooking a meal','Knowing all capitals','Running fast','Being tall'], 0, 'sls', '5', 'medium'),
-  q('What should you do if you receive a hurtful message online?', ['Tell a trusted adult and block the sender','Reply with an equally hurtful message','Share it with everyone','Ignore it and keep it secret'], 0, 'sls', '5', 'medium'),
-
-  // Grade 5 — Hard
-  q('What is the difference between a "want" and a "need"?', ['A need is essential for survival; a want is a desire','They mean the same thing','A want is more important','Needs cost more money'], 0, 'sls', '5', 'hard'),
-  q('What does "civic responsibility" mean?', ['Contributing positively to your community','Paying taxes only','Voting in elections only','Following rules only'], 0, 'sls', '5', 'hard'),
-
-  // Grade 6 — Medium
-  q('What is a budget?', ['A plan for how to spend and save money','A type of bank account','A way to earn money','A list of items to buy'], 0, 'sls', '6', 'medium'),
-  q('Which value is most associated with the Sagesse school spirit?', ['Excellence, Solidarity, and Service','Competition, Speed, and Victory','Wealth, Fame, and Power','Obedience, Silence, and Discipline'], 0, 'sls', '6', 'medium'),
-
-  // Grade 6 — Hard
-  q('What is "conflict resolution"?', ['Finding a peaceful solution to a disagreement','Winning an argument','Avoiding all conflicts','Letting someone else decide'], 0, 'sls', '6', 'hard'),
-  q('Which of these best describes "social entrepreneurship"?', ['Creating a business that also solves a social problem','Starting a business to make maximum profit','Working for a charity','Investing in stocks'], 0, 'sls', '6', 'hard'),
+  q('What do you say when someone does something nice for you?',
+    ['Thank you','Sorry','Please','Hello'], 0, 'sls', '1', 'easy'),
+  q('What is the best thing to do when you feel very angry?',
+    ['Hit something','Shout at others','Take deep breaths and calm down','Run away'], 2, 'sls', '1', 'easy'),
+  q('Which of these shows good manners at the dinner table?',
+    ['Talking with your mouth full','Chewing quietly and saying please','Leaving without asking','Grabbing food first'], 1, 'sls', '2', 'easy'),
+  q('What does "empathy" mean?',
+    ['Being very smart','Winning every argument','Understanding how others feel','Always being happy'], 2, 'sls', '3', 'medium'),
+  q('What is the right thing to do if you see someone being bullied?',
+    ['Join in','Laugh','Tell a trusted adult','Walk away and ignore it'], 2, 'sls', '3', 'easy'),
+  q('A "growth mindset" means believing that:',
+    ['You are already perfect','You can improve with effort and practice','Smart people are born smart','Failure means you should quit'], 1, 'sls', '4', 'medium'),
+  q('What does "responsibility" mean?',
+    ['Telling others what to do','Having a lot of money','Being in charge of your own duties','Being the smartest student'], 2, 'sls', '4', 'medium'),
+  q('Which of these is an example of a "life skill"?',
+    ['Knowing all world capitals','Running the fastest','Cooking a simple meal','Getting perfect exam scores'], 2, 'sls', '5', 'medium'),
+  q('What is "peer pressure"?',
+    ['A pressure test at the doctor','Stress from homework','Being influenced by people your own age','Sports competition stress'], 2, 'sls', '4', 'easy'),
+  q('What is the best response if someone sends you a hurtful message online?',
+    ['Send a worse message back','Share it with everyone to embarrass them','Tell a trusted adult and block the sender','Delete your account'], 2, 'sls', '5', 'medium'),
+  q('What is a "budget"?',
+    ['A type of bank account','A list of items you want to buy','A plan for how to spend and save money','A way to earn more money'], 2, 'sls', '6', 'medium'),
+  q('What does "honesty" mean?',
+    ['Being kind to others','Always telling the truth','Sharing everything you have','Never making mistakes'], 1, 'sls', '3', 'easy'),
+  q('"Active listening" means:',
+    ['Listening to music while studying','Thinking about your answer while they speak','Finishing other people\'s sentences','Giving full attention, eye contact, and not interrupting'], 3, 'sls', '4', 'hard'),
+  q('Which of these best describes "teamwork"?',
+    ['One person doing all the work','Each person working alone','Working together to reach a shared goal','Competing against each other'], 2, 'sls', '3', 'easy'),
+  q('What should you do before eating to stay healthy?',
+    ['Check your phone','Watch TV','Play games','Wash your hands'], 3, 'sls', '1', 'easy'),
+  q('What does "digital citizenship" mean?',
+    ['Owning a smartphone','Using technology responsibly and safely','Playing online games well','Having many followers'], 1, 'sls', '5', 'medium'),
+  q('Which value is central to Sagesse school spirit?',
+    ['Competition and winning','Fame and popularity','Excellence, Solidarity, and Service','Speed and achievement'], 2, 'sls', '6', 'medium'),
+  q('What is "conflict resolution"?',
+    ['Winning every argument','Avoiding all disagreements','Letting someone else decide','Finding a peaceful solution together'], 3, 'sls', '6', 'medium'),
+  q('What does it mean to "respect" someone?',
+    ['Always agreeing with them','Treating them with care and consideration','Buying them gifts','Doing whatever they say'], 1, 'sls', '3', 'medium'),
+  q('Which of these is a healthy way to manage stress?',
+    ['Skipping meals','Staying awake all night','Ignoring all problems','Exercise or talking to a trusted person'], 3, 'sls', '4', 'medium'),
+  q('What is the difference between a "need" and a "want"?',
+    ['They are the same thing','A want is more important','Needs cost more money','A need is essential for survival; a want is a desire'], 3, 'sls', '5', 'hard'),
+  q('What does it mean to be a "good citizen"?',
+    ['Always following every trend','Following rules and contributing positively to your community','Having the most money','Being famous'], 1, 'sls', '6', 'medium'),
+  q('What is a "role model"?',
+    ['Someone who wears nice clothes','Someone who is famous','A person whose behavior others look up to and want to copy','The best student in class'], 2, 'sls', '4', 'easy'),
+  q('How many hours of sleep should a school-age child get each night?',
+    ['4-5 hours','9-11 hours','6-7 hours','12-14 hours'], 1, 'sls', '2', 'easy'),
+  q('What is "self-discipline"?',
+    ['Being very strict with others','The ability to control your actions and follow through on goals','Never having fun','Doing only what you enjoy'], 1, 'sls', '5', 'medium'),
+  q('What does "volunteering" mean?',
+    ['Getting paid to help','Being forced to work','Giving your time to help others without being paid','Helping only friends'], 2, 'sls', '5', 'easy'),
+  q('Which describes "social entrepreneurship"?',
+    ['Making as much money as possible','Investing in the stock market','Working for a charity only','Starting a business that also solves a social problem'], 3, 'sls', '6', 'hard'),
+  q('What should you do if you make a mistake?',
+    ['Blame someone else','Hide it and hope nobody notices','Admit it, apologise, and learn from it','Pretend it never happened'], 2, 'sls', '3', 'medium'),
+  q('What is "empowerment"?',
+    ['Having a lot of power over others','Giving someone authority and confidence to take control of their life','Being very wealthy','Winning competitions'], 1, 'sls', '6', 'hard'),
+  q('Which of these is an example of setting a personal goal?',
+    ['"I will try harder sometimes"','"I want to be good at stuff"','"I will read one book every month for three months"','"Others should help me more"'], 2, 'sls', '5', 'medium'),
 ];
 
-// ─── MATH ─────────────────────────────────────────────────────────────────────
+// ─── MATH (30) ───────────────────────────────────────────────────────────────
 
 const math: SeedQ[] = [
-  // Grade 1 — Easy
-  q('What is 3 + 4?', ['7','6','8','9'], 0, 'math', '1', 'easy'),
-  q('How many sides does a triangle have?', ['3','4','2','5'], 0, 'math', '1', 'easy'),
-  q('What number comes after 9?', ['10','8','11','7'], 0, 'math', '1', 'easy'),
-  q('What is 5 − 2?', ['3','2','4','1'], 0, 'math', '1', 'easy'),
-
-  // Grade 2 — Easy
-  q('What is 6 × 2?', ['12','10','14','8'], 0, 'math', '2', 'easy'),
-  q('How many sides does a square have?', ['4','3','5','6'], 0, 'math', '2', 'easy'),
-  q('What is 15 − 7?', ['8','6','9','7'], 0, 'math', '2', 'easy'),
-  q('What is double 9?', ['18','16','17','20'], 0, 'math', '2', 'easy'),
-
-  // Grade 3 — Easy
-  q('What is 7 × 8?', ['56','54','58','48'], 0, 'math', '3', 'easy'),
-  q('What is 81 ÷ 9?', ['9','8','7','10'], 0, 'math', '3', 'easy'),
-  q('How many centimetres in a metre?', ['100','10','1000','50'], 0, 'math', '3', 'easy'),
-
-  // Grade 3 — Medium
-  q('What is the perimeter of a square with side 5 cm?', ['20 cm','15 cm','25 cm','10 cm'], 0, 'math', '3', 'medium'),
-  q('What is half of 46?', ['23','22','24','21'], 0, 'math', '3', 'medium'),
-  q('How many minutes are in an hour?', ['60','30','100','24'], 0, 'math', '3', 'medium'),
-
-  // Grade 4 — Easy
-  q('What is 1/2 + 1/4?', ['3/4','1/6','2/6','1/3'], 0, 'math', '4', 'easy'),
-  q('What is 25% of 80?', ['20','25','15','30'], 0, 'math', '4', 'easy'),
-
-  // Grade 4 — Medium
-  q('What is 3/5 of 40?', ['24','20','25','30'], 0, 'math', '4', 'medium'),
-  q('What is the area of a rectangle 6 cm × 9 cm?', ['54 cm²','45 cm²','63 cm²','36 cm²'], 0, 'math', '4', 'medium'),
-  q('Round 3.78 to the nearest tenth.', ['3.8','3.7','4.0','3.9'], 0, 'math', '4', 'medium'),
-
-  // Grade 4 — Hard
-  q('What is the LCM of 4 and 6?', ['12','24','6','8'], 0, 'math', '4', 'hard'),
-  q('What is the GCD of 36 and 48?', ['12','6','18','24'], 0, 'math', '4', 'hard'),
-
-  // Grade 5 — Easy
-  q('What is 2.5 × 4?', ['10','8','12','9'], 0, 'math', '5', 'easy'),
-  q('What is 40% of 150?', ['60','50','70','80'], 0, 'math', '5', 'easy'),
-
-  // Grade 5 — Medium
-  q('What is the value of 3²?', ['9','6','8','12'], 0, 'math', '5', 'medium'),
-  q('What is the ratio 15:25 in simplest form?', ['3:5','1:2','5:8','2:3'], 0, 'math', '5', 'medium'),
-  q('A shirt costs $40 after a 20% discount. What was the original price?', ['$50','$48','$45','$55'], 0, 'math', '5', 'medium'),
-
-  // Grade 5 — Hard
-  q('What is the prime factorisation of 60?', ['2² × 3 × 5','2 × 3 × 5','2³ × 5','2 × 3² × 5'], 0, 'math', '5', 'hard'),
-  q('What is the mean of 4, 7, 13, 2, 9?', ['7','6','8','9'], 0, 'math', '5', 'hard'),
-
-  // Grade 6 — Easy
-  q('What is −3 + (−5)?', ['−8','−2','8','2'], 0, 'math', '6', 'easy'),
-
-  // Grade 6 — Medium
-  q('Solve for x: 3x − 7 = 14', ['x = 7','x = 3','x = 9','x = 21'], 0, 'math', '6', 'medium'),
-  q('What is the area of a triangle with base 10 cm and height 6 cm?', ['30 cm²','60 cm²','20 cm²','25 cm²'], 0, 'math', '6', 'medium'),
-  q('What is 3/4 ÷ 1/2?', ['3/2','6/4','3/8','1/2'], 0, 'math', '6', 'medium'),
-
-  // Grade 6 — Hard
-  q('A car travels 180 km in 2.5 hours. What is its average speed?', ['72 km/h','80 km/h','68 km/h','90 km/h'], 0, 'math', '6', 'hard'),
-  q('What is the surface area of a cube with edge 4 cm?', ['96 cm²','64 cm²','48 cm²','80 cm²'], 0, 'math', '6', 'hard'),
+  q('What is 6 + 7?',
+    ['11','12','13','14'], 2, 'math', '1', 'easy'),
+  q('How many sides does a rectangle have?',
+    ['3','5','6','4'], 3, 'math', '1', 'easy'),
+  q('What is 9 × 7?',
+    ['54','56','63','72'], 2, 'math', '3', 'easy'),
+  q('What is 144 ÷ 12?',
+    ['10','11','13','12'], 3, 'math', '4', 'easy'),
+  q('What is 1/2 + 1/4?',
+    ['2/6','1/3','3/4','1/2'], 2, 'math', '4', 'easy'),
+  q('What is 25% of 200?',
+    ['25','75','100','50'], 3, 'math', '4', 'medium'),
+  q('What is the value of 4²?',
+    ['8','12','16','24'], 2, 'math', '5', 'easy'),
+  q('What is the perimeter of a square with side 7 cm?',
+    ['14 cm','21 cm','49 cm','28 cm'], 3, 'math', '3', 'medium'),
+  q('What is 3/4 ÷ 1/2?',
+    ['3/8','3/2','6/4','1/2'], 1, 'math', '6', 'medium'),
+  q('Solve for x: 2x + 6 = 18',
+    ['x = 4','x = 6','x = 12','x = 3'], 1, 'math', '6', 'medium'),
+  q('What is the area of a triangle with base 8 cm and height 5 cm?',
+    ['40 cm²','13 cm²','20 cm²','16 cm²'], 2, 'math', '6', 'medium'),
+  q('What is 15% of 60?',
+    ['6','12','15','9'], 3, 'math', '5', 'medium'),
+  q('Which number is prime?',
+    ['9','15','21','17'], 3, 'math', '5', 'medium'),
+  q('What is the LCM of 4 and 6?',
+    ['12','24','8','6'], 0, 'math', '4', 'hard'),
+  q('What is the GCD of 24 and 36?',
+    ['4','8','12','6'], 2, 'math', '5', 'hard'),
+  q('Round 4.567 to the nearest tenth.',
+    ['4.5','4.6','4.57','5.0'], 1, 'math', '4', 'medium'),
+  q('What is −4 + (−6)?',
+    ['−10','2','10','−2'], 0, 'math', '6', 'easy'),
+  q('How many grams are in 3 kilograms?',
+    ['300 g','30 g','3 000 g','30 000 g'], 2, 'math', '3', 'easy'),
+  q('What is the ratio 18:24 in simplest form?',
+    ['9:12','6:8','3:4','2:3'], 2, 'math', '5', 'medium'),
+  q('A car travels at 80 km/h for 3 hours. How far does it travel?',
+    ['83 km','160 km','240 km','200 km'], 2, 'math', '6', 'medium'),
+  q('What is the surface area of a cube with edge 3 cm?',
+    ['27 cm²','18 cm²','36 cm²','54 cm²'], 3, 'math', '6', 'hard'),
+  q('What is 2.5 × 6?',
+    ['12','14','15','16'], 2, 'math', '5', 'easy'),
+  q('What is the mean of 5, 10, 15, 20?',
+    ['10','12.5','15','13'], 1, 'math', '5', 'medium'),
+  q('Which fraction is largest?',
+    ['1/3','1/4','1/6','1/2'], 3, 'math', '4', 'medium'),
+  q('What is 60% of 150?',
+    ['60','90','100','75'], 1, 'math', '5', 'medium'),
+  q('Angles in a triangle always add up to:',
+    ['90°','270°','360°','180°'], 3, 'math', '4', 'easy'),
+  q('What is the prime factorisation of 36?',
+    ['2³ × 3','6 × 6','4 × 9','2² × 3²'], 3, 'math', '5', 'hard'),
+  q('A rectangle has length 12 cm and width 5 cm. What is its area?',
+    ['34 cm²','17 cm²','60 cm²','70 cm²'], 2, 'math', '4', 'easy'),
+  q('What is 0.75 written as a fraction?',
+    ['7/5','3/4','7/10','4/5'], 1, 'math', '5', 'medium'),
+  q('How many faces does a cube have?',
+    ['4','8','5','6'], 3, 'math', '3', 'easy'),
 ];
 
-// ─── LANGUAGES ────────────────────────────────────────────────────────────────
+// ─── LANGUAGES (30) ──────────────────────────────────────────────────────────
 
 const languages: SeedQ[] = [
-  // Grade 1 — Easy
-  q('How many vowels are in the English alphabet?', ['5','4','6','7'], 0, 'languages', '1', 'easy'),
-  q('What letter does "Apple" start with?', ['A','P','E','B'], 0, 'languages', '1', 'easy'),
-  q('Which word is an animal?', ['Dog','Run','Big','Red'], 0, 'languages', '1', 'easy'),
-  q('What does "bonjour" mean in English?', ['Hello','Goodbye','Thank you','Please'], 0, 'languages', '1', 'easy'),
-
-  // Grade 2 — Easy
-  q('What is the plural of "child"?', ['Children','Childs','Childes','Child'], 0, 'languages', '2', 'easy'),
-  q('Which sentence is correct?', ['She runs fast.','She run fast.','She running fast.','She runned fast.'], 0, 'languages', '2', 'easy'),
-  q('What does the French word "merci" mean?', ['Thank you','Sorry','Please','Yes'], 0, 'languages', '2', 'easy'),
-  q('What is the opposite of "hot"?', ['Cold','Warm','Cool','Icy'], 0, 'languages', '2', 'easy'),
-
-  // Grade 3 — Easy
-  q('What is a synonym for "happy"?', ['Joyful','Sad','Angry','Tired'], 0, 'languages', '3', 'easy'),
-  q('What type of word is "quickly"?', ['Adverb','Noun','Adjective','Verb'], 0, 'languages', '3', 'easy'),
-
-  // Grade 3 — Medium
-  q('What is the past tense of "go"?', ['Went','Goed','Gone','Goes'], 0, 'languages', '3', 'medium'),
-  q('Which word is a proper noun?', ['Beirut','city','river','mountain'], 0, 'languages', '3', 'medium'),
-  q('What punctuation ends a question?', ['?','!','.','–'], 0, 'languages', '3', 'medium'),
-
-  // Grade 4 — Easy
-  q('What is the Arabic word for "school"?', ['مدرسة','كتاب','قلم','باب'], 0, 'languages', '4', 'easy'),
-
-  // Grade 4 — Medium
-  q('What is a "metaphor"?', ['Saying something IS something else to compare','Saying something is LIKE something else','A story with a moral','A rhyming poem'], 0, 'languages', '4', 'medium'),
-  q('What is the French word for "book"?', ['Livre','Lire','Libra','Livrer'], 0, 'languages', '4', 'medium'),
-  q('Which of these is a compound sentence?', ['I like pizza, and she likes pasta.','I like pizza.','Because I like pizza.','Pizza.'], 0, 'languages', '4', 'medium'),
-
-  // Grade 4 — Hard
-  q('What is the subjunctive mood used for?', ['Expressing wishes, doubts, or hypothetical situations','Describing past actions','Giving commands','Stating facts'], 0, 'languages', '4', 'hard'),
-
-  // Grade 5 — Medium
-  q('What literary device is used in: "The wind whispered secrets"?', ['Personification','Metaphor','Simile','Alliteration'], 0, 'languages', '5', 'medium'),
-  q('What is a "prefix"?', ['Letters added to the beginning of a word to change its meaning','Letters added to the end','The root of a word','A type of verb'], 0, 'languages', '5', 'medium'),
-  q('How many syllables does "beautiful" have?', ['3','2','4','5'], 0, 'languages', '5', 'medium'),
-
-  // Grade 5 — Hard
-  q('What is an "oxymoron"?', ['Two contradictory words placed together','A very long word','A word that sounds like its meaning','A word with no meaning'], 0, 'languages', '5', 'hard'),
-  q('In French, what gender is the word "voiture" (car)?', ['Feminine','Masculine','Neutral','Both'], 0, 'languages', '5', 'hard'),
-
-  // Grade 6 — Medium
-  q('Which writing style uses "I" and personal experience?', ['First-person narrative','Third-person narrative','Second-person narrative','Omniscient narrative'], 0, 'languages', '6', 'medium'),
-  q('What is alliteration?', ['Repetition of the same consonant sound at the start of words','Rhyming words at the end of lines','Using very long sentences','A form of poetry'], 0, 'languages', '6', 'medium'),
-
-  // Grade 6 — Hard
-  q('What is the term for the main idea a piece of literature explores?', ['Theme','Plot','Setting','Motif'], 0, 'languages', '6', 'hard'),
-  q('Which of the following is in the passive voice?', ['The ball was kicked by Tom.','Tom kicked the ball.','Tom kicks the ball.','Tom is kicking the ball.'], 0, 'languages', '6', 'hard'),
+  q('How many letters are in the English alphabet?',
+    ['24','25','27','26'], 3, 'languages', '1', 'easy'),
+  q('What is the plural of "child"?',
+    ['Childs','Childes','Children','Child'], 2, 'languages', '2', 'easy'),
+  q('What does "bonjour" mean in English?',
+    ['Goodbye','Please','Hello','Thank you'], 2, 'languages', '1', 'easy'),
+  q('Which word is a verb?',
+    ['Happy','Quickly','Run','Blue'], 2, 'languages', '2', 'easy'),
+  q('What is the past tense of "swim"?',
+    ['Swimmed','Swimming','Swum','Swam'], 3, 'languages', '3', 'medium'),
+  q('What type of word is "beautiful"?',
+    ['Verb','Noun','Adjective','Adverb'], 2, 'languages', '3', 'easy'),
+  q('What does "au revoir" mean in English?',
+    ['Hello','Please','Thank you','Goodbye'], 3, 'languages', '2', 'easy'),
+  q('Which sentence is written correctly?',
+    ['She don\'t like ice cream.','She doesn\'t likes ice cream.','She doesn\'t like ice cream.','She not like ice cream.'], 2, 'languages', '3', 'medium'),
+  q('What is a synonym for "brave"?',
+    ['Weak','Afraid','Courageous','Sad'], 2, 'languages', '4', 'easy'),
+  q('What punctuation mark ends a question?',
+    ['Full stop (.)','Exclamation mark (!)','Question mark (?)','Comma (,)'], 2, 'languages', '2', 'easy'),
+  q('What literary device is used in: "The wind whispered secrets"?',
+    ['Simile','Metaphor','Personification','Alliteration'], 2, 'languages', '5', 'medium'),
+  q('In French, what does "merci" mean?',
+    ['Sorry','Please','Hello','Thank you'], 3, 'languages', '2', 'easy'),
+  q('What is a "prefix"?',
+    ['The root of a word','Letters added to the end of a word','Letters added to the beginning of a word','A type of sentence'], 2, 'languages', '5', 'medium'),
+  q('Which word is an antonym of "ancient"?',
+    ['Old','Historic','Modern','Past'], 2, 'languages', '4', 'medium'),
+  q('What is alliteration?',
+    ['Words that rhyme at the end of lines','A figure of speech where opposites appear together','Repetition of the same consonant sound at the start of nearby words','A very long sentence'], 2, 'languages', '6', 'medium'),
+  q('How many syllables does "beautiful" have?',
+    ['2','4','1','3'], 3, 'languages', '5', 'easy'),
+  q('What is the Arabic word for "book"?',
+    ['مدرسة','قلم','كتاب','باب'], 2, 'languages', '3', 'easy'),
+  q('What does "omnivore" mean?',
+    ['An animal that eats only plants','An animal that eats only meat','An animal that eats both plants and meat','A very large animal'], 2, 'languages', '4', 'medium'),
+  q('What is a "compound sentence"?',
+    ['A very long sentence','A sentence with two independent clauses joined by a conjunction','A sentence with only a subject','A sentence that asks a question'], 1, 'languages', '5', 'medium'),
+  q('Which of these is a proper noun?',
+    ['mountain','river','Beirut','city'], 2, 'languages', '3', 'easy'),
+  q('What is the French word for "school"?',
+    ['Livre','Maison','École','Table'], 2, 'languages', '4', 'easy'),
+  q('What is a "metaphor"?',
+    ['A word that sounds like its meaning','Saying something IS something else to compare them','A word that means the same as another','Saying something is LIKE something else'], 1, 'languages', '5', 'medium'),
+  q('Which is written in the passive voice?',
+    ['Tom kicked the ball.','Tom is kicking the ball.','Tom kicks the ball.','The ball was kicked by Tom.'], 3, 'languages', '6', 'hard'),
+  q('What is an "oxymoron"?',
+    ['A very long word','A word that sounds like its meaning','Two contradictory words placed together','A sentence with no verb'], 2, 'languages', '6', 'hard'),
+  q('What does the prefix "un-" mean in "unhappy"?',
+    ['Very','Again','Not','Before'], 2, 'languages', '4', 'easy'),
+  q('What is the theme of a story?',
+    ['The setting where the story happens','The main character\'s name','The sequence of events','The central message or idea of the story'], 3, 'languages', '6', 'medium'),
+  q('In French, "voiture" (car) is which gender?',
+    ['Masculine','Neutral','Feminine','Both masculine and feminine'], 2, 'languages', '5', 'hard'),
+  q('Which sentence uses the correct form of "there/their/they\'re"?',
+    ['There going to the park.','Their is a dog outside.','They\'re going to the park.','There dog is big.'], 2, 'languages', '5', 'medium'),
+  q('What is the superlative form of "good"?',
+    ['Gooder','Better','More good','Best'], 3, 'languages', '4', 'medium'),
+  q('What does "bibliography" mean?',
+    ['A list of books or sources used in a piece of work','A type of autobiography','A story about someone\'s life','The introduction of a book'], 0, 'languages', '6', 'hard'),
 ];
 
-// ─── FOOTBALL ─────────────────────────────────────────────────────────────────
+// ─── FOOTBALL (30) ───────────────────────────────────────────────────────────
 
 const football: SeedQ[] = [
-  // Grade 1 — Easy
-  q('How many players are on a football team on the field?', ['11','10','9','12'], 0, 'football', '1', 'easy'),
-  q('What shape is a standard football?', ['Round (sphere)','Oval','Square','Cylinder'], 0, 'football', '1', 'easy'),
-  q('What do you kick into to score a goal?', ['The net','The post','The corner flag','The sideline'], 0, 'football', '1', 'easy'),
-
-  // Grade 2 — Easy
-  q('Which country won the 2022 FIFA World Cup?', ['Argentina','France','Brazil','Germany'], 0, 'football', '2', 'easy'),
-  q('Who is the goalkeeper\'s job?', ['Stop the ball from going in the goal','Score goals','Run the fastest','Manage the team'], 0, 'football', '2', 'easy'),
-  q('How long is a standard football match?', ['90 minutes','60 minutes','45 minutes','120 minutes'], 0, 'football', '2', 'easy'),
-
-  // Grade 3 — Easy
-  q('Which player wears the number 10 shirt typically?', ['The playmaker / best attacker','The goalkeeper','The defender','The referee'], 0, 'football', '3', 'easy'),
-  q('What is a "hat-trick"?', ['Three goals by one player in one match','A type of foul','A referee decision','A special kick'], 0, 'football', '3', 'easy'),
-
-  // Grade 3 — Medium
-  q('How many teams play in the UEFA Champions League group stage each season?', ['32','20','24','16'], 0, 'football', '3', 'medium'),
-  q('Cristiano Ronaldo plays for which national team?', ['Portugal','Spain','Brazil','Italy'], 0, 'football', '3', 'medium'),
-
-  // Grade 4 — Medium
-  q('Which country has won the most FIFA World Cups?', ['Brazil','Germany','Argentina','Italy'], 0, 'football', '4', 'medium'),
-  q('What trophy is awarded to the best player at the FIFA World Cup?', ['Golden Ball','Golden Boot','Golden Glove','Silver Ball'], 0, 'football', '4', 'medium'),
-  q('In which city is Anfield stadium located?', ['Liverpool','Manchester','London','Leeds'], 0, 'football', '4', 'medium'),
-
-  // Grade 4 — Hard
-  q('Who holds the record for the most goals in a single FIFA World Cup tournament (13 goals)?', ['Just Fontaine','Ronaldo','Miroslav Klose','Gerd Müller'], 0, 'football', '4', 'hard'),
-
-  // Grade 5 — Medium
-  q('Which club has won the most UEFA Champions League titles?', ['Real Madrid','Barcelona','Bayern Munich','Liverpool'], 0, 'football', '5', 'medium'),
-  q('What is "the offside rule" about?', ['A player cannot be behind the last defender when the ball is played to them','A player cannot touch the ball with their hands','A foul tackle','A player leaving the field'], 0, 'football', '5', 'medium'),
-
-  // Grade 5 — Hard
-  q('Which player won the Ballon d\'Or the most times (8 times)?', ['Lionel Messi','Cristiano Ronaldo','Ronaldinho','Zinedine Zidane'], 0, 'football', '5', 'hard'),
-  q('In which year was FIFA founded?', ['1904','1910','1930','1896'], 0, 'football', '5', 'hard'),
-
-  // Grade 6 — Medium
-  q('Lebanon\'s national football team plays in which confederation?', ['AFC (Asian)','UEFA (European)','CAF (African)','CONMEBOL (South American)'], 0, 'football', '6', 'medium'),
-  q('The "Premier League" is the top football division in which country?', ['England','France','Spain','Germany'], 0, 'football', '6', 'medium'),
-
-  // Grade 6 — Hard
-  q('Which player is nicknamed "O Fenômeno" (The Phenomenon)?', ['Ronaldo Nazário (Brazil)','Cristiano Ronaldo','Ronaldinho','Romário'], 0, 'football', '6', 'hard'),
-  q('Which country hosted the first-ever FIFA World Cup in 1930?', ['Uruguay','Brazil','France','Italy'], 0, 'football', '6', 'hard'),
+  q('How many players does each football team have on the field?',
+    ['11','9','10','12'], 0, 'football', '1', 'easy'),
+  q('Which country has won the most FIFA World Cups (5 titles)?',
+    ['Germany','Argentina','Brazil','France'], 2, 'football', '4', 'medium'),
+  q('Who won the 2022 FIFA World Cup in Qatar?',
+    ['France','Brazil','Argentina','England'], 2, 'football', '3', 'easy'),
+  q('How long is a standard football match?',
+    ['80 minutes','120 minutes','60 minutes','90 minutes'], 3, 'football', '2', 'easy'),
+  q('What is a "hat-trick"?',
+    ['A special type of penalty','Three goals scored by one player in one game','A defensive tactic','Winning three matches in a row'], 1, 'football', '3', 'easy'),
+  q('Which club has won the most UEFA Champions League titles?',
+    ['Barcelona','Bayern Munich','Real Madrid','Liverpool'], 2, 'football', '5', 'medium'),
+  q('Who has won the Ballon d\'Or the most times (8 awards)?',
+    ['Cristiano Ronaldo','Lionel Messi','Ronaldinho','Zinedine Zidane'], 1, 'football', '5', 'hard'),
+  q('What is the offside rule about?',
+    ['A foul tackle from behind','A player being behind the last defender when the ball is played to them','Kicking the ball out of bounds','Handball in the penalty area'], 1, 'football', '5', 'medium'),
+  q('In which city is the Camp Nou stadium?',
+    ['Madrid','Lisbon','Paris','Barcelona'], 3, 'football', '4', 'medium'),
+  q('Cristiano Ronaldo plays for which national team?',
+    ['Spain','Brazil','Argentina','Portugal'], 3, 'football', '3', 'easy'),
+  q('What trophy does the winner of the UEFA Champions League receive?',
+    ['The Gold Cup','The Big Ear Trophy','The Shield','The Silver Star'], 1, 'football', '5', 'medium'),
+  q('How many points does a team get for a win in most football leagues?',
+    ['1','2','4','3'], 3, 'football', '3', 'medium'),
+  q('Which country does Kylian Mbappé represent?',
+    ['Belgium','Portugal','France','Brazil'], 2, 'football', '4', 'easy'),
+  q('Anfield is the home stadium of which club?',
+    ['Arsenal','Manchester United','Liverpool','Chelsea'], 2, 'football', '4', 'medium'),
+  q('How many minutes is each half of a football match?',
+    ['90','60','30','45'], 3, 'football', '2', 'easy'),
+  q('Lebanon\'s national football team plays in which confederation?',
+    ['UEFA','CONMEBOL','CAF','AFC'], 3, 'football', '5', 'medium'),
+  q('In football, what does the goalkeeper protect?',
+    ['The pitch','The ball','The players','The goal'], 3, 'football', '1', 'easy'),
+  q('Which country hosted the 2018 FIFA World Cup?',
+    ['Qatar','Germany','Brazil','Russia'], 3, 'football', '4', 'medium'),
+  q('Who scored the famous "Hand of God" goal?',
+    ['Pelé','Diego Maradona','Ronaldo','Zidane'], 1, 'football', '6', 'hard'),
+  q('The "Premier League" is the top football division in which country?',
+    ['Spain','Germany','France','England'], 3, 'football', '5', 'easy'),
+  q('In football, what is a "penalty kick"?',
+    ['A free kick from the centre circle','A kick given after the ball goes out of play','A direct kick from the penalty spot after a foul in the area','A kick-off at the start of the game'], 2, 'football', '4', 'medium'),
+  q('Which player is known as "The Egyptian King"?',
+    ['Sadio Mané','Mohamed Salah','Riyad Mahrez','Samuel Eto\'o'], 1, 'football', '5', 'easy'),
+  q('What colour card does a referee show to send a player off?',
+    ['Blue','Green','Red','Orange'], 2, 'football', '2', 'easy'),
+  q('Which country won the first ever FIFA World Cup in 1930?',
+    ['Brazil','Argentina','Italy','Uruguay'], 3, 'football', '6', 'hard'),
+  q('How many yellow cards equal a red card?',
+    ['1','3','4','2'], 3, 'football', '3', 'easy'),
+  q('Who is nicknamed "The Little Magician" and plays for Argentina?',
+    ['Neymar','Cristiano Ronaldo','Lionel Messi','Mbappé'], 2, 'football', '4', 'easy'),
+  q('Which club does Erling Haaland play for?',
+    ['Real Madrid','Manchester City','Bayern Munich','PSG'], 1, 'football', '5', 'easy'),
+  q('The "Serie A" is the top football league in which country?',
+    ['Spain','France','Italy','Germany'], 2, 'football', '5', 'medium'),
+  q('What is the maximum number of substitutions allowed in modern football?',
+    ['3','4','6','5'], 3, 'football', '5', 'medium'),
+  q('Who holds the record for the most goals in a single World Cup tournament with 13 goals?',
+    ['Gerd Müller','Ronaldo','Just Fontaine','Miroslav Klose'], 2, 'football', '6', 'hard'),
 ];
 
-// ─── FORMULA 1 ────────────────────────────────────────────────────────────────
+// ─── FORMULA 1 (30) ──────────────────────────────────────────────────────────
 
 const formula1: SeedQ[] = [
-  // Grade 1 — Easy
-  q('Formula 1 cars go very…', ['Fast','Slow','High','Low'], 0, 'formula1', '1', 'easy'),
-  q('What does a race driver wear on their head for safety?', ['Helmet','Hat','Cap','Crown'], 0, 'formula1', '1', 'easy'),
-  q('What color flag means the race is over?', ['Chequered (black and white)','Red','Yellow','Green'], 0, 'formula1', '1', 'easy'),
-
-  // Grade 2 — Easy
-  q('How many wheels does a Formula 1 car have?', ['4','6','8','2'], 0, 'formula1', '2', 'easy'),
-  q('Which country hosts the Monaco Grand Prix?', ['Monaco','France','Italy','Spain'], 0, 'formula1', '2', 'easy'),
-  q('The driver who finishes first is on the "podium" in which position?', ['1st','2nd','3rd','4th'], 0, 'formula1', '2', 'easy'),
-
-  // Grade 3 — Medium
-  q('Who drives for Red Bull Racing and has won multiple championships?', ['Max Verstappen','Lewis Hamilton','Charles Leclerc','Lando Norris'], 0, 'formula1', '3', 'medium'),
-  q('Which team has the most Constructors\' Championships in F1 history?', ['Ferrari','McLaren','Red Bull','Mercedes'], 0, 'formula1', '3', 'medium'),
-
-  // Grade 4 — Medium
-  q('How many points does a driver earn for winning a race?', ['25','10','20','15'], 0, 'formula1', '4', 'medium'),
-  q('What is a "pit stop" in Formula 1?', ['When a car pulls off the track to change tyres and refuel','A traffic stop','A crash stop','A penalty stop'], 0, 'formula1', '4', 'medium'),
-  q('Which engine manufacturer has powered the most F1 World Champions?', ['Ferrari','Mercedes','Honda','Renault'], 0, 'formula1', '4', 'medium'),
-
-  // Grade 4 — Hard
-  q('Which circuit is known as "The Temple of Speed" due to its high-speed layout?', ['Monza (Italy)','Silverstone (UK)','Suzuka (Japan)','Spa (Belgium)'], 0, 'formula1', '4', 'hard'),
-
-  // Grade 5 — Medium
-  q('Lewis Hamilton won how many F1 World Championships?', ['7','5','6','8'], 0, 'formula1', '5', 'medium'),
-  q('What does "DRS" stand for in Formula 1?', ['Drag Reduction System','Driver Response Speed','Dynamic Race Strategy','Dual Rotation System'], 0, 'formula1', '5', 'medium'),
-
-  // Grade 5 — Hard
-  q('Ayrton Senna won his first F1 championship driving for which team?', ['McLaren','Lotus','Williams','Ferrari'], 0, 'formula1', '5', 'hard'),
-  q('Which driver holds the record for most pole positions?', ['Ayrton Senna','Lewis Hamilton','Michael Schumacher','Sebastian Vettel'], 1, 'formula1', '5', 'hard'),
-
-  // Grade 6 — Medium
-  q('The Formula 1 season begins in which month typically?', ['March','January','May','September'], 0, 'formula1', '6', 'medium'),
-  q('What material are most Formula 1 car bodies made from?', ['Carbon fibre','Aluminium','Steel','Titanium'], 0, 'formula1', '6', 'medium'),
-
-  // Grade 6 — Hard
-  q('Who was the youngest F1 World Champion in history at the time of his first title (2010)?', ['Sebastian Vettel','Max Verstappen','Lewis Hamilton','Fernando Alonso'], 0, 'formula1', '6', 'hard'),
-  q('Which Grand Prix is held on a street circuit through a city famous for its casino?', ['Monaco','Singapore','Azerbaijan','Las Vegas'], 0, 'formula1', '6', 'hard'),
+  q('How many wheels does a Formula 1 car have?',
+    ['6','2','8','4'], 3, 'formula1', '1', 'easy'),
+  q('What flag signals the end of a Formula 1 race?',
+    ['Yellow flag','Red flag','Green flag','Chequered flag'], 3, 'formula1', '1', 'easy'),
+  q('Who won the most F1 World Championships (7 titles)?',
+    ['Ayrton Senna','Max Verstappen','Lewis Hamilton','Sebastian Vettel'], 2, 'formula1', '5', 'medium'),
+  q('Which team does Max Verstappen drive for?',
+    ['Mercedes','Ferrari','Red Bull Racing','McLaren'], 2, 'formula1', '4', 'easy'),
+  q('How many points does a driver earn for winning a race?',
+    ['10','20','15','25'], 3, 'formula1', '4', 'medium'),
+  q('What does "DRS" stand for in Formula 1?',
+    ['Double Race Speed','Driver Response System','Dynamic Race Strategy','Drag Reduction System'], 3, 'formula1', '5', 'medium'),
+  q('Which circuit is known as "The Temple of Speed" due to its high-speed layout?',
+    ['Silverstone','Monza','Suzuka','Spa'], 1, 'formula1', '5', 'hard'),
+  q('Lewis Hamilton races under which country\'s flag?',
+    ['Australia','United States','Germany','United Kingdom'], 3, 'formula1', '4', 'easy'),
+  q('Which F1 team has won the most Constructors\' Championships in history?',
+    ['Red Bull','McLaren','Ferrari','Mercedes'], 2, 'formula1', '5', 'hard'),
+  q('What does the yellow flag in Formula 1 mean?',
+    ['Race is over','Caution – hazard on track, no overtaking','Drive faster','Pit stop required'], 1, 'formula1', '4', 'medium'),
+  q('Which Grand Prix is held on a famous street circuit through a city with a casino?',
+    ['British Grand Prix','Italian Grand Prix','Belgian Grand Prix','Monaco Grand Prix'], 3, 'formula1', '5', 'easy'),
+  q('Who was the first Formula 1 World Champion, in 1950?',
+    ['Stirling Moss','Alberto Ascari','Juan Manuel Fangio','Nino Farina'], 3, 'formula1', '6', 'hard'),
+  q('What material are most F1 car bodies made from?',
+    ['Aluminium','Carbon fibre','Titanium','Steel'], 1, 'formula1', '6', 'medium'),
+  q('What is a "pit stop" in Formula 1?',
+    ['A break during the race for drivers','When a car stops due to an accident','When the race is paused by the officials','When a car pulls off track to change tyres and get serviced'], 3, 'formula1', '4', 'medium'),
+  q('How many laps does the Monaco Grand Prix usually last?',
+    ['40','50','70','78'], 3, 'formula1', '6', 'hard'),
+  q('Sebastian Vettel won 4 F1 championships in a row driving for:',
+    ['Ferrari','Red Bull Racing','McLaren','Mercedes'], 1, 'formula1', '5', 'medium'),
+  q('Which country does Charles Leclerc represent?',
+    ['France','Italy','Belgium','Monaco'], 3, 'formula1', '5', 'easy'),
+  q('What does a red flag mean during a Formula 1 race?',
+    ['Drive to the pit lane immediately','Race suspended – all cars must stop or slow down','A mechanical problem has been spotted','Speed up – the race leader is close'], 1, 'formula1', '5', 'medium'),
+  q('Ayrton Senna won 3 F1 championships racing for which team?',
+    ['Williams','Ferrari','Lotus','McLaren'], 3, 'formula1', '5', 'hard'),
+  q('Who was the youngest F1 World Champion when he first won in 2010?',
+    ['Lewis Hamilton','Kimi Räikkönen','Max Verstappen','Sebastian Vettel'], 3, 'formula1', '6', 'hard'),
+  q('Which country hosts the Suzuka Circuit?',
+    ['China','South Korea','Australia','Japan'], 3, 'formula1', '5', 'medium'),
+  q('What do F1 teams call the area where cars are serviced during a race?',
+    ['The garage','The depot','The workshop','The pit lane'], 3, 'formula1', '3', 'easy'),
+  q('How many teams compete in a typical Formula 1 season?',
+    ['20','12','16','10'], 0, 'formula1', '5', 'medium'),
+  q('Who holds the record for the most pole positions in F1 history?',
+    ['Ayrton Senna','Michael Schumacher','Sebastian Vettel','Lewis Hamilton'], 3, 'formula1', '6', 'hard'),
+  q('What colour is the Ferrari Formula 1 car?',
+    ['Blue','Red','Yellow','Silver'], 1, 'formula1', '2', 'easy'),
+  q('The Formula 1 season typically starts in which month?',
+    ['January','July','September','March'], 3, 'formula1', '5', 'easy'),
+  q('Which circuit hosts the British Grand Prix?',
+    ['Brands Hatch','Donington Park','Silverstone','Goodwood'], 2, 'formula1', '5', 'medium'),
+  q('Lando Norris is a driver from which country?',
+    ['United Kingdom','Australia','Canada','New Zealand'], 0, 'formula1', '5', 'easy'),
+  q('What does "safety car" mean in Formula 1?',
+    ['A slow car that all drivers must follow until the track is safe','A car that pushes broken cars off the track','A car that drives ahead to check the route','An emergency vehicle for medical help'], 0, 'formula1', '4', 'medium'),
+  q('The Spa-Francorchamps circuit is in which country?',
+    ['France','Netherlands','Germany','Belgium'], 3, 'formula1', '5', 'medium'),
 ];
 
-// ─── BASKETBALL ───────────────────────────────────────────────────────────────
+// ─── BASKETBALL (30) ─────────────────────────────────────────────────────────
 
 const basketball: SeedQ[] = [
-  // Grade 1 — Easy
-  q('How do you score points in basketball?', ['Put the ball through the hoop','Kick it into a net','Hit it with a bat','Throw it over a net'], 0, 'basketball', '1', 'easy'),
-  q('A normal basket is worth how many points?', ['2','1','3','4'], 0, 'basketball', '1', 'easy'),
-  q('How many players does each basketball team have on the court?', ['5','6','4','7'], 0, 'basketball', '1', 'easy'),
-
-  // Grade 2 — Easy
-  q('What is a "free throw"?', ['An uncontested shot from the free-throw line after a foul','A throw-in from the sideline','A pass to a teammate','A jump shot'], 0, 'basketball', '2', 'easy'),
-  q('Which NBA team is from Los Angeles and is nicknamed "the Lakers"?', ['LA Lakers','LA Clippers','LA Rams','LA Dodgers'], 0, 'basketball', '2', 'easy'),
-  q('A shot made from behind the three-point line is worth how many points?', ['3','2','4','1'], 0, 'basketball', '2', 'easy'),
-
-  // Grade 3 — Easy
-  q('Which Lebanese club is one of the most successful in Lebanese basketball?', ['Sagesse','Riyadi','Hoops','Champville'], 0, 'basketball', '3', 'easy'),
-  q('Who is considered the greatest basketball player of all time by many fans?', ['Michael Jordan','LeBron James','Kobe Bryant','Shaquille O\'Neal'], 0, 'basketball', '3', 'easy'),
-
-  // Grade 3 — Medium
-  q('The NBA Finals are played between the champions of which two conferences?', ['Eastern and Western','Northern and Southern','Atlantic and Pacific','American and National'], 0, 'basketball', '3', 'medium'),
-  q('How long is a quarter in NBA basketball?', ['12 minutes','10 minutes','15 minutes','8 minutes'], 0, 'basketball', '3', 'medium'),
-
-  // Grade 4 — Medium
-  q('Which country is basketball originally from?', ['United States (Canada-born inventor)','Brazil','China','France'], 0, 'basketball', '4', 'medium'),
-  q('Who invented the sport of basketball?', ['James Naismith','Michael Jordan','Dr. J (Julius Erving)','Larry Bird'], 0, 'basketball', '4', 'medium'),
-  q('Sagesse Basketball Club is based in which Lebanese city?', ['Beirut','Tripoli','Sidon','Jounieh'], 0, 'basketball', '4', 'medium'),
-
-  // Grade 4 — Hard
-  q('How many championships did Michael Jordan win with the Chicago Bulls?', ['6','5','4','7'], 0, 'basketball', '4', 'hard'),
-
-  // Grade 5 — Medium
-  q('Which NBA team has the most championships in history?', ['Boston Celtics','Los Angeles Lakers','Chicago Bulls','Golden State Warriors'], 0, 'basketball', '5', 'medium'),
-  q('What does "MVP" stand for in basketball?', ['Most Valuable Player','Most Victorious Player','Most Versatile Player','Main Valued Player'], 0, 'basketball', '5', 'medium'),
-
-  // Grade 5 — Hard
-  q('Lebanon first qualified for the FIBA Basketball World Cup in which year?', ['2010','2002','2014','2018'], 0, 'basketball', '5', 'hard'),
-  q('LeBron James surpassed whose record to become the NBA all-time leading scorer?', ['Kareem Abdul-Jabbar','Michael Jordan','Kobe Bryant','Karl Malone'], 0, 'basketball', '5', 'hard'),
-
-  // Grade 6 — Medium
-  q('The Lebanese National Basketball team is nicknamed what?', ['The Cedars','The Eagles','The Lions','The Panthers'], 0, 'basketball', '6', 'medium'),
-  q('How many titles has Sagesse BC won in Lebanese Basketball (approximately as of 2024)?', ['More than 20','5','10','15'], 0, 'basketball', '6', 'medium'),
-
-  // Grade 6 — Hard
-  q('Wilt Chamberlain scored how many points in a single NBA game in 1962?', ['100','82','73','89'], 0, 'basketball', '6', 'hard'),
-  q('Which FIBA zone does Lebanon compete in for international basketball?', ['FIBA Asia','FIBA Africa','FIBA Europe','FIBA Americas'], 0, 'basketball', '6', 'hard'),
+  q('How many players does each basketball team have on the court at once?',
+    ['6','4','7','5'], 3, 'basketball', '1', 'easy'),
+  q('How many points is a shot from beyond the three-point line worth?',
+    ['1','2','4','3'], 3, 'basketball', '1', 'easy'),
+  q('Who invented the sport of basketball?',
+    ['Michael Jordan','James Naismith','LeBron James','Larry Bird'], 1, 'basketball', '4', 'medium'),
+  q('Which Lebanese club is the most decorated in Lebanese basketball history?',
+    ['Riyadi','Hoops','Sagesse','Champville'], 2, 'basketball', '3', 'easy'),
+  q('Which NBA team has won the most championships in history?',
+    ['Los Angeles Lakers','Chicago Bulls','Boston Celtics','Golden State Warriors'], 2, 'basketball', '5', 'medium'),
+  q('How long is each quarter in NBA basketball?',
+    ['15 minutes','8 minutes','10 minutes','12 minutes'], 3, 'basketball', '4', 'medium'),
+  q('Who holds the NBA record for most points scored in a single game (100 points)?',
+    ['Michael Jordan','LeBron James','Kobe Bryant','Wilt Chamberlain'], 3, 'basketball', '6', 'hard'),
+  q('What does "MVP" stand for in basketball?',
+    ['Most Valuable Player','Most Victorious Player','Most Versatile Performer','Main Victory Prize'], 0, 'basketball', '3', 'easy'),
+  q('Michael Jordan won how many NBA championships with the Chicago Bulls?',
+    ['5','4','7','6'], 3, 'basketball', '5', 'medium'),
+  q('What is a "free throw" in basketball?',
+    ['A throw-in from the sideline','Passing to an open teammate','A jump shot from half court','An uncontested shot from the free-throw line after a foul'], 3, 'basketball', '3', 'easy'),
+  q('Which FIBA zone does Lebanon compete in?',
+    ['FIBA Africa','FIBA Europe','FIBA Americas','FIBA Asia'], 3, 'basketball', '6', 'hard'),
+  q('LeBron James surpassed whose all-time NBA scoring record?',
+    ['Michael Jordan','Kobe Bryant','Karl Malone','Kareem Abdul-Jabbar'], 3, 'basketball', '5', 'hard'),
+  q('What is "dribbling" in basketball?',
+    ['Passing the ball to a teammate','Shooting at the basket','Bouncing the ball on the floor while moving','Blocking a shot'], 2, 'basketball', '2', 'easy'),
+  q('The NBA Finals are played between the champions of which two conferences?',
+    ['Northern and Southern','American and National','Atlantic and Pacific','Eastern and Western'], 3, 'basketball', '4', 'medium'),
+  q('Which country is basketball originally from?',
+    ['Brazil','Canada (where its inventor was born)','United States','France'], 1, 'basketball', '4', 'medium'),
+  q('What is a "slam dunk"?',
+    ['A three-point shot','A free throw basket','A forceful shot where the player pushes the ball down through the hoop','A shot from half court'], 2, 'basketball', '3', 'easy'),
+  q('Sagesse Basketball Club is based in which Lebanese city?',
+    ['Tripoli','Sidon','Jounieh','Beirut'], 3, 'basketball', '4', 'medium'),
+  q('What is the height of an official NBA basketball hoop from the floor?',
+    ['3 metres','3.5 metres','2.5 metres','3.05 metres (10 feet)'], 3, 'basketball', '5', 'hard'),
+  q('Who was the first basketball player to score 38,000 career NBA points?',
+    ['Kobe Bryant','LeBron James','Karl Malone','Michael Jordan'], 1, 'basketball', '6', 'hard'),
+  q('Which team did Michael Jordan play his entire championship career with?',
+    ['Miami Heat','Los Angeles Lakers','Boston Celtics','Chicago Bulls'], 3, 'basketball', '4', 'easy'),
+  q('What does it mean to "foul out" in basketball?',
+    ['To score a foul shot','To be ejected for arguing','To be removed from the game for committing too many personal fouls','To miss a free throw'], 2, 'basketball', '4', 'medium'),
+  q('The Lebanese national basketball team is nicknamed:',
+    ['The Eagles','The Lions','The Panthers','The Cedars'], 3, 'basketball', '5', 'easy'),
+  q('What is a "triple-double" in basketball?',
+    ['Scoring 30+ points in three quarters','Scoring 3 three-pointers in a row','A foul that results in three free throws','Reaching double digits in three stat categories in one game'], 3, 'basketball', '5', 'hard'),
+  q('Which player is nicknamed "The Black Mamba"?',
+    ['LeBron James','Shaquille O\'Neal','Kobe Bryant','Kevin Durant'], 2, 'basketball', '4', 'easy'),
+  q('How many personal fouls can a player commit before fouling out in the NBA?',
+    ['4','3','7','6'], 3, 'basketball', '5', 'medium'),
+  q('Which team did LeBron James win his first NBA championship with?',
+    ['Los Angeles Lakers','Cleveland Cavaliers','Miami Heat','Boston Celtics'], 2, 'basketball', '5', 'medium'),
+  q('What is the three-second rule in basketball?',
+    ['A player cannot dribble for more than 3 seconds','A player cannot stay in the opponent\'s paint for more than 3 seconds','A shot must be taken within 3 seconds of catching the ball','A team has 3 seconds to inbound the ball'], 1, 'basketball', '5', 'hard'),
+  q('Stephen Curry is famous for his exceptional skill at:',
+    ['Slam dunks','Defensive blocks','Rebounding','Three-point shooting'], 3, 'basketball', '4', 'easy'),
+  q('What does FIBA stand for?',
+    ['Federation of International Basketball Associations','Football International Basketball Agency','Fédération Internationale de Basketball','Free International Basketball Assembly'], 2, 'basketball', '6', 'hard'),
+  q('How many minutes is a standard FIBA international basketball game?',
+    ['48 minutes','32 minutes','50 minutes','40 minutes'], 3, 'basketball', '5', 'medium'),
 ];
 
 // ─── Export ───────────────────────────────────────────────────────────────────
