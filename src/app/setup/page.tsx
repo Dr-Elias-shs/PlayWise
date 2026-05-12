@@ -48,6 +48,12 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.game_rooms;`,
 );
 -- Add display_name if upgrading existing table
 ALTER TABLE public.player_wallets ADD COLUMN IF NOT EXISTS display_name TEXT DEFAULT '';
+ALTER TABLE public.player_wallets ADD COLUMN IF NOT EXISTS character_id TEXT DEFAULT 'male';
+ALTER TABLE public.player_wallets ADD COLUMN IF NOT EXISTS color_id TEXT DEFAULT 'green';
+ALTER TABLE public.player_wallets ADD COLUMN IF NOT EXISTS equipped_id TEXT DEFAULT NULL;
+ALTER TABLE public.player_wallets ADD COLUMN IF NOT EXISTS equipped_clothing_id TEXT DEFAULT NULL;
+ALTER TABLE public.player_wallets ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT false;
+ALTER TABLE public.player_wallets ADD COLUMN IF NOT EXISTS ban_reason TEXT DEFAULT '';
 ALTER TABLE public.player_wallets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "all" ON public.player_wallets FOR ALL USING (true) WITH CHECK (true);
 ALTER PUBLICATION supabase_realtime ADD TABLE public.player_wallets;`,
