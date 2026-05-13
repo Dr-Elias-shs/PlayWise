@@ -77,7 +77,8 @@ function ScoreBar({ value, max = 100, color }: { value: number; max?: number; co
   );
 }
 
-const TINY_H = 32;
+const TINY_H   = 36;   // character image size
+const TINY_PAD = 10;   // extra top space so hat emojis (negative yFraction) stay inside bounds
 
 function TinyAvatar({ characterId = 'male', colorId = 'green', equippedClothingId, equippedId }: PlayerAppearance) {
   const registry  = useCharacterRegistry();
@@ -89,18 +90,24 @@ function TinyAvatar({ characterId = 'male', colorId = 'green', equippedClothingI
   const accItem   = resolveAccessory(equippedId);
 
   return (
-    <div style={{ position: 'relative', width: TINY_H, height: TINY_H, flexShrink: 0 }}>
+    // Container is taller than the image; image sits at the bottom so hat has room above
+    <div style={{ position: 'relative', width: TINY_H, height: TINY_H + TINY_PAD, flexShrink: 0 }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt="" draggable={false}
-        style={{ width: TINY_H, height: TINY_H, objectFit: 'contain', filter: color?.filter ?? '' }}
+        style={{
+          position: 'absolute', bottom: 0, left: 0,
+          width: TINY_H, height: TINY_H,
+          objectFit: 'contain', filter: color?.filter ?? '',
+        }}
       />
       {accItem && (
         <div style={{
           position: 'absolute',
-          top: itemTopFraction(accItem) * TINY_H,
+          // TINY_PAD shifts origin down so negative yFractions land inside the container
+          top: TINY_PAD + itemTopFraction(accItem) * TINY_H,
           left: `calc(50% + ${accItem.xOffset ?? 0}px)`,
           transform: 'translateX(-50%)',
-          fontSize: Math.round(TINY_H * 0.38),
+          fontSize: Math.round(TINY_H * 0.34),
           lineHeight: 1,
           pointerEvents: 'none',
           zIndex: 3,
