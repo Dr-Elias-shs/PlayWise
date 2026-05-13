@@ -33,7 +33,6 @@ export interface TriviaQuestion {
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 export async function getTriviaQuestions(
-  grade: TriviaGrade,
   category: TriviaCategory,
   difficulty: TriviaLevel,
   limit = 20,
@@ -41,7 +40,6 @@ export async function getTriviaQuestions(
   const { data, error } = await supabase
     .from('trivia_questions')
     .select('*')
-    .eq('grade', grade)
     .eq('category', category)
     .eq('difficulty', difficulty)
     .limit(limit);

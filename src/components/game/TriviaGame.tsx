@@ -207,6 +207,17 @@ function QuizPlay({ questions, level, category, grade, onDone }: GameProps) {
 
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const advRef    = useRef<ReturnType<typeof setTimeout>  | null>(null);
+  const doneRef   = useRef(false);
+
+  const safeDone = useCallback((s: number, t: number, c: number, lost: boolean) => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    stopTimer();
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (advRef.current) clearTimeout(advRef.current);
+    onDone(s, t, c, lost);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onDone]);
 
   const q = questions[idx];
 
@@ -221,21 +232,21 @@ function QuizPlay({ questions, level, category, grade, onDone }: GameProps) {
       setTimeLeft(t => {
         if (t <= 1) {
           stopTimer();
-          // time's up — treat as wrong
           setLocked(true);
           setShake(true);
           setTimeout(() => setShake(false), 500);
           setLives(prev => {
             const newLives = prev - 1;
             if (newLives <= 0) {
-              advRef.current = setTimeout(() => onDone(score, questions.length, 0, true), 1000);
+              advRef.current = setTimeout(() => safeDone(score, questions.length, 0, true), 1000);
             } else {
               advRef.current = setTimeout(() => {
                 setIdx(i => {
                   const next = i + 1;
                   if (next >= questions.length) {
                     const coins = Math.round((score / questions.length) * COINS_BY_LEVEL[level]);
-                    onDone(score, questions.length, coins, false);
+                    safeDone(score, questions.length, coins, false);
+                    return i; // stay put — game is ending
                   }
                   return next;
                 });
@@ -275,7 +286,7 @@ function QuizPlay({ questions, level, category, grade, onDone }: GameProps) {
         const nextIdx = idx + 1;
         if (nextIdx >= questions.length) {
           const coins = Math.round((newScore / questions.length) * COINS_BY_LEVEL[level]);
-          onDone(newScore, questions.length, coins, false);
+          safeDone(newScore, questions.length, coins, false);
         } else {
           setIdx(nextIdx);
           setSelected(null);
@@ -289,13 +300,13 @@ function QuizPlay({ questions, level, category, grade, onDone }: GameProps) {
       const newLives = lives - 1;
       setLives(newLives);
       if (newLives <= 0) {
-        advRef.current = setTimeout(() => onDone(score, questions.length, 0, true), 1200);
+        advRef.current = setTimeout(() => safeDone(score, questions.length, 0, true), 1200);
       } else {
         advRef.current = setTimeout(() => {
           const nextIdx = idx + 1;
           if (nextIdx >= questions.length) {
             const coins = Math.round((score / questions.length) * COINS_BY_LEVEL[level]);
-            onDone(score, questions.length, coins, false);
+            safeDone(score, questions.length, coins, false);
           } else {
             setIdx(nextIdx);
             setSelected(null);
@@ -423,7 +434,7 @@ export function TriviaGame({ onBack }: { onBack: () => void }) {
     setPhase('loading');
     setLoadErr('');
     try {
-      const qs = await getTriviaQuestions(grade, cat, lvl as TriviaLevel, Q_PER_GAME + 5);
+      const qs = await getTriviaQuestions(cat, lvl as TriviaLevel, Q_PER_GAME + 5);
       if (qs.length === 0) {
         setLoadErr(`No questions found for this category and level. Ask your teacher to add some!`);
         setPhase('category');
