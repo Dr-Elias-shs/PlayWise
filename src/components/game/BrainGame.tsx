@@ -445,17 +445,17 @@ function storyProblem(): Problem {
 
 // HARD: two operations
 function bagsProblem(): Problem {
-  const item = pickItem(), bags = rand(2, 5), each = rand(3, 7), total = bags * each, eat = rand(2, Math.min(5, total - 1)), left = total - eat;
+  const item = pickItem(), bags = rand(2, 5), each = rand(3, 7), total = bags * each, used = rand(2, Math.min(5, total - 1)), left = total - used;
   return {
-    scenario: `You have ${bags} bags. Each bag has ${each} ${item.plural}. You eat ${eat} of them.`,
+    scenario: `You have ${bags} bags. Each bag has ${each} ${item.plural}. You give away ${used} of them.`,
     emoji: item.emoji, tag: 'Two Steps 🧠',
     steps: [
       { question: 'How many bags do you have?', choices: numChoices(bags, each), correct: String(bags), explanation: `There are ${bags} bags.` },
       { question: `How many ${item.plural} are in each bag?`, choices: numChoices(each, bags), correct: String(each), explanation: `Each bag has ${each} ${item.plural}.` },
       { question: 'Step 1 — How do you find the total?', choices: shuffle(OPS), correct: 'Multiplication (×)', explanation: `${bags} equal groups of ${each} → multiply!`, wrongConsequence: `❌ You have ${bags} bags, each with the SAME number. Equal groups = multiplication!` },
       { question: `Step 1 — Solve:  ${bags} × ${each} = ?`, choices: numChoices(total, bags + each), correct: String(total), explanation: `${bags} × ${each} = ${total} total.` },
-      { question: `Step 2 — You eat ${eat}. Which operation?`, choices: shuffle(OPS), correct: 'Subtraction (−)', explanation: `Eating takes away → subtraction!`, wrongConsequence: `❌ Eating reduces the total. Taking away = subtraction!` },
-      { question: `Step 2 — Solve:  ${total} − ${eat} = ?`, choices: numChoices(left, total + eat), correct: String(left), explanation: `${total} − ${eat} = ${left} 🎉` },
+      { question: `Step 2 — You give away ${used}. Which operation?`, choices: shuffle(OPS), correct: 'Subtraction (−)', explanation: `Giving away takes some out → subtraction!`, wrongConsequence: `❌ Giving away reduces the total. Taking away = subtraction!` },
+      { question: `Step 2 — Solve:  ${total} − ${used} = ?`, choices: numChoices(left, total + used), correct: String(left), explanation: `${total} − ${used} = ${left} 🎉` },
     ],
     finalMessage: `You have ${left} ${item.plural} left! ${item.emoji}`,
   };
