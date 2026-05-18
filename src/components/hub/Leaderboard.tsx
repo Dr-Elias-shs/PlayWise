@@ -173,11 +173,18 @@ export function Leaderboard() {
   const [appearances, setAppearances] = useState<Record<string, PlayerAppearance>>({});
 
   const fetchAll = async () => {
-    const { data, error } = await supabase
+    // Fetch global top-50 + all classmates (in parallel so neither blocks the other)
+    const globalQ = supabase
       .from('learning_scores')
       .select('*')
       .order('learning_score', { ascending: false })
       .limit(50);
+
+    const classQ = playerGrade
+      ? supabase.from('learning_scores').select('*').eq('grade', playerGrade)
+      : Promise.resolve({ data: [], error: null });
+
+    const [{ data: globalData, error }, { data: classData }] = await Promise.all([globalQ, classQ]);
 
     if (error) {
       if (error.code === '42P01') setDbReady(false);
@@ -185,10 +192,17 @@ export function Leaderboard() {
       return;
     }
     setDbReady(true);
-    setEntries(data ?? []);
+
+    // Merge: global top-50 + classmates, deduplicated by student_name
+    const merged = [...(globalData ?? [])];
+    const seen   = new Set(merged.map(e => e.student_name));
+    for (const e of (classData ?? [])) {
+      if (!seen.has(e.student_name)) merged.push(e);
+    }
+    setEntries(merged);
 
     // Fetch character appearances from player_wallets
-    const names = (data ?? []).map(e => e.student_name);
+    const names = merged.map(e => e.student_name);
     if (names.length > 0) {
       const { data: wallets } = await supabase
         .from('player_wallets')
