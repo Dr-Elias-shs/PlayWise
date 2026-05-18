@@ -89,6 +89,14 @@ export async function deleteTriviaQuestion(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function clearAllTrivia(): Promise<void> {
+  const { error } = await supabase
+    .from('trivia_questions')
+    .delete()
+    .not('id', 'is', null);
+  if (error) throw error;
+}
+
 export async function bulkInsertTrivia(
   questions: Omit<TriviaQuestion, 'id' | 'created_at'>[],
 ): Promise<number> {

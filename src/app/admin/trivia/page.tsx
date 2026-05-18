@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   TRIVIA_CATEGORIES, TriviaCategory, TriviaGrade, TriviaLevel, TriviaQuestion,
   getAllTriviaForAdmin, addTriviaQuestion, updateTriviaQuestion,
-  deleteTriviaQuestion, bulkInsertTrivia,
+  deleteTriviaQuestion, bulkInsertTrivia, clearAllTrivia,
 } from '@/lib/trivia';
 import { TRIVIA_SEED } from '@/lib/trivia-seed';
 import { parseQuestionsWithOllama } from '@/lib/curriculum';
@@ -383,12 +383,28 @@ export default function AdminTriviaPage() {
   };
 
   const handleSeedGrades = async () => {
-    if (!confirm('This will seed questions for grades 1–6. Duplicates may be inserted. Continue?')) return;
+    if (!confirm('This will seed questions. Duplicates may be inserted. Continue?')) return;
     setSeeding(true);
     setSeedStatus('Seeding…');
     try {
       const count = await bulkInsertTrivia(TRIVIA_SEED);
       setSeedStatus(`✅ Inserted ${count} questions!`);
+      await fetchQuestions();
+    } catch (e) {
+      setSeedStatus(`Error: ${String(e)}`);
+    }
+    setSeeding(false);
+  };
+
+  const handleClearAndReseed = async () => {
+    if (!confirm('⚠️ This will DELETE all trivia questions and reseed from scratch. Continue?')) return;
+    setSeeding(true);
+    setSeedStatus('Clearing…');
+    try {
+      await clearAllTrivia();
+      setSeedStatus('Seeding…');
+      const count = await bulkInsertTrivia(TRIVIA_SEED);
+      setSeedStatus(`✅ Cleared & reseeded ${count} questions!`);
       await fetchQuestions();
     } catch (e) {
       setSeedStatus(`Error: ${String(e)}`);
@@ -489,15 +505,22 @@ export default function AdminTriviaPage() {
           style={{ background: 'rgba(245,158,11,0.07)' }}>
           <div className="text-2xl">🌱</div>
           <div className="flex-1">
-            <p className="text-white font-bold text-sm">Seed Questions for Grades 1–6</p>
-            <p className="text-white/40 text-xs">{TRIVIA_SEED.length} pre-loaded questions across all categories.</p>
+            <p className="text-white font-bold text-sm">Question Bank</p>
+            <p className="text-white/40 text-xs">{TRIVIA_SEED.length} questions · 10 easy / 10 medium / 10 hard per category.</p>
             {seedStatus && <p className="text-xs mt-0.5" style={{ color: seedStatus.startsWith('✅') ? '#86efac' : '#fca5a5' }}>{seedStatus}</p>}
           </div>
-          <button onClick={handleSeedGrades} disabled={seeding}
-            className="px-4 py-2 rounded-xl font-black text-sm text-white transition-all hover:opacity-90 disabled:opacity-50 flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b)' }}>
-            {seeding ? 'Seeding…' : 'Seed Now'}
-          </button>
+          <div className="flex gap-2 flex-shrink-0">
+            <button onClick={handleSeedGrades} disabled={seeding}
+              className="px-4 py-2 rounded-xl font-black text-sm text-white transition-all hover:opacity-90 disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b)' }}>
+              {seeding ? 'Working…' : 'Seed Now'}
+            </button>
+            <button onClick={handleClearAndReseed} disabled={seeding}
+              className="px-4 py-2 rounded-xl font-black text-sm text-white transition-all hover:opacity-90 disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #dc2626, #ef4444)' }}>
+              {seeding ? 'Working…' : 'Clear & Reseed'}
+            </button>
+          </div>
         </div>
 
         {/* Grade tabs */}
