@@ -21,6 +21,7 @@ interface LearningRow {
 
 interface Props {
   studentName: string;
+  playerEmail?: string | null;
   grade?: string | null;
   open: boolean;
   onClose: () => void;
@@ -40,7 +41,7 @@ function Bar({ value, max = 100, color }: { value: number; max?: number; color: 
   );
 }
 
-export function PlayerStatsModal({ studentName, grade, open, onClose }: Props) {
+export function PlayerStatsModal({ studentName, playerEmail, grade, open, onClose }: Props) {
   const [row, setRow]         = useState<LearningRow | null>(null);
   const [rank, setRank]       = useState<number | null>(null);
   const [coins, setCoins]     = useState<number | null>(null);
@@ -50,24 +51,29 @@ export function PlayerStatsModal({ studentName, grade, open, onClose }: Props) {
     if (!open || !studentName) return;
     setLoading(true);
 
+    // Same key logic as addCoins: email takes priority over display name
+    const dbKey = playerEmail?.trim().toLowerCase() || studentName;
+
     Promise.all([
-      // Own learning row
+      // Own learning row — try dbKey first, fall back to display name
       supabase
         .from('learning_scores')
         .select('*')
-        .eq('student_name', studentName)
-        .maybeSingle(),
-      // Count players with higher score → derive rank
+        .eq('student_name', dbKey)
+        .maybeSingle()
+        .then(r => r.data ? r : supabase.from('learning_scores').select('*').eq('student_name', studentName).maybeSingle()),
+      // All scores for rank calculation
       supabase
         .from('learning_scores')
         .select('learning_score', { count: 'exact', head: false })
         .order('learning_score', { ascending: false }),
-      // PlayBits from wallet
+      // PlayBits — try dbKey first, fall back to display name
       supabase
         .from('player_wallets')
         .select('coins')
-        .eq('student_name', studentName)
-        .maybeSingle(),
+        .eq('student_name', dbKey)
+        .maybeSingle()
+        .then(r => r.data ? r : supabase.from('player_wallets').select('coins').eq('student_name', studentName).maybeSingle()),
     ]).then(([own, all, wallet]) => {
       const ownData = own.data as LearningRow | null;
       setRow(ownData);

@@ -507,6 +507,7 @@ export default function Home() {
 
       <PlayerStatsModal
         studentName={playerName}
+        playerEmail={playerEmail}
         grade={playerGrade}
         open={showStats}
         onClose={() => setShowStats(false)}
