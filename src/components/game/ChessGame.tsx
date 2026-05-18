@@ -1,0 +1,600 @@
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Chess } from 'chess.js';
+import { Chessboard } from 'react-chessboard';
+import type { PieceDropHandlerArgs } from 'react-chessboard/dist/types';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useGameStore } from '@/store/useGameStore';
+import { addCoins } from '@/lib/wallet';
+import { getBestMove, AIDifficulty } from '@/lib/chess-ai';
+import { supabase } from '@/lib/supabase';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Mode    = 'menu' | 'ai' | 'mp-lobby' | 'mp-waiting' | 'playing-ai' | 'playing-mp' | 'done';
+type Winner  = 'player' | 'ai' | 'opponent' | 'draw' | null;
+
+const COINS_WIN  = 80;
+const COINS_DRAW = 20;
+
+const BG = 'linear-gradient(135deg, #0f2027, #203a43, #2c5364)';
+
+// ─── Small helpers ────────────────────────────────────────────────────────────
+
+function StatusBadge({ text, color }: { text: string; color: string }) {
+  return (
+    <span className="inline-block px-3 py-1 rounded-full text-xs font-black"
+      style={{ background: color, color: '#fff' }}>
+      {text}
+    </span>
+  );
+}
+
+// ─── Menu ─────────────────────────────────────────────────────────────────────
+
+function ModeMenu({ onSelectAI, onSelectMP, onBack }: {
+  onSelectAI: () => void;
+  onSelectMP: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: BG }}>
+      <div className="w-full max-w-sm space-y-6">
+        <div className="text-center">
+          <div className="text-6xl mb-3">♟️</div>
+          <h2 className="text-3xl font-black text-white">Chess</h2>
+          <p className="text-white/50 mt-1">Choose your mode</p>
+        </div>
+
+        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+          onClick={onSelectAI}
+          className="w-full p-5 rounded-3xl border border-white/10 text-left transition-all hover:border-white/30"
+          style={{ background: 'rgba(255,255,255,0.07)' }}>
+          <div className="text-3xl mb-2">🤖</div>
+          <div className="text-white font-black text-lg">vs Computer</div>
+          <div className="text-white/40 text-sm mt-0.5">Practice against the AI — choose difficulty</div>
+        </motion.button>
+
+        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+          onClick={onSelectMP}
+          className="w-full p-5 rounded-3xl border border-white/10 text-left transition-all hover:border-white/30"
+          style={{ background: 'rgba(255,255,255,0.07)' }}>
+          <div className="text-3xl mb-2">⚔️</div>
+          <div className="text-white font-black text-lg">vs Friend</div>
+          <div className="text-white/40 text-sm mt-0.5">Create or join a room and play a classmate</div>
+        </motion.button>
+
+        <button onClick={onBack} className="w-full text-white/30 hover:text-white/60 font-medium text-sm transition-colors">
+          ← Back
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── AI difficulty picker ─────────────────────────────────────────────────────
+
+function AIPicker({ onSelect, onBack }: {
+  onSelect: (d: AIDifficulty) => void;
+  onBack: () => void;
+}) {
+  const LEVELS: { id: AIDifficulty; label: string; desc: string; color: string }[] = [
+    { id: 'easy',   label: 'Easy',   desc: 'Makes random-ish moves — great for beginners', color: '#22c55e' },
+    { id: 'medium', label: 'Medium', desc: 'Thinks 2 moves ahead — a real challenge',       color: '#f59e0b' },
+    { id: 'hard',   label: 'Hard',   desc: 'Thinks 3 moves ahead — tough opponent',         color: '#ef4444' },
+  ];
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: BG }}>
+      <div className="w-full max-w-sm space-y-4">
+        <div className="text-center mb-6">
+          <div className="text-4xl mb-2">🤖</div>
+          <h2 className="text-2xl font-black text-white">Pick Difficulty</h2>
+        </div>
+        {LEVELS.map((l, i) => (
+          <motion.button key={l.id}
+            initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.07 }}
+            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+            onClick={() => onSelect(l.id)}
+            className="w-full p-4 rounded-2xl border-2 text-left"
+            style={{ borderColor: l.color + '55', background: l.color + '18' }}>
+            <div className="font-black text-white text-base">{l.label}</div>
+            <div className="text-white/50 text-xs mt-0.5">{l.desc}</div>
+          </motion.button>
+        ))}
+        <button onClick={onBack} className="w-full text-white/30 hover:text-white/60 font-medium text-sm transition-colors pt-2">
+          ← Back
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Multiplayer lobby ────────────────────────────────────────────────────────
+
+function MPLobby({ playerName, onJoined, onBack }: {
+  playerName: string;
+  onJoined: (roomCode: string, color: 'w' | 'b') => void;
+  onBack: () => void;
+}) {
+  const [tab,      setTab]      = useState<'create' | 'join'>('create');
+  const [codeInput,setCodeInput]= useState('');
+  const [status,   setStatus]   = useState('');
+  const [busy,     setBusy]     = useState(false);
+
+  const newCode = () => Math.random().toString(36).slice(2, 7).toUpperCase();
+
+  const handleCreate = async () => {
+    const code = newCode();
+    setBusy(true);
+    setStatus('Creating room…');
+    // Write room to DB (reuse existing game_rooms table structure)
+    const { error } = await supabase.from('chess_rooms').upsert({
+      room_code: code,
+      host_name: playerName,
+      status: 'waiting',
+      fen: new Chess().fen(),
+      white_name: playerName,
+      black_name: null,
+      created_at: new Date().toISOString(),
+    });
+    if (error) { setStatus(`Error: ${error.message}`); setBusy(false); return; }
+    onJoined(code, 'w');
+  };
+
+  const handleJoin = async () => {
+    if (!codeInput.trim()) { setStatus('Enter a room code'); return; }
+    const code = codeInput.trim().toUpperCase();
+    setBusy(true);
+    setStatus('Joining…');
+    const { data, error } = await supabase
+      .from('chess_rooms')
+      .select('*')
+      .eq('room_code', code)
+      .eq('status', 'waiting')
+      .maybeSingle();
+    if (error || !data) { setStatus('Room not found or already started.'); setBusy(false); return; }
+    await supabase.from('chess_rooms').update({ black_name: playerName, status: 'playing' }).eq('room_code', code);
+    onJoined(code, 'b');
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: BG }}>
+      <div className="w-full max-w-sm space-y-5">
+        <div className="text-center mb-2">
+          <div className="text-4xl mb-2">⚔️</div>
+          <h2 className="text-2xl font-black text-white">Multiplayer Chess</h2>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2">
+          {(['create', 'join'] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`flex-1 py-2 rounded-xl font-black text-sm transition-all ${
+                tab === t ? 'bg-white text-slate-800' : 'bg-white/10 text-white/60 hover:bg-white/20'
+              }`}>
+              {t === 'create' ? '➕ Create Room' : '🔗 Join Room'}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'create' && (
+          <div className="space-y-3">
+            <p className="text-white/50 text-sm text-center">A room code will be generated — share it with your friend.</p>
+            <motion.button whileTap={{ scale: 0.97 }}
+              onClick={handleCreate} disabled={busy}
+              className="w-full py-3 rounded-2xl font-black text-white text-base disabled:opacity-50 transition-all hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #6d28d9, #7c3aed)' }}>
+              {busy ? 'Creating…' : 'Create Room'}
+            </motion.button>
+          </div>
+        )}
+
+        {tab === 'join' && (
+          <div className="space-y-3">
+            <input
+              value={codeInput}
+              onChange={e => setCodeInput(e.target.value.toUpperCase())}
+              onKeyDown={e => e.key === 'Enter' && handleJoin()}
+              placeholder="Enter room code"
+              maxLength={6}
+              className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white font-black text-center text-xl placeholder-white/30 tracking-widest outline-none focus:border-violet-400"
+            />
+            <motion.button whileTap={{ scale: 0.97 }}
+              onClick={handleJoin} disabled={busy}
+              className="w-full py-3 rounded-2xl font-black text-white text-base disabled:opacity-50 transition-all hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #0891b2, #0e7490)' }}>
+              {busy ? 'Joining…' : 'Join Room'}
+            </motion.button>
+          </div>
+        )}
+
+        {status && (
+          <p className="text-center text-sm font-medium" style={{ color: status.startsWith('Error') ? '#fca5a5' : '#86efac' }}>
+            {status}
+          </p>
+        )}
+
+        <button onClick={onBack} className="w-full text-white/30 hover:text-white/60 font-medium text-sm transition-colors pt-2">
+          ← Back
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Waiting room (host waits for opponent) ───────────────────────────────────
+
+function MPWaiting({ roomCode, onOpponentJoined, onBack }: {
+  roomCode: string;
+  onOpponentJoined: () => void;
+  onBack: () => void;
+}) {
+  useEffect(() => {
+    const ch = supabase.channel(`chess-room-${roomCode}`)
+      .on('broadcast', { event: 'joined' }, () => onOpponentJoined())
+      .subscribe();
+
+    // Also poll in case broadcast missed
+    const poll = setInterval(async () => {
+      const { data } = await supabase
+        .from('chess_rooms').select('status').eq('room_code', roomCode).maybeSingle();
+      if (data?.status === 'playing') onOpponentJoined();
+    }, 2000);
+
+    return () => { supabase.removeChannel(ch); clearInterval(poll); };
+  }, [roomCode, onOpponentJoined]);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: BG }}>
+      <div className="text-center space-y-5 max-w-xs">
+        <div className="text-5xl">⏳</div>
+        <div>
+          <h2 className="text-2xl font-black text-white">Waiting for opponent…</h2>
+          <p className="text-white/50 text-sm mt-1">Share this code with your friend</p>
+        </div>
+        <div className="bg-white/10 rounded-3xl p-6">
+          <div className="text-5xl font-black text-white tracking-[0.25em]">{roomCode}</div>
+        </div>
+        <div className="w-8 h-8 border-4 border-violet-400/30 border-t-violet-400 rounded-full animate-spin mx-auto" />
+        <button onClick={onBack} className="text-white/30 hover:text-white/60 font-medium text-sm transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Game board ───────────────────────────────────────────────────────────────
+
+interface BoardProps {
+  mode: 'ai' | 'mp';
+  difficulty?: AIDifficulty;
+  playerColor?: 'w' | 'b';
+  roomCode?: string;
+  playerName: string;
+  playerEmail: string;
+  onDone: (winner: Winner) => void;
+}
+
+function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, playerName, playerEmail, onDone }: BoardProps) {
+  const [game,       setGame]       = useState(new Chess());
+  const [fen,        setFen]        = useState(new Chess().fen());
+  const [status,     setStatus]     = useState('');
+  const [thinking,   setThinking]   = useState(false);
+  const [lastMove,   setLastMove]   = useState<{ from: string; to: string } | null>(null);
+  const [opponentName, setOpponentName] = useState('Opponent');
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const doneRef    = useRef(false);
+
+  const finish = useCallback((w: Winner) => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    onDone(w);
+  }, [onDone]);
+
+  const syncStatus = useCallback((g: Chess) => {
+    if (g.isCheckmate()) {
+      const winner = g.turn() === 'w' ? 'b' : 'w';
+      if (mode === 'ai') finish(winner === playerColor ? 'player' : 'ai');
+      else               finish(winner === playerColor ? 'player' : 'opponent');
+    } else if (g.isDraw()) {
+      finish('draw');
+    } else if (g.isCheck()) {
+      setStatus('Check!');
+    } else {
+      setStatus('');
+    }
+  }, [mode, playerColor, finish]);
+
+  // ── AI move ──
+  const doAIMove = useCallback((currentGame: Chess) => {
+    if (currentGame.isGameOver()) return;
+    setThinking(true);
+    setTimeout(() => {
+      const move = getBestMove(currentGame.fen(), difficulty);
+      if (!move) { setThinking(false); return; }
+      const g = new Chess(currentGame.fen());
+      g.move(move);
+      setGame(g);
+      setFen(g.fen());
+      setLastMove({ from: move.slice(0, 2), to: move.slice(2, 4) });
+      syncStatus(g);
+      setThinking(false);
+    }, 300);
+  }, [difficulty, syncStatus]);
+
+  // ── Multiplayer channel setup ──
+  useEffect(() => {
+    if (mode !== 'mp' || !roomCode) return;
+
+    // Fetch opponent name
+    supabase.from('chess_rooms').select('*').eq('room_code', roomCode).maybeSingle().then(({ data }) => {
+      if (!data) return;
+      setOpponentName(playerColor === 'w' ? (data.black_name ?? 'Opponent') : data.white_name);
+    });
+
+    const ch = supabase.channel(`chess-moves-${roomCode}`, { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'move' }, ({ payload }) => {
+        setGame(prev => {
+          const g = new Chess(prev.fen());
+          g.move(payload.move);
+          setFen(g.fen());
+          setLastMove({ from: payload.move.slice(0, 2), to: payload.move.slice(2, 4) });
+          syncStatus(g);
+          return g;
+        });
+      })
+      .on('broadcast', { event: 'resign' }, () => finish('player'))
+      .subscribe();
+
+    channelRef.current = ch;
+
+    // Notify host that opponent joined (if black)
+    if (playerColor === 'b') {
+      ch.send({ type: 'broadcast', event: 'joined', payload: {} });
+    }
+
+    return () => { supabase.removeChannel(ch); };
+  }, [mode, roomCode, playerColor, syncStatus, finish]);
+
+  // ── Trigger AI on mount if player is black ──
+  useEffect(() => {
+    if (mode === 'ai' && playerColor === 'b') {
+      doAIMove(game);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onDrop = useCallback(({ sourceSquare, targetSquare }: PieceDropHandlerArgs) => {
+    if (thinking) return false;
+    if (!targetSquare) return false;
+    if (game.isGameOver()) return false;
+    if (game.turn() !== playerColor) return false;
+
+    const g = new Chess(game.fen());
+    let move;
+    try {
+      move = g.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
+    } catch { return false; }
+    if (!move) return false;
+
+    setGame(g);
+    setFen(g.fen());
+    setLastMove({ from: sourceSquare, to: targetSquare });
+    syncStatus(g);
+
+    if (mode === 'mp' && channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast', event: 'move',
+        payload: { move: move.lan ?? `${sourceSquare}${targetSquare}` },
+      });
+    }
+
+    if (mode === 'ai' && !g.isGameOver()) {
+      doAIMove(g);
+    }
+
+    return true;
+  }, [game, thinking, playerColor, mode, syncStatus, doAIMove]);
+
+  const handleResign = () => {
+    if (mode === 'mp' && channelRef.current) {
+      channelRef.current.send({ type: 'broadcast', event: 'resign', payload: {} });
+    }
+    finish(mode === 'ai' ? 'ai' : 'opponent');
+  };
+
+  const myTurn  = game.turn() === playerColor && !game.isGameOver();
+  const boardOrientation = playerColor === 'w' ? 'white' : 'black';
+
+  const highlightSquares: Record<string, { backgroundColor: string }> = {};
+  if (lastMove) {
+    highlightSquares[lastMove.from] = { backgroundColor: 'rgba(255,255,0,0.25)' };
+    highlightSquares[lastMove.to]   = { backgroundColor: 'rgba(255,255,0,0.35)' };
+  }
+
+  const opponentLabel = mode === 'ai'
+    ? `🤖 AI (${difficulty})`
+    : opponentName;
+  const myLabel = playerName;
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: BG }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <div className="text-white/70 text-sm font-bold truncate max-w-[40%]">
+          {playerColor === 'b' ? '⬜ ' : '⬛ '}{opponentLabel}
+        </div>
+        <AnimatePresence>
+          {status && (
+            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }}>
+              <StatusBadge text={status} color="#ef4444" />
+            </motion.div>
+          )}
+          {!status && (
+            <span className="text-xs font-black px-3 py-1 rounded-full"
+              style={{ background: myTurn ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.08)', color: myTurn ? '#86efac' : '#94a3b8' }}>
+              {game.isGameOver() ? 'Game over' : myTurn ? 'Your turn' : thinking ? 'Thinking…' : "Opponent's turn"}
+            </span>
+          )}
+        </AnimatePresence>
+        <div className="text-white/70 text-sm font-bold truncate max-w-[40%] text-right">
+          {playerColor === 'w' ? '⬜ ' : '⬛ '}{myLabel}
+        </div>
+      </div>
+
+      {/* Board */}
+      <div className="flex-1 flex flex-col items-center justify-center p-4 gap-4">
+        <div className="w-full max-w-[min(90vw,480px)]">
+          <Chessboard options={{
+            position: fen,
+            onPieceDrop: onDrop,
+            boardOrientation,
+            squareStyles: highlightSquares,
+            animationDurationInMs: 200,
+            allowDragging: myTurn && !thinking,
+            boardStyle: { borderRadius: '12px', boxShadow: '0 8px 40px rgba(0,0,0,0.6)' },
+            darkSquareStyle: { backgroundColor: '#2d4a6e' },
+            lightSquareStyle: { backgroundColor: '#e8edf5' },
+          }} />
+        </div>
+
+        <button onClick={handleResign}
+          className="text-white/30 hover:text-red-400 font-medium text-sm transition-colors">
+          🏳️ Resign
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Game over screen ─────────────────────────────────────────────────────────
+
+function GameOverScreen({ winner, mode, onPlayAgain, onBack }: {
+  winner: Winner;
+  mode: 'ai' | 'mp';
+  onPlayAgain: () => void;
+  onBack: () => void;
+}) {
+  const emoji = winner === 'player' ? '🏆' : winner === 'draw' ? '🤝' : '💔';
+  const title = winner === 'player' ? 'You Win!' : winner === 'draw' ? 'Draw!' : 'You Lost';
+  const coins = winner === 'player' ? COINS_WIN : winner === 'draw' ? COINS_DRAW : 0;
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: BG }}>
+      <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        className="w-full max-w-sm rounded-3xl p-8 text-center space-y-5 border border-white/10"
+        style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(20px)' }}>
+        <div className="text-6xl">{emoji}</div>
+        <h2 className="text-3xl font-black text-white">{title}</h2>
+        {coins > 0 && (
+          <div className="rounded-2xl p-4" style={{ background: 'rgba(255,215,0,0.12)' }}>
+            <div className="text-3xl font-black text-yellow-300">+{coins}</div>
+            <div className="text-white/40 text-xs font-bold mt-0.5">PLAYBITS EARNED</div>
+          </div>
+        )}
+        <div className="flex gap-3">
+          <button onClick={onPlayAgain}
+            className="flex-1 py-3 rounded-2xl font-black text-white transition-all hover:scale-105"
+            style={{ background: 'linear-gradient(135deg, #6d28d9, #7c3aed)' }}>
+            Play Again
+          </button>
+          <button onClick={onBack}
+            className="px-5 py-3 rounded-2xl font-bold text-white/60 hover:text-white transition-colors"
+            style={{ background: 'rgba(255,255,255,0.06)' }}>
+            Exit
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+
+export function ChessGame({ onBack }: { onBack: () => void }) {
+  const { playerName, playerEmail } = useGameStore();
+
+  const [mode,       setMode]       = useState<Mode>('menu');
+  const [gameMode,   setGameMode]   = useState<'ai' | 'mp'>('ai');
+  const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
+  const [playerColor,setPlayerColor]= useState<'w' | 'b'>('w');
+  const [roomCode,   setRoomCode]   = useState('');
+  const [winner,     setWinner]     = useState<Winner>(null);
+
+  const handleWin = useCallback(async (w: Winner) => {
+    setWinner(w);
+    setMode('done');
+    const coins = w === 'player' ? COINS_WIN : w === 'draw' ? COINS_DRAW : 0;
+    if (coins > 0 && playerName) {
+      await addCoins(playerName, coins, 0, true, '', 'chess', playerEmail ?? '').catch(() => {});
+    }
+  }, [playerName, playerEmail]);
+
+  const resetToMenu = () => {
+    setMode('menu');
+    setWinner(null);
+    setRoomCode('');
+  };
+
+  if (mode === 'menu') {
+    return <ModeMenu onSelectAI={() => setMode('ai')} onSelectMP={() => setMode('mp-lobby')} onBack={onBack} />;
+  }
+
+  if (mode === 'ai') {
+    return <AIPicker onSelect={d => { setDifficulty(d); setPlayerColor('w'); setGameMode('ai'); setMode('playing-ai'); }} onBack={() => setMode('menu')} />;
+  }
+
+  if (mode === 'mp-lobby') {
+    return (
+      <MPLobby
+        playerName={playerName}
+        onJoined={(code, color) => {
+          setRoomCode(code);
+          setPlayerColor(color);
+          setGameMode('mp');
+          setMode(color === 'w' ? 'mp-waiting' : 'playing-mp');
+        }}
+        onBack={() => setMode('menu')}
+      />
+    );
+  }
+
+  if (mode === 'mp-waiting') {
+    return (
+      <MPWaiting
+        roomCode={roomCode}
+        onOpponentJoined={() => setMode('playing-mp')}
+        onBack={() => setMode('menu')}
+      />
+    );
+  }
+
+  if (mode === 'playing-ai' || mode === 'playing-mp') {
+    return (
+      <GameBoard
+        key={roomCode || 'ai'}
+        mode={gameMode}
+        difficulty={difficulty}
+        playerColor={playerColor}
+        roomCode={roomCode}
+        playerName={playerName}
+        playerEmail={playerEmail ?? ''}
+        onDone={handleWin}
+      />
+    );
+  }
+
+  if (mode === 'done') {
+    return (
+      <GameOverScreen
+        winner={winner}
+        mode={gameMode}
+        onPlayAgain={resetToMenu}
+        onBack={onBack}
+      />
+    );
+  }
+
+  return null;
+}

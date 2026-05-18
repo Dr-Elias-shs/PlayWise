@@ -11,6 +11,7 @@ import { MemoryGame } from "@/components/game/MemoryGame";
 import { HangmanGame } from "@/components/game/HangmanGame";
 import { BrainGame } from "@/components/game/BrainGame";
 import { TriviaGame } from "@/components/game/TriviaGame";
+import { ChessGame } from "@/components/game/ChessGame";
 import { MultiplayerHub } from "@/components/multiplayer/MultiplayerHub";
 import { ProfileSetup } from "@/components/profile/ProfileSetup";
 import { RedeemPage } from "@/components/redeem/RedeemPage";
@@ -356,6 +357,9 @@ export default function Home() {
     }
     if (activeGame.id === 'trivia') {
       return <TriviaGame onBack={backToHub} />;
+    }
+    if (activeGame.id === 'chess') {
+      return <ChessGame onBack={backToHub} />;
     }
     return <GameEngine config={activeGame} onBack={backToHub} />;
   }

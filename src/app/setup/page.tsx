@@ -289,6 +289,20 @@ ALTER TABLE public.curriculum_questions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "all" ON public.curriculum_questions FOR ALL USING (true) WITH CHECK (true);`,
   },
   {
+    name: "chess_rooms",
+    sql: `CREATE TABLE IF NOT EXISTS public.chess_rooms (
+  room_code TEXT PRIMARY KEY,
+  host_name TEXT NOT NULL,
+  status TEXT DEFAULT 'waiting',
+  fen TEXT NOT NULL,
+  white_name TEXT,
+  black_name TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.chess_rooms ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.chess_rooms FOR ALL USING (true) WITH CHECK (true);`,
+  },
+  {
     name: "curriculum_terms",
     sql: `CREATE TABLE IF NOT EXISTS public.curriculum_terms (
   grade TEXT NOT NULL,

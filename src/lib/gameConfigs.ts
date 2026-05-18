@@ -286,6 +286,20 @@ export const triviaGame: GameConfig = {
   generateQuestion: () => ({ displayText: '', answer: 0, choices: [], formatChoice: n => String(n) }),
 };
 
+// ─── Chess ────────────────────────────────────────────────────────────────────
+
+export const chessGame: GameConfig = {
+  id: 'chess',
+  title: 'Chess',
+  description: 'Play vs the AI or challenge a classmate in real-time!',
+  emoji: '♟️',
+  bgStyle:     'linear-gradient(135deg, #0f2027, #203a43, #2c5364)',
+  cardStyle:   'linear-gradient(135deg, #1e3a5f, #2d5986)',
+  accentStyle: 'linear-gradient(135deg, #1e3a5f, #2d5986)',
+  duration: 0,
+  generateQuestion: () => ({ displayText: '', answer: 0, choices: [], formatChoice: n => String(n) }),
+};
+
 // ─── All games ────────────────────────────────────────────────────────────────
 
 export const ALL_GAMES: GameConfig[] = [
@@ -297,4 +311,5 @@ export const ALL_GAMES: GameConfig[] = [
   hangmanGame,
   memoryGame,
   triviaGame,
+  chessGame,
 ];
