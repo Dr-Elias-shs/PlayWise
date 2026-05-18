@@ -300,7 +300,8 @@ CREATE POLICY "all" ON public.curriculum_questions FOR ALL USING (true) WITH CHE
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE public.chess_rooms ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "all" ON public.chess_rooms FOR ALL USING (true) WITH CHECK (true);`,
+CREATE POLICY "all" ON public.chess_rooms FOR ALL USING (true) WITH CHECK (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.chess_rooms;`,
   },
   {
     name: "curriculum_terms",

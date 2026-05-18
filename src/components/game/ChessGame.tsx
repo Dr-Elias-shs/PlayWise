@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
-import type { PieceDropHandlerArgs } from 'react-chessboard/dist/types';
+import type { PieceDropHandlerArgs, SquareHandlerArgs, PieceHandlerArgs } from 'react-chessboard/dist/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/useGameStore';
 import { addCoins } from '@/lib/wallet';
@@ -112,15 +112,34 @@ function AIPicker({ onSelect, onBack }: {
 
 // ─── Multiplayer lobby ────────────────────────────────────────────────────────
 
+interface ChessRoom { room_code: string; host_name: string; created_at: string; }
+
 function MPLobby({ playerName, onJoined, onBack }: {
   playerName: string;
   onJoined: (roomCode: string, color: 'w' | 'b') => void;
   onBack: () => void;
 }) {
-  const [tab,      setTab]      = useState<'create' | 'join'>('create');
-  const [codeInput,setCodeInput]= useState('');
-  const [status,   setStatus]   = useState('');
-  const [busy,     setBusy]     = useState(false);
+  const [tab,       setTab]       = useState<'create' | 'join'>('create');
+  const [codeInput, setCodeInput] = useState('');
+  const [status,    setStatus]    = useState('');
+  const [busy,      setBusy]      = useState(false);
+  const [rooms,     setRooms]     = useState<ChessRoom[]>([]);
+
+  const fetchRooms = async () => {
+    const { data } = await supabase
+      .from('chess_rooms')
+      .select('room_code, host_name, created_at')
+      .eq('status', 'waiting')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    setRooms((data as ChessRoom[]) ?? []);
+  };
+
+  useEffect(() => {
+    fetchRooms();
+    const id = setInterval(fetchRooms, 3000);
+    return () => clearInterval(id);
+  }, []);
 
   const newCode = () => Math.random().toString(36).slice(2, 7).toUpperCase();
 
@@ -128,7 +147,6 @@ function MPLobby({ playerName, onJoined, onBack }: {
     const code = newCode();
     setBusy(true);
     setStatus('Creating room…');
-    // Write room to DB (reuse existing game_rooms table structure)
     const { error } = await supabase.from('chess_rooms').upsert({
       room_code: code,
       host_name: playerName,
@@ -142,20 +160,21 @@ function MPLobby({ playerName, onJoined, onBack }: {
     onJoined(code, 'w');
   };
 
-  const handleJoin = async () => {
-    if (!codeInput.trim()) { setStatus('Enter a room code'); return; }
-    const code = codeInput.trim().toUpperCase();
+  const doJoin = async (code: string) => {
     setBusy(true);
     setStatus('Joining…');
     const { data, error } = await supabase
-      .from('chess_rooms')
-      .select('*')
-      .eq('room_code', code)
-      .eq('status', 'waiting')
-      .maybeSingle();
+      .from('chess_rooms').select('*').eq('room_code', code).eq('status', 'waiting').maybeSingle();
     if (error || !data) { setStatus('Room not found or already started.'); setBusy(false); return; }
     await supabase.from('chess_rooms').update({ black_name: playerName, status: 'playing' }).eq('room_code', code);
+    // Notify host via broadcast
+    supabase.channel(`chess-room-${code}`).send({ type: 'broadcast', event: 'joined', payload: { joiner: playerName } });
     onJoined(code, 'b');
+  };
+
+  const handleJoin = () => {
+    if (!codeInput.trim()) { setStatus('Enter a room code'); return; }
+    doJoin(codeInput.trim().toUpperCase());
   };
 
   return (
@@ -191,26 +210,55 @@ function MPLobby({ playerName, onJoined, onBack }: {
         )}
 
         {tab === 'join' && (
-          <div className="space-y-3">
-            <input
-              value={codeInput}
-              onChange={e => setCodeInput(e.target.value.toUpperCase())}
-              onKeyDown={e => e.key === 'Enter' && handleJoin()}
-              placeholder="Enter room code"
-              maxLength={6}
-              className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white font-black text-center text-xl placeholder-white/30 tracking-widest outline-none focus:border-violet-400"
-            />
-            <motion.button whileTap={{ scale: 0.97 }}
-              onClick={handleJoin} disabled={busy}
-              className="w-full py-3 rounded-2xl font-black text-white text-base disabled:opacity-50 transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #0891b2, #0e7490)' }}>
-              {busy ? 'Joining…' : 'Join Room'}
-            </motion.button>
+          <div className="space-y-4">
+            {/* Open rooms list */}
+            {rooms.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-white/40 text-xs font-black uppercase tracking-wider">Open Rooms</p>
+                {rooms.map(r => (
+                  <div key={r.room_code}
+                    className="flex items-center justify-between bg-white/8 border border-white/10 rounded-2xl px-4 py-3">
+                    <div>
+                      <div className="text-white font-black text-sm">{r.host_name}</div>
+                      <div className="text-white/40 text-xs font-bold tracking-widest">{r.room_code}</div>
+                    </div>
+                    <motion.button whileTap={{ scale: 0.95 }}
+                      onClick={() => doJoin(r.room_code)} disabled={busy}
+                      className="px-4 py-1.5 rounded-xl font-black text-sm text-white disabled:opacity-50"
+                      style={{ background: 'linear-gradient(135deg, #0891b2, #0e7490)' }}>
+                      Join
+                    </motion.button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {rooms.length === 0 && (
+              <p className="text-white/30 text-sm text-center py-2">No open rooms yet — ask a friend to create one!</p>
+            )}
+
+            {/* Manual code entry */}
+            <div className="space-y-2">
+              <p className="text-white/40 text-xs font-black uppercase tracking-wider">Or enter a code</p>
+              <input
+                value={codeInput}
+                onChange={e => setCodeInput(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === 'Enter' && handleJoin()}
+                placeholder="XXXXX"
+                maxLength={6}
+                className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white font-black text-center text-xl placeholder-white/30 tracking-widest outline-none focus:border-violet-400"
+              />
+              <motion.button whileTap={{ scale: 0.97 }}
+                onClick={handleJoin} disabled={busy}
+                className="w-full py-3 rounded-2xl font-black text-white text-base disabled:opacity-50 transition-all hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #0891b2, #0e7490)' }}>
+                {busy ? 'Joining…' : 'Join by Code'}
+              </motion.button>
+            </div>
           </div>
         )}
 
         {status && (
-          <p className="text-center text-sm font-medium" style={{ color: status.startsWith('Error') ? '#fca5a5' : '#86efac' }}>
+          <p className="text-center text-sm font-medium" style={{ color: status.startsWith('Error') || status === 'Room not found or already started.' ? '#fca5a5' : '#86efac' }}>
             {status}
           </p>
         )}
@@ -230,16 +278,25 @@ function MPWaiting({ roomCode, onOpponentJoined, onBack }: {
   onOpponentJoined: () => void;
   onBack: () => void;
 }) {
+  const [joiner, setJoiner] = useState<string | null>(null);
+
   useEffect(() => {
     const ch = supabase.channel(`chess-room-${roomCode}`)
-      .on('broadcast', { event: 'joined' }, () => onOpponentJoined())
+      .on('broadcast', { event: 'joined' }, ({ payload }) => {
+        setJoiner(payload?.joiner ?? 'Opponent');
+        setTimeout(() => onOpponentJoined(), 800);
+      })
       .subscribe();
 
-    // Also poll in case broadcast missed
+    // Poll fallback in case broadcast missed
     const poll = setInterval(async () => {
       const { data } = await supabase
-        .from('chess_rooms').select('status').eq('room_code', roomCode).maybeSingle();
-      if (data?.status === 'playing') onOpponentJoined();
+        .from('chess_rooms').select('status, black_name').eq('room_code', roomCode).maybeSingle();
+      if (data?.status === 'playing') {
+        setJoiner(data.black_name ?? 'Opponent');
+        setTimeout(() => onOpponentJoined(), 800);
+        clearInterval(poll);
+      }
     }, 2000);
 
     return () => { supabase.removeChannel(ch); clearInterval(poll); };
@@ -248,18 +305,31 @@ function MPWaiting({ roomCode, onOpponentJoined, onBack }: {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: BG }}>
       <div className="text-center space-y-5 max-w-xs">
-        <div className="text-5xl">⏳</div>
-        <div>
-          <h2 className="text-2xl font-black text-white">Waiting for opponent…</h2>
-          <p className="text-white/50 text-sm mt-1">Share this code with your friend</p>
-        </div>
-        <div className="bg-white/10 rounded-3xl p-6">
-          <div className="text-5xl font-black text-white tracking-[0.25em]">{roomCode}</div>
-        </div>
-        <div className="w-8 h-8 border-4 border-violet-400/30 border-t-violet-400 rounded-full animate-spin mx-auto" />
-        <button onClick={onBack} className="text-white/30 hover:text-white/60 font-medium text-sm transition-colors">
-          Cancel
-        </button>
+        <AnimatePresence mode="wait">
+          {joiner ? (
+            <motion.div key="joined" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              className="space-y-3">
+              <div className="text-5xl">🎉</div>
+              <h2 className="text-2xl font-black text-white">{joiner} joined!</h2>
+              <p className="text-white/50 text-sm">Starting game…</p>
+            </motion.div>
+          ) : (
+            <motion.div key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+              <div className="text-5xl">⏳</div>
+              <div>
+                <h2 className="text-2xl font-black text-white">Waiting for opponent…</h2>
+                <p className="text-white/50 text-sm mt-1">Share this code with your friend</p>
+              </div>
+              <div className="bg-white/10 rounded-3xl p-6">
+                <div className="text-5xl font-black text-white tracking-[0.25em]">{roomCode}</div>
+              </div>
+              <div className="w-8 h-8 border-4 border-violet-400/30 border-t-violet-400 rounded-full animate-spin mx-auto" />
+              <button onClick={onBack} className="text-white/30 hover:text-white/60 font-medium text-sm transition-colors">
+                Cancel
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -278,12 +348,14 @@ interface BoardProps {
 }
 
 function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, playerName, playerEmail, onDone }: BoardProps) {
-  const [game,       setGame]       = useState(new Chess());
-  const [fen,        setFen]        = useState(new Chess().fen());
-  const [status,     setStatus]     = useState('');
-  const [thinking,   setThinking]   = useState(false);
-  const [lastMove,   setLastMove]   = useState<{ from: string; to: string } | null>(null);
-  const [opponentName, setOpponentName] = useState('Opponent');
+  const [game,          setGame]          = useState(new Chess());
+  const [fen,           setFen]           = useState(new Chess().fen());
+  const [status,        setStatus]        = useState('');
+  const [thinking,      setThinking]      = useState(false);
+  const [lastMove,      setLastMove]      = useState<{ from: string; to: string } | null>(null);
+  const [opponentName,  setOpponentName]  = useState('Opponent');
+  const [selectedSq,    setSelectedSq]    = useState<string | null>(null);
+  const [moveHints,     setMoveHints]     = useState<Record<string, React.CSSProperties>>({});
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const doneRef    = useRef(false);
 
@@ -404,14 +476,82 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
     finish(mode === 'ai' ? 'ai' : 'opponent');
   };
 
+  // Clear move hints whenever a move is made (fen changes)
+  useEffect(() => {
+    setSelectedSq(null);
+    setMoveHints({});
+  }, [fen]);
+
+  const selectPiece = useCallback((sq: string) => {
+    if (difficulty !== 'easy') return;
+    if (game.turn() !== playerColor || game.isGameOver() || thinking) return;
+    const moves = game.moves({ square: sq as Parameters<typeof game.get>[0], verbose: true }) as { to: string; captured?: string }[];
+    if (!moves.length) return;
+    const hints: Record<string, React.CSSProperties> = {};
+    for (const m of moves) {
+      hints[m.to] = m.captured
+        ? { background: 'radial-gradient(circle at center, transparent 55%, rgba(220,38,38,0.7) 57%)' }
+        : { background: 'radial-gradient(circle at center, rgba(74,222,128,0.75) 24%, transparent 26%)' };
+    }
+    setSelectedSq(sq);
+    setMoveHints(hints);
+  }, [difficulty, game, playerColor, thinking]);
+
+  const handlePieceClick = useCallback(({ square }: PieceHandlerArgs) => {
+    if (!square) return;
+    // Toggle selection: clicking the already-selected piece deselects it
+    if (square === selectedSq) { setSelectedSq(null); setMoveHints({}); return; }
+    selectPiece(square);
+  }, [selectedSq, selectPiece]);
+
+  const handleSquareClick = useCallback(({ square: sq }: SquareHandlerArgs) => {
+    if (difficulty !== 'easy') return;
+    if (game.isGameOver() || thinking) return;
+
+    // Execute move to a hint square
+    if (selectedSq && sq in moveHints) {
+      if (game.turn() !== playerColor) return;
+      const g = new Chess(game.fen());
+      let move;
+      try { move = g.move({ from: selectedSq, to: sq, promotion: 'q' }); }
+      catch { setSelectedSq(null); setMoveHints({}); return; }
+      if (!move) { setSelectedSq(null); setMoveHints({}); return; }
+
+      setGame(g); setFen(g.fen());
+      setLastMove({ from: selectedSq, to: sq });
+      syncStatus(g);
+
+      if (mode === 'mp' && channelRef.current)
+        channelRef.current.send({ type: 'broadcast', event: 'move', payload: { move: move.lan ?? `${selectedSq}${sq}` } });
+      if (mode === 'ai' && !g.isGameOver()) doAIMove(g);
+      return;
+    }
+
+    // Clicking on a different own piece — re-select
+    const piece = game.get(sq as Parameters<typeof game.get>[0]);
+    if (piece && piece.color === playerColor) {
+      selectPiece(sq);
+      return;
+    }
+
+    // Clicking elsewhere deselects
+    setSelectedSq(null);
+    setMoveHints({});
+  }, [difficulty, game, playerColor, thinking, selectedSq, moveHints, syncStatus, mode, doAIMove, selectPiece]);
+
   const myTurn  = game.turn() === playerColor && !game.isGameOver();
   const boardOrientation = playerColor === 'w' ? 'white' : 'black';
 
-  const highlightSquares: Record<string, { backgroundColor: string }> = {};
+  const lastMoveStyles: Record<string, { backgroundColor: string }> = {};
   if (lastMove) {
-    highlightSquares[lastMove.from] = { backgroundColor: 'rgba(255,255,0,0.25)' };
-    highlightSquares[lastMove.to]   = { backgroundColor: 'rgba(255,255,0,0.35)' };
+    lastMoveStyles[lastMove.from] = { backgroundColor: 'rgba(255,255,0,0.25)' };
+    lastMoveStyles[lastMove.to]   = { backgroundColor: 'rgba(255,255,0,0.35)' };
   }
+  const squareStyles: Record<string, React.CSSProperties> = {
+    ...lastMoveStyles,
+    ...moveHints,
+    ...(selectedSq ? { [selectedSq]: { backgroundColor: 'rgba(74,222,128,0.5)' } } : {}),
+  };
 
   const opponentLabel = mode === 'ai'
     ? `🤖 AI (${difficulty})`
@@ -449,8 +589,10 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
           <Chessboard options={{
             position: fen,
             onPieceDrop: onDrop,
+            onPieceClick: handlePieceClick,
+            onSquareClick: handleSquareClick,
             boardOrientation,
-            squareStyles: highlightSquares,
+            squareStyles,
             animationDurationInMs: 200,
             allowDragging: myTurn && !thinking,
             boardStyle: { borderRadius: '12px', boxShadow: '0 8px 40px rgba(0,0,0,0.6)' },
