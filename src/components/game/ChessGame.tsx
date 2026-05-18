@@ -335,6 +335,65 @@ function MPWaiting({ roomCode, onOpponentJoined, onBack }: {
   );
 }
 
+// ─── Sound engine (Web Audio API, no files needed) ────────────────────────────
+
+function useChessSound() {
+  const ctxRef = useRef<AudioContext | null>(null);
+  const getCtx = () => {
+    if (!ctxRef.current)
+      ctxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    return ctxRef.current;
+  };
+  const tone = (freq: number, dur: number, vol = 0.25, type: OscillatorType = 'sine', delay = 0) => {
+    try {
+      const c = getCtx();
+      const osc  = c.createOscillator();
+      const gain = c.createGain();
+      osc.connect(gain); gain.connect(c.destination);
+      osc.type = type; osc.frequency.value = freq;
+      const t = c.currentTime + delay;
+      gain.gain.setValueAtTime(vol, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.start(t); osc.stop(t + dur + 0.01);
+    } catch {}
+  };
+  return {
+    move:    () => { tone(520, 0.07, 0.18, 'square'); },
+    capture: () => { tone(180, 0.18, 0.45, 'sawtooth'); tone(360, 0.09, 0.2, 'square', 0.04); },
+    check:   () => { tone(880, 0.09, 0.3); tone(1100, 0.12, 0.3, 'sine', 0.1); },
+    win:     () => { [523,659,784,1047].forEach((f, i) => tone(f, 0.22, 0.38, 'sine', i * 0.13)); },
+    lose:    () => { [440,392,349,294].forEach((f, i) => tone(f, 0.28, 0.3,  'sine', i * 0.16)); },
+    tick:    () => { tone(1100, 0.04, 0.15, 'square'); },
+    timeout: () => { tone(330, 0.6, 0.4, 'sawtooth'); },
+  };
+}
+
+// ─── Timer display ─────────────────────────────────────────────────────────────
+
+function TimerBox({ seconds, active }: { seconds: number; active: boolean }) {
+  const mins    = Math.floor(seconds / 60);
+  const secs    = seconds % 60;
+  const danger  = seconds <= 10;
+  const display = `${mins}:${String(secs).padStart(2, '0')}`;
+  return (
+    <motion.div
+      animate={danger && active ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+      transition={{ duration: 0.5, repeat: danger && active ? Infinity : 0 }}
+      className="px-3 py-1.5 rounded-xl text-sm font-black tabular-nums"
+      style={{
+        background: active
+          ? danger ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.12)'
+          : 'rgba(255,255,255,0.05)',
+        color: active ? (danger ? '#fca5a5' : '#ffffff') : 'rgba(255,255,255,0.3)',
+        border: active && danger ? '1px solid rgba(239,68,68,0.5)' : '1px solid transparent',
+        minWidth: 52,
+        textAlign: 'center',
+      }}>
+      {display}
+    </motion.div>
+  );
+}
+
 // ─── Game board ───────────────────────────────────────────────────────────────
 
 interface BoardProps {
@@ -348,6 +407,8 @@ interface BoardProps {
 }
 
 function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, playerName, playerEmail, onDone }: BoardProps) {
+  const TURN_SECS = mode === 'ai' && difficulty === 'easy' ? 120 : 90;
+
   const [game,          setGame]          = useState(new Chess());
   const [fen,           setFen]           = useState(new Chess().fen());
   const [status,        setStatus]        = useState('');
@@ -356,8 +417,13 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
   const [opponentName,  setOpponentName]  = useState('Opponent');
   const [selectedSq,    setSelectedSq]    = useState<string | null>(null);
   const [moveHints,     setMoveHints]     = useState<Record<string, React.CSSProperties>>({});
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const doneRef    = useRef(false);
+  const [myTime,        setMyTime]        = useState(TURN_SECS);
+  const [oppTime,       setOppTime]       = useState(TURN_SECS);
+  const [captureFlash,  setCaptureFlash]  = useState<string | null>(null);
+  const channelRef  = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const doneRef     = useRef(false);
+  const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sound       = useChessSound();
 
   const finish = useCallback((w: Winner) => {
     if (doneRef.current) return;
@@ -368,16 +434,60 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
   const syncStatus = useCallback((g: Chess) => {
     if (g.isCheckmate()) {
       const winner = g.turn() === 'w' ? 'b' : 'w';
-      if (mode === 'ai') finish(winner === playerColor ? 'player' : 'ai');
-      else               finish(winner === playerColor ? 'player' : 'opponent');
+      const playerWon = winner === playerColor;
+      if (playerWon) sound.win(); else sound.lose();
+      if (mode === 'ai') finish(playerWon ? 'player' : 'ai');
+      else               finish(playerWon ? 'player' : 'opponent');
     } else if (g.isDraw()) {
+      sound.lose();
       finish('draw');
     } else if (g.isCheck()) {
       setStatus('Check!');
     } else {
       setStatus('');
     }
-  }, [mode, playerColor, finish]);
+  }, [mode, playerColor, finish, sound]);
+
+  // ── Turn timer ──
+  useEffect(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (doneRef.current) return;
+
+    const isMyTurn = game.turn() === playerColor;
+
+    // Reset the clock for the side that just got their turn
+    if (isMyTurn) setMyTime(TURN_SECS);
+    else          setOppTime(TURN_SECS);
+
+    // Don't tick AI's clock — it moves on its own schedule
+    if (mode === 'ai' && !isMyTurn) return;
+
+    let remaining = TURN_SECS;
+    timerRef.current = setInterval(() => {
+      if (doneRef.current) { clearInterval(timerRef.current!); return; }
+      remaining -= 1;
+
+      if (isMyTurn) {
+        setMyTime(remaining);
+        if (remaining <= 10 && remaining > 0) sound.tick();
+        if (remaining <= 0) {
+          clearInterval(timerRef.current!);
+          sound.timeout();
+          finish(mode === 'ai' ? 'ai' : 'opponent');
+          if (mode === 'mp' && channelRef.current)
+            channelRef.current.send({ type: 'broadcast', event: 'timeout', payload: {} });
+        }
+      } else {
+        setOppTime(remaining);
+        if (remaining <= 0) {
+          clearInterval(timerRef.current!);
+          finish('player');
+        }
+      }
+    }, 1000);
+
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [fen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── AI move ──
   const doAIMove = useCallback((currentGame: Chess) => {
@@ -387,14 +497,22 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
       const move = getBestMove(currentGame.fen(), difficulty);
       if (!move) { setThinking(false); return; }
       const g = new Chess(currentGame.fen());
-      g.move(move);
+      const result = g.move(move);
       setGame(g);
       setFen(g.fen());
       setLastMove({ from: move.slice(0, 2), to: move.slice(2, 4) });
+      if (result?.captured) {
+        sound.capture();
+        setCaptureFlash(move.slice(2, 4));
+        setTimeout(() => setCaptureFlash(null), 450);
+      } else {
+        sound.move();
+      }
+      if (g.isCheck() && !g.isCheckmate()) sound.check();
       syncStatus(g);
       setThinking(false);
-    }, 300);
-  }, [difficulty, syncStatus]);
+    }, 400);
+  }, [difficulty, syncStatus, sound]);
 
   // ── Multiplayer channel setup ──
   useEffect(() => {
@@ -410,14 +528,23 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
       .on('broadcast', { event: 'move' }, ({ payload }) => {
         setGame(prev => {
           const g = new Chess(prev.fen());
-          g.move(payload.move);
+          const result = g.move(payload.move);
           setFen(g.fen());
           setLastMove({ from: payload.move.slice(0, 2), to: payload.move.slice(2, 4) });
+          if (result?.captured) {
+            sound.capture();
+            setCaptureFlash(payload.move.slice(2, 4));
+            setTimeout(() => setCaptureFlash(null), 450);
+          } else {
+            sound.move();
+          }
+          if (g.isCheck() && !g.isCheckmate()) sound.check();
           syncStatus(g);
           return g;
         });
       })
-      .on('broadcast', { event: 'resign' }, () => finish('player'))
+      .on('broadcast', { event: 'resign' },   () => { sound.win(); finish('player'); })
+      .on('broadcast', { event: 'timeout' },  () => { sound.win(); finish('player'); })
       .subscribe();
 
     channelRef.current = ch;
@@ -453,6 +580,14 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
     setGame(g);
     setFen(g.fen());
     setLastMove({ from: sourceSquare, to: targetSquare });
+    if (move.captured) {
+      sound.capture();
+      setCaptureFlash(targetSquare);
+      setTimeout(() => setCaptureFlash(null), 450);
+    } else {
+      sound.move();
+    }
+    if (g.isCheck() && !g.isCheckmate()) sound.check();
     syncStatus(g);
 
     if (mode === 'mp' && channelRef.current) {
@@ -519,6 +654,14 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
 
       setGame(g); setFen(g.fen());
       setLastMove({ from: selectedSq, to: sq });
+      if (move.captured) {
+        sound.capture();
+        setCaptureFlash(sq);
+        setTimeout(() => setCaptureFlash(null), 450);
+      } else {
+        sound.move();
+      }
+      if (g.isCheck() && !g.isCheckmate()) sound.check();
       syncStatus(g);
 
       if (mode === 'mp' && channelRef.current)
@@ -550,41 +693,44 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
   const squareStyles: Record<string, React.CSSProperties> = {
     ...lastMoveStyles,
     ...moveHints,
-    ...(selectedSq ? { [selectedSq]: { backgroundColor: 'rgba(74,222,128,0.5)' } } : {}),
+    ...(selectedSq     ? { [selectedSq]:    { backgroundColor: 'rgba(74,222,128,0.5)' } } : {}),
+    ...(captureFlash   ? { [captureFlash]:  { backgroundColor: 'rgba(239,68,68,0.65)'  } } : {}),
   };
 
-  const opponentLabel = mode === 'ai'
-    ? `🤖 AI (${difficulty})`
-    : opponentName;
-  const myLabel = playerName;
+  const opponentLabel = mode === 'ai' ? `🤖 AI (${difficulty})` : opponentName;
+  const oppTurn       = !myTurn && !game.isGameOver();
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: BG }}>
-      {/* Header */}
+
+      {/* Opponent row */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-        <div className="text-white/70 text-sm font-bold truncate max-w-[40%]">
-          {playerColor === 'b' ? '⬜ ' : '⬛ '}{opponentLabel}
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-white/60 text-xs">{playerColor === 'b' ? '⬜' : '⬛'}</span>
+          <span className="text-white/80 text-sm font-bold truncate">{opponentLabel}</span>
+          {thinking && <span className="text-[10px] text-amber-400 font-black animate-pulse">thinking…</span>}
         </div>
-        <AnimatePresence>
-          {status && (
-            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }}>
-              <StatusBadge text={status} color="#ef4444" />
-            </motion.div>
-          )}
-          {!status && (
-            <span className="text-xs font-black px-3 py-1 rounded-full"
-              style={{ background: myTurn ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.08)', color: myTurn ? '#86efac' : '#94a3b8' }}>
-              {game.isGameOver() ? 'Game over' : myTurn ? 'Your turn' : thinking ? 'Thinking…' : "Opponent's turn"}
-            </span>
-          )}
-        </AnimatePresence>
-        <div className="text-white/70 text-sm font-bold truncate max-w-[40%] text-right">
-          {playerColor === 'w' ? '⬜ ' : '⬛ '}{myLabel}
-        </div>
+        <TimerBox seconds={oppTime} active={oppTurn} />
       </div>
 
       {/* Board */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4 gap-4">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-3 gap-3">
+
+        {/* Status badge */}
+        <AnimatePresence>
+          {status && (
+            <motion.div key="status" initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0 }}>
+              <StatusBadge text={status} color="#ef4444" />
+            </motion.div>
+          )}
+          {!status && !game.isGameOver() && (
+            <motion.span key="turn" className="text-xs font-black px-3 py-1 rounded-full"
+              style={{ background: myTurn ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)', color: myTurn ? '#86efac' : '#64748b' }}>
+              {myTurn ? 'Your turn' : thinking ? "AI is thinking…" : "Opponent's turn"}
+            </motion.span>
+          )}
+        </AnimatePresence>
+
         <div className="w-full max-w-[min(90vw,480px)]">
           <Chessboard options={{
             position: fen,
@@ -593,7 +739,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
             onSquareClick: handleSquareClick,
             boardOrientation,
             squareStyles,
-            animationDurationInMs: 200,
+            animationDurationInMs: 250,
             allowDragging: myTurn && !thinking,
             boardStyle: { borderRadius: '12px', boxShadow: '0 8px 40px rgba(0,0,0,0.6)' },
             darkSquareStyle: { backgroundColor: '#2d4a6e' },
@@ -602,10 +748,20 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
         </div>
 
         <button onClick={handleResign}
-          className="text-white/30 hover:text-red-400 font-medium text-sm transition-colors">
+          className="text-white/25 hover:text-red-400 font-medium text-xs transition-colors pt-1">
           🏳️ Resign
         </button>
       </div>
+
+      {/* My row */}
+      <div className="flex items-center justify-between px-4 py-3 border-t border-white/10">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-white/60 text-xs">{playerColor === 'w' ? '⬜' : '⬛'}</span>
+          <span className="text-white font-bold text-sm truncate">{playerName}</span>
+        </div>
+        <TimerBox seconds={myTime} active={myTurn} />
+      </div>
+
     </div>
   );
 }
