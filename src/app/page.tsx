@@ -20,6 +20,7 @@ import { useWorldStore } from "@/store/useWorldStore";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { loginRequest } from "@/lib/msal";
 import { Leaderboard } from "@/components/hub/Leaderboard";
+import { PlayerStatsModal } from "@/components/hub/PlayerStatsModal";
 import { ALL_GAMES, GameConfig } from "@/lib/gameConfigs";
 import { OwlMini } from "@/components/game/OwlCharacter";
 import { getGlobalConfig, checkBanned, getWallet } from "@/lib/wallet";
@@ -92,6 +93,7 @@ export default function Home() {
   const [walletRefresh, setWalletRefresh] = useState(0);
   const [gameSettings, setGameSettings] = useState<Record<string, boolean>>({});
   const [emailInput, setEmailInput] = useState('');
+  const [showStats, setShowStats] = useState(false);
   const [bannedInfo, setBannedInfo] = useState<{ banned: boolean; reason: string } | null>(null);
   const { isFullscreen, toggle: toggleFullscreen, enter: enterFullscreen } = useFullscreen();
   const msalConfigured = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID !== '00000000-0000-0000-0000-000000000000';
@@ -389,7 +391,15 @@ export default function Home() {
           <div>
             <div className="flex items-center gap-2">
               <OwlMini size={44} />
-              <h1 className="text-3xl font-black text-slate-800 tracking-tight">Hey, {playerName}! 👋</h1>
+              <button
+                onClick={() => setShowStats(true)}
+                className="text-left group"
+                title="View my stats"
+              >
+                <h1 className="text-3xl font-black text-slate-800 tracking-tight group-hover:text-violet-600 transition-colors">
+                  Hey, {playerName}! 👋
+                </h1>
+              </button>
             </div>
             <p className="text-slate-500 text-base mt-0.5 font-medium">Pick a game and start playing</p>
           </div>
@@ -491,6 +501,12 @@ export default function Home() {
         </div>
       </div>
 
+      <PlayerStatsModal
+        studentName={playerName}
+        grade={playerGrade}
+        open={showStats}
+        onClose={() => setShowStats(false)}
+      />
     </div>
   );
 }
