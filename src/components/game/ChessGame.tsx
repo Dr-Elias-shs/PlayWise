@@ -396,30 +396,44 @@ function TimerBox({ seconds, active }: { seconds: number; active: boolean }) {
 
 // ─── Captured pieces ──────────────────────────────────────────────────────────
 
-const PIECE_EMOJI: Record<string, string> = {
-  p: '♟', n: '♞', b: '♝', r: '♜', q: '♛',
-  P: '♙', N: '♘', B: '♗', R: '♖', Q: '♕',
+// piece key: lowercase = black piece captured by white; uppercase = white piece captured by black
+const PIECE_LABEL: Record<string, string> = {
+  q: '♛', r: '♜', b: '♝', n: '♞', p: '♟',   // black pieces (shown in dark color on light bg)
+  Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟',   // white pieces (same icons, different bg)
+};
+const PIECE_BG: Record<string, string> = {
+  q: '#1e293b', r: '#1e293b', b: '#1e293b', n: '#1e293b', p: '#1e293b',
+  Q: '#f1f5f9', R: '#f1f5f9', B: '#f1f5f9', N: '#f1f5f9', P: '#f1f5f9',
+};
+const PIECE_COLOR: Record<string, string> = {
+  q: '#f8fafc', r: '#f8fafc', b: '#f8fafc', n: '#f8fafc', p: '#f8fafc',
+  Q: '#0f172a', R: '#0f172a', B: '#0f172a', N: '#0f172a', P: '#0f172a',
 };
 const PIECE_ORDER = ['q', 'Q', 'r', 'R', 'b', 'B', 'n', 'N', 'p', 'P'];
 
 function addCapture(prev: string[], captured: string, moverColor: string): string[] {
-  // moverColor 'w' → captured a black piece (lowercase); 'b' → captured a white piece (uppercase)
   const sym = moverColor === 'w' ? captured.toLowerCase() : captured.toUpperCase();
   return [...prev, sym].sort((a, b) => PIECE_ORDER.indexOf(a) - PIECE_ORDER.indexOf(b));
 }
 
 function CapturedTray({ pieces }: { pieces: string[] }) {
-  if (!pieces.length) return null;
+  if (!pieces.length) return <div className="h-5" />;
   return (
-    <div className="flex flex-wrap gap-0.5 min-h-[20px] mt-1">
+    <div className="flex flex-wrap gap-1 mt-1 min-h-[22px]">
       <AnimatePresence initial={false}>
         {pieces.map((p, i) => (
           <motion.span key={`${p}-${i}`}
             initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-            className="text-[17px] leading-none select-none"
-            style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.7))' }}>
-            {PIECE_EMOJI[p] ?? ''}
+            transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+            className="inline-flex items-center justify-center text-[13px] leading-none select-none rounded-md"
+            style={{
+              width: 22, height: 22,
+              background: PIECE_BG[p] ?? '#334155',
+              color:      PIECE_COLOR[p] ?? '#f8fafc',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+              fontFamily: 'serif',
+            }}>
+            {PIECE_LABEL[p] ?? p.toUpperCase()}
           </motion.span>
         ))}
       </AnimatePresence>
