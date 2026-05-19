@@ -394,6 +394,44 @@ function TimerBox({ seconds, active }: { seconds: number; active: boolean }) {
   );
 }
 
+// ─── Captured pieces ──────────────────────────────────────────────────────────
+
+const PIECE_EMOJI: Record<string, string> = {
+  p: '♟', n: '♞', b: '♝', r: '♜', q: '♛',   // black pieces (captured by white)
+  P: '♙', N: '♘', B: '♗', R: '♖', Q: '♕',   // white pieces (captured by black)
+};
+const PIECE_ORDER = ['q', 'Q', 'r', 'R', 'b', 'B', 'n', 'N', 'p', 'P'];
+
+function getCaptured(g: Chess): { byWhite: string[]; byBlack: string[] } {
+  const byWhite: string[] = [];
+  const byBlack: string[] = [];
+  for (const m of g.history({ verbose: true }) as { captured?: string; color: string }[]) {
+    if (!m.captured) continue;
+    const sym = m.color === 'w' ? m.captured.toLowerCase() : m.captured.toUpperCase();
+    if (m.color === 'w') byWhite.push(sym);   // white took a black piece
+    else                  byBlack.push(sym);   // black took a white piece
+  }
+  byWhite.sort((a, b) => PIECE_ORDER.indexOf(a) - PIECE_ORDER.indexOf(b));
+  byBlack.sort((a, b) => PIECE_ORDER.indexOf(a) - PIECE_ORDER.indexOf(b));
+  return { byWhite, byBlack };
+}
+
+function CapturedTray({ pieces }: { pieces: string[] }) {
+  if (!pieces.length) return null;
+  return (
+    <div className="flex flex-wrap gap-0.5 min-h-[18px]">
+      {pieces.map((p, i) => (
+        <motion.span key={i} initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.02 * i }}
+          className="text-base leading-none select-none"
+          style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>
+          {PIECE_EMOJI[p] ?? ''}
+        </motion.span>
+      ))}
+    </div>
+  );
+}
+
 // ─── Game board ───────────────────────────────────────────────────────────────
 
 interface BoardProps {
@@ -511,8 +549,8 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
       if (g.isCheck() && !g.isCheckmate()) sound.check();
       syncStatus(g);
       setThinking(false);
-    }, 400);
-  }, [difficulty, syncStatus, sound]);
+    }, 1100);
+  }, [difficulty, syncStatus, sound]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Multiplayer channel setup ──
   useEffect(() => {
@@ -699,18 +737,25 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
 
   const opponentLabel = mode === 'ai' ? `🤖 AI (${difficulty})` : opponentName;
   const oppTurn       = !myTurn && !game.isGameOver();
+  const { byWhite, byBlack } = getCaptured(game);
+  // pieces the opponent lost (captured by me) shown under opponent; pieces I lost under me
+  const oppLost = playerColor === 'w' ? byWhite : byBlack;
+  const myLost  = playerColor === 'w' ? byBlack : byWhite;
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: BG }}>
 
       {/* Opponent row */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-white/60 text-xs">{playerColor === 'b' ? '⬜' : '⬛'}</span>
-          <span className="text-white/80 text-sm font-bold truncate">{opponentLabel}</span>
-          {thinking && <span className="text-[10px] text-amber-400 font-black animate-pulse">thinking…</span>}
+      <div className="px-4 pt-3 pb-2 border-b border-white/10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-white/60 text-xs">{playerColor === 'b' ? '⬜' : '⬛'}</span>
+            <span className="text-white/80 text-sm font-bold truncate">{opponentLabel}</span>
+            {thinking && <span className="text-[10px] text-amber-400 font-black animate-pulse">thinking…</span>}
+          </div>
+          <TimerBox seconds={oppTime} active={oppTurn} />
         </div>
-        <TimerBox seconds={oppTime} active={oppTurn} />
+        <CapturedTray pieces={oppLost} />
       </div>
 
       {/* Board */}
@@ -754,12 +799,15 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
       </div>
 
       {/* My row */}
-      <div className="flex items-center justify-between px-4 py-3 border-t border-white/10">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-white/60 text-xs">{playerColor === 'w' ? '⬜' : '⬛'}</span>
-          <span className="text-white font-bold text-sm truncate">{playerName}</span>
+      <div className="px-4 pt-2 pb-3 border-t border-white/10">
+        <CapturedTray pieces={myLost} />
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-white/60 text-xs">{playerColor === 'w' ? '⬜' : '⬛'}</span>
+            <span className="text-white font-bold text-sm truncate">{playerName}</span>
+          </div>
+          <TimerBox seconds={myTime} active={myTurn} />
         </div>
-        <TimerBox seconds={myTime} active={myTurn} />
       </div>
 
     </div>
