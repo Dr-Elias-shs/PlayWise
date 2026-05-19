@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/useGameStore';
 import { addCoins } from '@/lib/wallet';
 import { getBestMove, AIDifficulty } from '@/lib/chess-ai';
+import { updateChessScore } from '@/lib/chess-scores';
 import { supabase } from '@/lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -894,7 +895,11 @@ export function ChessGame({ onBack }: { onBack: () => void }) {
     if (coins > 0 && playerName) {
       await addCoins(playerName, coins, 0, true, '', 'chess', playerEmail ?? '').catch(() => {});
     }
-  }, [playerName, playerEmail]);
+    if (playerName) {
+      const result = w === 'player' ? 'win' : w === 'draw' ? 'draw' : 'loss';
+      await updateChessScore(playerName, playerEmail ?? '', result, gameMode, difficulty).catch(() => {});
+    }
+  }, [playerName, playerEmail, gameMode, difficulty]);
 
   const resetToMenu = () => {
     setMode('menu');

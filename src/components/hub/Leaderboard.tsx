@@ -7,6 +7,7 @@ import { useGameStore } from "@/store/useGameStore";
 import { useCharacterRegistry, resolveOutfitStand } from "@/lib/characterRegistry";
 import { COLORS, resolveAccessory, itemTopFraction } from "@/lib/avatar-items";
 import { useAccessoryPositions } from "@/hooks/useAccessoryPositions";
+import type { ChessScoreRow } from "@/lib/chess-scores";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,7 +28,7 @@ interface SpecialistEntry {
 
 interface PlayerAppearance { characterId: string; colorId: string; equippedClothingId?: string | null; equippedId?: string | null; }
 
-type BoardType = 'learners' | 'myClass' | 'improved' | 'accuracy' | 'explorers' | 'specialist';
+type BoardType = 'learners' | 'myClass' | 'improved' | 'accuracy' | 'explorers' | 'specialist' | 'chess';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -171,6 +172,7 @@ export function Leaderboard() {
   const [flash, setFlash]           = useState(false);
   const [dbReady, setDbReady]       = useState(true);
   const [appearances, setAppearances] = useState<Record<string, PlayerAppearance>>({});
+  const [chessRows,   setChessRows]   = useState<ChessScoreRow[]>([]);
 
   const fetchAll = async () => {
     // Fetch global top-50 + all classmates (in parallel so neither blocks the other)
@@ -237,6 +239,15 @@ export function Leaderboard() {
       })
     );
     setSpecialists(specResults);
+
+    // Chess leaderboard
+    const { data: chessData } = await supabase
+      .from('chess_scores')
+      .select('*')
+      .order('rating', { ascending: false })
+      .limit(50);
+    setChessRows((chessData as ChessScoreRow[]) ?? []);
+
     setLoading(false);
   };
 
@@ -272,12 +283,13 @@ export function Leaderboard() {
   const explorers   = [...entries].sort((a, b) => b.games_distinct_14d - a.games_distinct_14d).slice(0, 10);
 
   const tabs: { id: BoardType; label: string; emoji: string }[] = [
-    { id: 'learners',   label: 'Top Learners',   emoji: '🏆' },
-    { id: 'myClass',    label: 'My Class',        emoji: '🏫' },
-    { id: 'improved',   label: 'Most Improved',  emoji: '📈' },
-    { id: 'accuracy',   label: 'Accuracy',        emoji: '🎯' },
-    { id: 'explorers',  label: 'Explorers',       emoji: '🌍' },
-    { id: 'specialist', label: 'Specialists',     emoji: '⭐' },
+    { id: 'learners',   label: 'Top Learners',  emoji: '🏆' },
+    { id: 'myClass',    label: 'My Class',       emoji: '🏫' },
+    { id: 'improved',   label: 'Most Improved', emoji: '📈' },
+    { id: 'accuracy',   label: 'Accuracy',       emoji: '🎯' },
+    { id: 'explorers',  label: 'Explorers',      emoji: '🌍' },
+    { id: 'specialist', label: 'Specialists',    emoji: '⭐' },
+    { id: 'chess',      label: 'Chess',          emoji: '♟️' },
   ];
 
   if (loading) return (
@@ -519,6 +531,96 @@ export function Leaderboard() {
                   />
                 ))
               }
+            </motion.div>
+          )}
+
+          {/* ── Chess ── */}
+          {board === 'chess' && (
+            <motion.div key="chess" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
+              {/* Header card */}
+              <div className="rounded-2xl p-4 mb-1"
+                style={{ background: 'linear-gradient(135deg, #0f2027, #203a43, #2c5364)' }}>
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">♟️</span>
+                  <div>
+                    <div className="text-white font-black text-base">Chess Rankings</div>
+                    <div className="text-white/50 text-[11px] mt-0.5">
+                      Win vs Easy: +8 · Medium: +15 · Hard: +25 · vs Friend: +20
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {chessRows.length === 0 ? (
+                <p className="text-center py-12 text-slate-400 text-sm">
+                  No chess games played yet — be the first! ♟️
+                </p>
+              ) : (
+                chessRows.slice(0, 50).map((row, i) => {
+                  const isMe   = row.student_name === playerName || row.display_name === playerName;
+                  const label  = row.display_name || row.student_name;
+                  const total  = row.wins + row.losses + row.draws;
+                  const winPct = total > 0 ? Math.round((row.wins / total) * 100) : 0;
+                  const rank   = i + 1;
+                  const top3   = rank <= 3;
+                  const CHESS_MEDALS = ['♔', '♕', '♗'];
+                  return (
+                    <motion.div key={row.student_name}
+                      layout initial={{ x: -16, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: rank * 0.03 }}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition-colors ${
+                        isMe       ? 'bg-violet-50 border-violet-300 ring-1 ring-violet-300' :
+                        rank === 1 ? 'bg-amber-50  border-amber-100' :
+                        rank === 2 ? 'bg-slate-50  border-slate-100' :
+                        rank === 3 ? 'bg-orange-50 border-orange-100' :
+                        'bg-white hover:bg-slate-50 border-transparent'
+                      }`}>
+                      {/* Rank */}
+                      <span className={`w-7 text-center font-black shrink-0 ${top3 ? 'text-lg' : 'text-sm text-slate-400'}`}>
+                        {top3 ? CHESS_MEDALS[rank - 1] : rank}
+                      </span>
+                      {/* Avatar */}
+                      <TinyAvatar
+                        characterId={resolvedAppearances[row.student_name]?.characterId ?? 'male'}
+                        colorId={resolvedAppearances[row.student_name]?.colorId ?? 'green'}
+                        equippedClothingId={resolvedAppearances[row.student_name]?.equippedClothingId}
+                        equippedId={resolvedAppearances[row.student_name]?.equippedId}
+                      />
+                      {/* Name + record */}
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-bold text-sm truncate ${isMe ? 'text-violet-700' : 'text-slate-800'}`}>
+                          {label}
+                          {isMe && <span className="ml-1 text-[10px] bg-violet-200 text-violet-700 px-1.5 py-0.5 rounded-full font-black">YOU</span>}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          <span className="text-emerald-600 font-bold">{row.wins}W</span>
+                          <span className="mx-0.5">·</span>
+                          <span className="text-red-400 font-bold">{row.losses}L</span>
+                          <span className="mx-0.5">·</span>
+                          <span className="text-slate-400 font-bold">{row.draws}D</span>
+                          {row.win_streak >= 3 && (
+                            <span className="ml-1.5 text-orange-500 font-black">🔥 {row.win_streak}</span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Win % bar */}
+                      <div className="flex flex-col items-end gap-1 mr-2 shrink-0">
+                        <span className="text-[10px] text-slate-400 font-bold">{winPct}%</span>
+                        <div className="w-14 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${winPct}%` }}
+                            transition={{ duration: 0.6, ease: 'easeOut' }}
+                            className="h-full rounded-full bg-emerald-500" />
+                        </div>
+                      </div>
+                      {/* Rating */}
+                      <div className={`text-right font-black text-sm shrink-0 ${isMe ? 'text-violet-600' : 'text-slate-700'}`}>
+                        {row.rating}
+                        <div className="text-[9px] font-bold text-slate-400">ELO</div>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )}
             </motion.div>
           )}
 

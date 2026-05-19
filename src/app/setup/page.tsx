@@ -304,6 +304,23 @@ CREATE POLICY "all" ON public.chess_rooms FOR ALL USING (true) WITH CHECK (true)
 ALTER PUBLICATION supabase_realtime ADD TABLE public.chess_rooms;`,
   },
   {
+    name: "chess_scores",
+    sql: `CREATE TABLE IF NOT EXISTS public.chess_scores (
+  student_name TEXT PRIMARY KEY,
+  display_name TEXT DEFAULT '',
+  wins         INTEGER DEFAULT 0,
+  losses       INTEGER DEFAULT 0,
+  draws        INTEGER DEFAULT 0,
+  rating       INTEGER DEFAULT 1000,
+  win_streak   INTEGER DEFAULT 0,
+  best_streak  INTEGER DEFAULT 0,
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.chess_scores ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.chess_scores FOR ALL USING (true) WITH CHECK (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.chess_scores;`,
+  },
+  {
     name: "curriculum_terms",
     sql: `CREATE TABLE IF NOT EXISTS public.curriculum_terms (
   grade TEXT NOT NULL,
