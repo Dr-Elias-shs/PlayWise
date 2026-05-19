@@ -397,37 +397,32 @@ function TimerBox({ seconds, active }: { seconds: number; active: boolean }) {
 // ─── Captured pieces ──────────────────────────────────────────────────────────
 
 const PIECE_EMOJI: Record<string, string> = {
-  p: '♟', n: '♞', b: '♝', r: '♜', q: '♛',   // black pieces (captured by white)
-  P: '♙', N: '♘', B: '♗', R: '♖', Q: '♕',   // white pieces (captured by black)
+  p: '♟', n: '♞', b: '♝', r: '♜', q: '♛',
+  P: '♙', N: '♘', B: '♗', R: '♖', Q: '♕',
 };
 const PIECE_ORDER = ['q', 'Q', 'r', 'R', 'b', 'B', 'n', 'N', 'p', 'P'];
 
-function getCaptured(g: Chess): { byWhite: string[]; byBlack: string[] } {
-  const byWhite: string[] = [];
-  const byBlack: string[] = [];
-  for (const m of g.history({ verbose: true }) as { captured?: string; color: string }[]) {
-    if (!m.captured) continue;
-    const sym = m.color === 'w' ? m.captured.toLowerCase() : m.captured.toUpperCase();
-    if (m.color === 'w') byWhite.push(sym);   // white took a black piece
-    else                  byBlack.push(sym);   // black took a white piece
-  }
-  byWhite.sort((a, b) => PIECE_ORDER.indexOf(a) - PIECE_ORDER.indexOf(b));
-  byBlack.sort((a, b) => PIECE_ORDER.indexOf(a) - PIECE_ORDER.indexOf(b));
-  return { byWhite, byBlack };
+function addCapture(prev: string[], captured: string, moverColor: string): string[] {
+  // moverColor 'w' → captured a black piece (lowercase); 'b' → captured a white piece (uppercase)
+  const sym = moverColor === 'w' ? captured.toLowerCase() : captured.toUpperCase();
+  return [...prev, sym].sort((a, b) => PIECE_ORDER.indexOf(a) - PIECE_ORDER.indexOf(b));
 }
 
 function CapturedTray({ pieces }: { pieces: string[] }) {
   if (!pieces.length) return null;
   return (
-    <div className="flex flex-wrap gap-0.5 min-h-[18px]">
-      {pieces.map((p, i) => (
-        <motion.span key={i} initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.02 * i }}
-          className="text-base leading-none select-none"
-          style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>
-          {PIECE_EMOJI[p] ?? ''}
-        </motion.span>
-      ))}
+    <div className="flex flex-wrap gap-0.5 min-h-[20px] mt-1">
+      <AnimatePresence initial={false}>
+        {pieces.map((p, i) => (
+          <motion.span key={`${p}-${i}`}
+            initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+            className="text-[17px] leading-none select-none"
+            style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.7))' }}>
+            {PIECE_EMOJI[p] ?? ''}
+          </motion.span>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }
@@ -458,10 +453,17 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
   const [myTime,        setMyTime]        = useState(TURN_SECS);
   const [oppTime,       setOppTime]       = useState(TURN_SECS);
   const [captureFlash,  setCaptureFlash]  = useState<string | null>(null);
+  const [capByWhite,    setCapByWhite]    = useState<string[]>([]);
+  const [capByBlack,    setCapByBlack]    = useState<string[]>([]);
   const channelRef  = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const doneRef     = useRef(false);
   const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
   const sound       = useChessSound();
+
+  const recordCapture = useCallback((captured: string, moverColor: string) => {
+    if (moverColor === 'w') setCapByWhite(prev => addCapture(prev, captured, 'w'));
+    else                    setCapByBlack(prev => addCapture(prev, captured, 'b'));
+  }, []);
 
   const finish = useCallback((w: Winner) => {
     if (doneRef.current) return;
@@ -543,6 +545,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
         sound.capture();
         setCaptureFlash(move.slice(2, 4));
         setTimeout(() => setCaptureFlash(null), 450);
+        recordCapture(result.captured, result.color);
       } else {
         sound.move();
       }
@@ -573,6 +576,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
             sound.capture();
             setCaptureFlash(payload.move.slice(2, 4));
             setTimeout(() => setCaptureFlash(null), 450);
+            recordCapture(result.captured, result.color);
           } else {
             sound.move();
           }
@@ -622,6 +626,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
       sound.capture();
       setCaptureFlash(targetSquare);
       setTimeout(() => setCaptureFlash(null), 450);
+      recordCapture(move.captured, move.color);
     } else {
       sound.move();
     }
@@ -696,6 +701,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
         sound.capture();
         setCaptureFlash(sq);
         setTimeout(() => setCaptureFlash(null), 450);
+        recordCapture(move.captured, move.color);
       } else {
         sound.move();
       }
@@ -737,10 +743,9 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
 
   const opponentLabel = mode === 'ai' ? `🤖 AI (${difficulty})` : opponentName;
   const oppTurn       = !myTurn && !game.isGameOver();
-  const { byWhite, byBlack } = getCaptured(game);
-  // pieces the opponent lost (captured by me) shown under opponent; pieces I lost under me
-  const oppLost = playerColor === 'w' ? byWhite : byBlack;
-  const myLost  = playerColor === 'w' ? byBlack : byWhite;
+  // capByWhite = pieces white has captured (black pieces gone); capByBlack = pieces black captured (white pieces gone)
+  const oppLost = playerColor === 'w' ? capByWhite : capByBlack; // pieces captured by me (opponent lost them)
+  const myLost  = playerColor === 'w' ? capByBlack : capByWhite; // pieces captured by opponent (I lost them)
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: BG }}>
