@@ -856,7 +856,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
   }, [fen]);
 
   const selectPiece = useCallback((sq: string) => {
-    if (difficulty !== 'easy') return;
+    if (difficulty !== 'easy' && mode !== 'mp') return;
     if (game.turn() !== playerColor || game.isGameOver() || thinking) return;
     const moves = game.moves({ square: sq as Parameters<typeof game.get>[0], verbose: true }) as { to: string; captured?: string }[];
     if (!moves.length) return;
@@ -878,7 +878,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
   }, [selectedSq, selectPiece]);
 
   const handleSquareClick = useCallback(({ square: sq }: SquareHandlerArgs) => {
-    if (difficulty !== 'easy') return;
+    if (difficulty !== 'easy' && mode !== 'mp') return;
     if (game.isGameOver() || thinking) return;
 
     // Execute move to a hint square
