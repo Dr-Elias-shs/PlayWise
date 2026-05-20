@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/useGameStore';
 import { addCoins } from '@/lib/wallet';
 import { getBestMove, AIDifficulty } from '@/lib/chess-ai';
-import { updateChessScore } from '@/lib/chess-scores';
+import { updateChessScore, getChessLeaderboard, ChessScoreRow } from '@/lib/chess-scores';
 import { supabase } from '@/lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -34,20 +34,32 @@ function StatusBadge({ text, color }: { text: string; color: string }) {
 
 // ─── Menu ─────────────────────────────────────────────────────────────────────
 
+const MEDAL = ['🥇', '🥈', '🥉'];
+
 function ModeMenu({ onSelectAI, onSelectMP, onBack }: {
   onSelectAI: () => void;
   onSelectMP: () => void;
   onBack: () => void;
 }) {
+  const [rows, setRows]       = useState<ChessScoreRow[]>([]);
+  const [lbLoading, setLbLoading] = useState(true);
+
+  useEffect(() => {
+    getChessLeaderboard(20).then(data => { setRows(data); setLbLoading(false); });
+  }, []);
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: BG }}>
-      <div className="w-full max-w-sm space-y-6">
+    <div className="min-h-screen flex flex-col items-center justify-start p-6 overflow-y-auto" style={{ background: BG }}>
+      <div className="w-full max-w-sm space-y-5 py-8">
+
+        {/* Header */}
         <div className="text-center">
           <div className="text-6xl mb-3">♟️</div>
           <h2 className="text-3xl font-black text-white">Chess</h2>
           <p className="text-white/50 mt-1">Choose your mode</p>
         </div>
 
+        {/* Mode buttons */}
         <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
           onClick={onSelectAI}
           className="w-full p-5 rounded-3xl border border-white/10 text-left transition-all hover:border-white/30"
@@ -65,6 +77,57 @@ function ModeMenu({ onSelectAI, onSelectMP, onBack }: {
           <div className="text-white font-black text-lg">vs Friend</div>
           <div className="text-white/40 text-sm mt-0.5">Create or join a room and play a classmate</div>
         </motion.button>
+
+        {/* Chess Leaderboard */}
+        <div className="rounded-3xl overflow-hidden border border-white/10" style={{ background: 'rgba(255,255,255,0.05)' }}>
+          <div className="px-4 py-3 flex items-center gap-2 border-b border-white/10"
+            style={{ background: 'rgba(255,255,255,0.07)' }}>
+            <span className="text-lg">🏆</span>
+            <span className="text-white font-black text-sm tracking-wide">TOP CHESS PLAYERS</span>
+          </div>
+
+          {lbLoading && (
+            <div className="flex justify-center py-6">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-white/20 border-t-white/70" />
+            </div>
+          )}
+
+          {!lbLoading && rows.length === 0 && (
+            <p className="text-center text-white/30 text-xs py-6">No games played yet — be the first!</p>
+          )}
+
+          {!lbLoading && rows.length > 0 && (
+            <div className="max-h-56 overflow-y-auto divide-y divide-white/5">
+              {rows.map((r, i) => {
+                const total = r.wins + r.losses + r.draws;
+                const winPct = total > 0 ? Math.round((r.wins / total) * 100) : 0;
+                return (
+                  <div key={r.student_name} className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="text-base w-6 text-center shrink-0">
+                      {i < 3 ? MEDAL[i] : <span className="text-white/30 text-xs font-black">#{i + 1}</span>}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-white font-bold text-sm truncate">{r.display_name || r.student_name}</span>
+                        {r.win_streak >= 3 && (
+                          <span className="text-orange-400 text-xs font-black">🔥{r.win_streak}</span>
+                        )}
+                      </div>
+                      <div className="text-white/30 text-[10px] font-semibold">
+                        {r.wins}W · {r.losses}L · {r.draws}D
+                        <span className="ml-1.5 text-white/20">({winPct}%)</span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-amber-400 font-black text-sm">{r.rating}</div>
+                      <div className="text-white/20 text-[9px] font-bold">ELO</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         <button onClick={onBack} className="w-full text-white/30 hover:text-white/60 font-medium text-sm transition-colors">
           ← Back
@@ -451,7 +514,7 @@ interface BoardProps {
   roomCode?: string;
   playerName: string;
   playerEmail: string;
-  onDone: (winner: Winner) => void;
+  onDone: (winner: Winner, moves: number) => void;
 }
 
 function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, playerName, playerEmail, onDone }: BoardProps) {
@@ -480,10 +543,59 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
     else                    setCapByBlack(prev => addCapture(prev, captured, 'b'));
   }, []);
 
-  const finish = useCallback((w: Winner) => {
+  // ── Move counter (anti-exploit: MP requires min moves for rewards) ──
+  const [moveCount,    setMoveCount]    = useState(0);
+  const moveCountRef   = useRef(0);
+  moveCountRef.current = moveCount;
+
+  // ── End-of-game banner ──
+  const [endBanner, setEndBanner] = useState<{ title: string; sub: string } | null>(null);
+
+  // Keep refs so finish() can read them without stale closure issues
+  const gameRef      = useRef(game);
+  const lastMoveRef  = useRef(lastMove);
+  gameRef.current    = game;
+  lastMoveRef.current = lastMove;
+
+  const finish = useCallback((w: Winner, reason?: 'timeout' | 'resign' | 'checkmate' | 'draw') => {
     if (doneRef.current) return;
     doneRef.current = true;
-    onDone(w);
+
+    const g  = gameRef.current;
+    const lm = lastMoveRef.current;
+
+    const W_ICON: Record<string, string> = { k:'♔', q:'♕', r:'♖', b:'♗', n:'♘', p:'♙' };
+    const B_ICON: Record<string, string> = { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' };
+    const NAMES:  Record<string, string> = { k:'King', q:'Queen', r:'Rook', b:'Bishop', n:'Knight', p:'Pawn' };
+
+    let title = '', sub = '';
+
+    if (g.isCheckmate()) {
+      title = w === 'player' ? '♚ Checkmate — you win!' : '♚ Checkmate!';
+      if (lm) {
+        const p    = g.get(lm.to as Parameters<typeof g.get>[0]);
+        const icon = p ? (p.color === 'w' ? W_ICON[p.type] : B_ICON[p.type]) : '';
+        sub = `${icon} ${NAMES[p?.type ?? ''] ?? 'Piece'} ${lm.from.toUpperCase()} → ${lm.to.toUpperCase()} was the final move`;
+      }
+    } else if (g.isDraw()) {
+      title = '🤝 Draw!';
+      sub   = g.isStalemate()            ? 'Stalemate — no legal moves left'
+            : g.isInsufficientMaterial() ? 'Not enough pieces to force checkmate'
+            : g.isThreefoldRepetition()  ? 'Same position repeated three times'
+            : '50-move rule — no captures or pawn moves';
+    } else if (reason === 'timeout') {
+      title = w === 'player' ? "⏰ Opponent's time ran out!" : '⏰ Time\'s up!';
+      sub   = w === 'player' ? 'They used all their thinking time' : 'You used all your thinking time';
+    } else if (reason === 'resign') {
+      title = w === 'player' ? '🏳️ Opponent resigned!' : '🏳️ You resigned';
+      sub   = '';
+    } else {
+      title = w === 'player' ? '🏆 You win!' : '💔 Game over';
+      sub   = '';
+    }
+
+    setEndBanner({ title, sub });
+    setTimeout(() => onDone(w, moveCountRef.current), 2600);
   }, [onDone]);
 
   const syncStatus = useCallback((g: Chess) => {
@@ -528,7 +640,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
         if (remaining <= 0) {
           clearInterval(timerRef.current!);
           sound.timeout();
-          finish(mode === 'ai' ? 'ai' : 'opponent');
+          finish(mode === 'ai' ? 'ai' : 'opponent', 'timeout');
           if (mode === 'mp' && channelRef.current)
             channelRef.current.send({ type: 'broadcast', event: 'timeout', payload: {} });
         }
@@ -536,7 +648,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
         setOppTime(remaining);
         if (remaining <= 0) {
           clearInterval(timerRef.current!);
-          finish('player');
+          finish('player', 'timeout');
         }
       }
     }, 1000);
@@ -555,6 +667,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
       const result = g.move(move);
       setGame(g);
       setFen(g.fen());
+      setMoveCount(c => c + 1);
       setLastMove({ from: move.slice(0, 2), to: move.slice(2, 4) });
       if (result?.captured) {
         sound.capture();
@@ -583,25 +696,31 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
     const ch = supabase.channel(`chess-moves-${roomCode}`, { config: { broadcast: { self: false } } })
       .on('broadcast', { event: 'move' }, ({ payload }) => {
         setGame(prev => {
-          const g = new Chess(prev.fen());
-          const result = g.move(payload.move);
-          setFen(g.fen());
-          setLastMove({ from: payload.move.slice(0, 2), to: payload.move.slice(2, 4) });
-          if (result?.captured) {
-            sound.capture();
-            setCaptureFlash(payload.move.slice(2, 4));
-            setTimeout(() => setCaptureFlash(null), 450);
-            recordCapture(result.captured, result.color);
-          } else {
-            sound.move();
+          try {
+            const g = new Chess(prev.fen());
+            const result = g.move(payload.move);
+            setFen(g.fen());
+            setMoveCount(c => c + 1);
+            setLastMove({ from: payload.move.slice(0, 2), to: payload.move.slice(2, 4) });
+            if (result?.captured) {
+              sound.capture();
+              setCaptureFlash(payload.move.slice(2, 4));
+              setTimeout(() => setCaptureFlash(null), 450);
+              recordCapture(result.captured, result.color);
+            } else {
+              sound.move();
+            }
+            if (g.isCheck() && !g.isCheckmate()) sound.check();
+            syncStatus(g);
+            return g;
+          } catch {
+            // Move is illegal for current position (duplicate broadcast / sync drift) — ignore it
+            return prev;
           }
-          if (g.isCheck() && !g.isCheckmate()) sound.check();
-          syncStatus(g);
-          return g;
         });
       })
-      .on('broadcast', { event: 'resign' },   () => { sound.win(); finish('player'); })
-      .on('broadcast', { event: 'timeout' },  () => { sound.win(); finish('player'); })
+      .on('broadcast', { event: 'resign' },   () => { sound.win(); finish('player', 'resign'); })
+      .on('broadcast', { event: 'timeout' },  () => { sound.win(); finish('player', 'timeout'); })
       .subscribe();
 
     channelRef.current = ch;
@@ -613,6 +732,58 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
 
     return () => { supabase.removeChannel(ch); };
   }, [mode, roomCode, playerColor, syncStatus, finish]);
+
+  // ── DB polling fallback (catches moves when WebSocket drops) ──
+  useEffect(() => {
+    if (mode !== 'mp' || !roomCode) return;
+
+    const poll = setInterval(async () => {
+      if (doneRef.current) return;
+      const { data } = await supabase
+        .from('chess_rooms').select('fen').eq('room_code', roomCode).maybeSingle();
+      if (!data?.fen) return;
+
+      setGame(prev => {
+        if (prev.fen() === data.fen) return prev; // already up to date
+        const dbGame = new Chess(data.fen);
+        // Only apply when it's now my turn (= opponent just moved in DB)
+        if (dbGame.turn() !== playerColor) return prev;
+
+        // Try to reconstruct which move was made so we can animate + record capture
+        const legal = prev.moves({ verbose: true }) as { from: string; to: string; captured?: string; color: string; promotion?: string }[];
+        for (const m of legal) {
+          const test = new Chess(prev.fen());
+          // Use LAN string to avoid chess.js throwing when promotion:'q' is passed for non-promotion moves
+          const lan = m.from + m.to + (m.promotion ?? '');
+          let result: ReturnType<typeof test.move> | null = null;
+          try { result = test.move(lan); } catch { continue; }
+          if (test.fen() === data.fen && result) {
+            setFen(test.fen());
+            setMoveCount(c => c + 1);
+            setLastMove({ from: m.from, to: m.to });
+            if (result.captured) {
+              sound.capture();
+              setCaptureFlash(m.to);
+              setTimeout(() => setCaptureFlash(null), 450);
+              recordCapture(result.captured, result.color);
+            } else {
+              sound.move();
+            }
+            if (test.isCheck() && !test.isCheckmate()) sound.check();
+            syncStatus(test);
+            return test;
+          }
+        }
+        // Fallback: sync to DB state directly (e.g., promotion edge case)
+        setFen(data.fen);
+        setMoveCount(c => c + 1);
+        syncStatus(dbGame);
+        return dbGame;
+      });
+    }, 2000);
+
+    return () => clearInterval(poll);
+  }, [mode, roomCode, playerColor, syncStatus, recordCapture, sound]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Trigger AI on mount if player is black ──
   useEffect(() => {
@@ -636,6 +807,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
 
     setGame(g);
     setFen(g.fen());
+    setMoveCount(c => c + 1);
     setLastMove({ from: sourceSquare, to: targetSquare });
     if (move.captured) {
       sound.capture();
@@ -648,11 +820,11 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
     if (g.isCheck() && !g.isCheckmate()) sound.check();
     syncStatus(g);
 
-    if (mode === 'mp' && channelRef.current) {
-      channelRef.current.send({
-        type: 'broadcast', event: 'move',
-        payload: { move: move.lan ?? `${sourceSquare}${targetSquare}` },
-      });
+    if (mode === 'mp') {
+      if (channelRef.current)
+        channelRef.current.send({ type: 'broadcast', event: 'move', payload: { move: move.lan ?? `${sourceSquare}${targetSquare}` } });
+      // Also write FEN to DB — fallback for tablets where WebSocket drops
+      supabase.from('chess_rooms').update({ fen: g.fen() }).eq('room_code', roomCode!).then();
     }
 
     if (mode === 'ai' && !g.isGameOver()) {
@@ -660,13 +832,13 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
     }
 
     return true;
-  }, [game, thinking, playerColor, mode, syncStatus, doAIMove]);
+  }, [game, thinking, playerColor, mode, roomCode, syncStatus, doAIMove]);
 
   const handleResign = () => {
     if (mode === 'mp' && channelRef.current) {
       channelRef.current.send({ type: 'broadcast', event: 'resign', payload: {} });
     }
-    finish(mode === 'ai' ? 'ai' : 'opponent');
+    finish(mode === 'ai' ? 'ai' : 'opponent', 'resign');
   };
 
   // Clear move hints whenever a move is made (fen changes)
@@ -711,6 +883,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
       if (!move) { setSelectedSq(null); setMoveHints({}); return; }
 
       setGame(g); setFen(g.fen());
+      setMoveCount(c => c + 1);
       setLastMove({ from: selectedSq, to: sq });
       if (move.captured) {
         sound.capture();
@@ -723,8 +896,11 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
       if (g.isCheck() && !g.isCheckmate()) sound.check();
       syncStatus(g);
 
-      if (mode === 'mp' && channelRef.current)
-        channelRef.current.send({ type: 'broadcast', event: 'move', payload: { move: move.lan ?? `${selectedSq}${sq}` } });
+      if (mode === 'mp') {
+        if (channelRef.current)
+          channelRef.current.send({ type: 'broadcast', event: 'move', payload: { move: move.lan ?? `${selectedSq}${sq}` } });
+        supabase.from('chess_rooms').update({ fen: g.fen() }).eq('room_code', roomCode!).then();
+      }
       if (mode === 'ai' && !g.isGameOver()) doAIMove(g);
       return;
     }
@@ -796,7 +972,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
           )}
         </AnimatePresence>
 
-        <div className="w-full max-w-[min(90vw,480px)]">
+        <div className="w-full max-w-[min(90vw,480px)] relative">
           <Chessboard options={{
             position: fen,
             onPieceDrop: onDrop,
@@ -805,11 +981,47 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
             boardOrientation,
             squareStyles,
             animationDurationInMs: 250,
-            allowDragging: myTurn && !thinking,
+            allowDragging: myTurn && !thinking && !endBanner,
             boardStyle: { borderRadius: '12px', boxShadow: '0 8px 40px rgba(0,0,0,0.6)' },
             darkSquareStyle: { backgroundColor: '#2d4a6e' },
             lightSquareStyle: { backgroundColor: '#e8edf5' },
           }} />
+
+          {/* End-of-game explanation overlay */}
+          <AnimatePresence>
+            {endBanner && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+                className="absolute inset-0 rounded-xl flex flex-col items-center justify-center gap-3 z-20 px-6"
+                style={{ background: 'linear-gradient(160deg, rgba(15,32,39,0.82) 0%, rgba(15,32,39,0.96) 100%)', backdropFilter: 'blur(4px)' }}
+              >
+                <motion.div
+                  initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.12 }}
+                  className="text-3xl font-black text-white text-center drop-shadow-lg leading-tight">
+                  {endBanner.title}
+                </motion.div>
+                {endBanner.sub && (
+                  <motion.div
+                    initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.28 }}
+                    className="text-white/65 text-sm font-semibold text-center leading-snug">
+                    {endBanner.sub}
+                  </motion.div>
+                )}
+                <motion.div
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
+                  className="flex gap-1">
+                  {[0,1,2].map(i => (
+                    <motion.div key={i}
+                      animate={{ scale: [1, 1.4, 1] }}
+                      transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.2 }}
+                      className="w-1.5 h-1.5 rounded-full bg-white/30" />
+                  ))}
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <button onClick={handleResign}
@@ -836,15 +1048,14 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
 
 // ─── Game over screen ─────────────────────────────────────────────────────────
 
-function GameOverScreen({ winner, mode, onPlayAgain, onBack }: {
+function GameOverScreen({ winner, coinsEarned, onPlayAgain, onBack }: {
   winner: Winner;
-  mode: 'ai' | 'mp';
+  coinsEarned: number;
   onPlayAgain: () => void;
   onBack: () => void;
 }) {
   const emoji = winner === 'player' ? '🏆' : winner === 'draw' ? '🤝' : '💔';
   const title = winner === 'player' ? 'You Win!' : winner === 'draw' ? 'Draw!' : 'You Lost';
-  const coins = winner === 'player' ? COINS_WIN : winner === 'draw' ? COINS_DRAW : 0;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: BG }}>
@@ -853,11 +1064,17 @@ function GameOverScreen({ winner, mode, onPlayAgain, onBack }: {
         style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(20px)' }}>
         <div className="text-6xl">{emoji}</div>
         <h2 className="text-3xl font-black text-white">{title}</h2>
-        {coins > 0 && (
+        {coinsEarned > 0 ? (
           <div className="rounded-2xl p-4" style={{ background: 'rgba(255,215,0,0.12)' }}>
-            <div className="text-3xl font-black text-yellow-300">+{coins}</div>
+            <div className="text-3xl font-black text-yellow-300">+{coinsEarned}</div>
             <div className="text-white/40 text-xs font-bold mt-0.5">PLAYBITS EARNED</div>
           </div>
+        ) : winner !== null && winner !== 'draw' && winner !== 'player' ? null : (
+          winner === 'draw' || winner === 'player' ? (
+            <div className="rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.05)' }}>
+              <div className="text-white/30 text-xs font-bold">Game too short — play more moves to earn PlayBits</div>
+            </div>
+          ) : null
         )}
         <div className="flex gap-3">
           <button onClick={onPlayAgain}
@@ -886,16 +1103,21 @@ export function ChessGame({ onBack }: { onBack: () => void }) {
   const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
   const [playerColor,setPlayerColor]= useState<'w' | 'b'>('w');
   const [roomCode,   setRoomCode]   = useState('');
-  const [winner,     setWinner]     = useState<Winner>(null);
+  const [winner,      setWinner]      = useState<Winner>(null);
+  const [coinsEarned, setCoinsEarned] = useState(0);
 
-  const handleWin = useCallback(async (w: Winner) => {
+  const MIN_MOVES_MP = 6;
+
+  const handleWin = useCallback(async (w: Winner, moves: number) => {
     setWinner(w);
     setMode('done');
-    const coins = w === 'player' ? COINS_WIN : w === 'draw' ? COINS_DRAW : 0;
+    const qualified = gameMode !== 'mp' || moves >= MIN_MOVES_MP;
+    const coins = qualified ? (w === 'player' ? COINS_WIN : w === 'draw' ? COINS_DRAW : 0) : 0;
+    setCoinsEarned(coins);
     if (coins > 0 && playerName) {
       await addCoins(playerName, coins, 0, true, '', 'chess', playerEmail ?? '').catch(() => {});
     }
-    if (playerName) {
+    if (playerName && qualified) {
       const result = w === 'player' ? 'win' : w === 'draw' ? 'draw' : 'loss';
       await updateChessScore(playerName, playerEmail ?? '', result, gameMode, difficulty).catch(() => {});
     }
@@ -904,6 +1126,7 @@ export function ChessGame({ onBack }: { onBack: () => void }) {
   const resetToMenu = () => {
     setMode('menu');
     setWinner(null);
+    setCoinsEarned(0);
     setRoomCode('');
   };
 
@@ -959,7 +1182,7 @@ export function ChessGame({ onBack }: { onBack: () => void }) {
     return (
       <GameOverScreen
         winner={winner}
-        mode={gameMode}
+        coinsEarned={coinsEarned}
         onPlayAgain={resetToMenu}
         onBack={onBack}
       />
