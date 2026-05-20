@@ -231,8 +231,6 @@ function MPLobby({ playerName, onJoined, onBack }: {
       .from('chess_rooms').select('*').eq('room_code', code).eq('status', 'waiting').maybeSingle();
     if (error || !data) { setStatus('Room not found or already started.'); setBusy(false); return; }
     await supabase.from('chess_rooms').update({ black_name: playerName, status: 'playing' }).eq('room_code', code);
-    // Notify host via broadcast
-    supabase.channel(`chess-room-${code}`).send({ type: 'broadcast', event: 'joined', payload: { joiner: playerName } });
     onJoined(code, 'b');
   };
 
@@ -533,7 +531,6 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
   const [captureFlash,  setCaptureFlash]  = useState<string | null>(null);
   const [capByWhite,    setCapByWhite]    = useState<string[]>([]);
   const [capByBlack,    setCapByBlack]    = useState<string[]>([]);
-  const channelRef  = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const doneRef     = useRef(false);
   const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
   const sound       = useChessSound();
@@ -683,55 +680,14 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
     }, 1100);
   }, [difficulty, syncStatus, sound]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Multiplayer channel setup ──
+  // ── Fetch opponent name ──
   useEffect(() => {
     if (mode !== 'mp' || !roomCode) return;
-
-    // Fetch opponent name
-    supabase.from('chess_rooms').select('*').eq('room_code', roomCode).maybeSingle().then(({ data }) => {
+    supabase.from('chess_rooms').select('white_name, black_name').eq('room_code', roomCode).maybeSingle().then(({ data }) => {
       if (!data) return;
       setOpponentName(playerColor === 'w' ? (data.black_name ?? 'Opponent') : data.white_name);
     });
-
-    const ch = supabase.channel(`chess-moves-${roomCode}`, { config: { broadcast: { self: false } } })
-      .on('broadcast', { event: 'move' }, ({ payload }) => {
-        setGame(prev => {
-          try {
-            const g = new Chess(prev.fen());
-            const result = g.move(payload.move);
-            setFen(g.fen());
-            setMoveCount(c => c + 1);
-            setLastMove({ from: payload.move.slice(0, 2), to: payload.move.slice(2, 4) });
-            if (result?.captured) {
-              sound.capture();
-              setCaptureFlash(payload.move.slice(2, 4));
-              setTimeout(() => setCaptureFlash(null), 450);
-              recordCapture(result.captured, result.color);
-            } else {
-              sound.move();
-            }
-            if (g.isCheck() && !g.isCheckmate()) sound.check();
-            syncStatus(g);
-            return g;
-          } catch {
-            // Move is illegal for current position (duplicate broadcast / sync drift) — ignore it
-            return prev;
-          }
-        });
-      })
-      .on('broadcast', { event: 'resign' },   () => { sound.win(); finish('player', 'resign'); })
-      .on('broadcast', { event: 'timeout' },  () => { sound.win(); finish('player', 'timeout'); })
-      .subscribe();
-
-    channelRef.current = ch;
-
-    // Notify host that opponent joined (if black)
-    if (playerColor === 'b') {
-      ch.send({ type: 'broadcast', event: 'joined', payload: {} });
-    }
-
-    return () => { supabase.removeChannel(ch); };
-  }, [mode, roomCode, playerColor, syncStatus, finish]);
+  }, [mode, roomCode, playerColor]);
 
   // ── DB polling fallback (catches moves when WebSocket drops) ──
   useEffect(() => {
