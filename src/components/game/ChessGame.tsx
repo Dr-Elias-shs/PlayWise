@@ -640,9 +640,9 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
         if (remaining <= 0) {
           clearInterval(timerRef.current!);
           sound.timeout();
+          if (mode === 'mp')
+            supabase.from('chess_rooms').update({ status: `timeout_${playerColor}` }).eq('room_code', roomCode!).then();
           finish(mode === 'ai' ? 'ai' : 'opponent', 'timeout');
-          if (mode === 'mp' && channelRef.current)
-            channelRef.current.send({ type: 'broadcast', event: 'timeout', payload: {} });
         }
       } else {
         setOppTime(remaining);
@@ -740,8 +740,21 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
     const poll = setInterval(async () => {
       if (doneRef.current) return;
       const { data } = await supabase
-        .from('chess_rooms').select('fen').eq('room_code', roomCode).maybeSingle();
-      if (!data?.fen) return;
+        .from('chess_rooms').select('fen, status').eq('room_code', roomCode).maybeSingle();
+      if (!data) return;
+
+      // Detect opponent resign or timeout written to DB
+      const s = data.status ?? '';
+      if ((s.startsWith('resigned_') || s.startsWith('timeout_')) && !doneRef.current) {
+        const endColor = s.slice(-1) as 'w' | 'b';
+        if (endColor !== playerColor) {
+          sound.win();
+          finish('player', s.startsWith('resigned_') ? 'resign' : 'timeout');
+          return;
+        }
+      }
+
+      if (!data.fen) return;
 
       setGame(prev => {
         if (prev.fen() === data.fen) return prev; // already up to date
@@ -780,10 +793,10 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
         syncStatus(dbGame);
         return dbGame;
       });
-    }, 2000);
+    }, 1000);
 
     return () => clearInterval(poll);
-  }, [mode, roomCode, playerColor, syncStatus, recordCapture, sound]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, roomCode, playerColor, syncStatus, recordCapture, sound, finish]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Trigger AI on mount if player is black ──
   useEffect(() => {
@@ -820,12 +833,8 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
     if (g.isCheck() && !g.isCheckmate()) sound.check();
     syncStatus(g);
 
-    if (mode === 'mp') {
-      if (channelRef.current)
-        channelRef.current.send({ type: 'broadcast', event: 'move', payload: { move: move.lan ?? `${sourceSquare}${targetSquare}` } });
-      // Also write FEN to DB — fallback for tablets where WebSocket drops
+    if (mode === 'mp')
       supabase.from('chess_rooms').update({ fen: g.fen() }).eq('room_code', roomCode!).then();
-    }
 
     if (mode === 'ai' && !g.isGameOver()) {
       doAIMove(g);
@@ -835,9 +844,8 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
   }, [game, thinking, playerColor, mode, roomCode, syncStatus, doAIMove]);
 
   const handleResign = () => {
-    if (mode === 'mp' && channelRef.current) {
-      channelRef.current.send({ type: 'broadcast', event: 'resign', payload: {} });
-    }
+    if (mode === 'mp')
+      supabase.from('chess_rooms').update({ status: `resigned_${playerColor}` }).eq('room_code', roomCode!).then();
     finish(mode === 'ai' ? 'ai' : 'opponent', 'resign');
   };
 
@@ -896,11 +904,8 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
       if (g.isCheck() && !g.isCheckmate()) sound.check();
       syncStatus(g);
 
-      if (mode === 'mp') {
-        if (channelRef.current)
-          channelRef.current.send({ type: 'broadcast', event: 'move', payload: { move: move.lan ?? `${selectedSq}${sq}` } });
+      if (mode === 'mp')
         supabase.from('chess_rooms').update({ fen: g.fen() }).eq('room_code', roomCode!).then();
-      }
       if (mode === 'ai' && !g.isGameOver()) doAIMove(g);
       return;
     }
