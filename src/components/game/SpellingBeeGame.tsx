@@ -28,22 +28,30 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+// Prefer a higher-pitched female voice so the word sounds clear and friendly
+function pickVoice(): SpeechSynthesisVoice | null {
+  const voices = window.speechSynthesis.getVoices();
+  return (
+    voices.find(v => /samantha|karen|victoria|zira|susan|moira/i.test(v.name)) ||
+    voices.find(v => v.lang === 'en-US' && !v.localService) ||
+    voices.find(v => v.lang === 'en-US') ||
+    voices.find(v => v.lang.startsWith('en')) ||
+    null
+  );
+}
+
 function speakWord(word: string, onDone?: () => void) {
   if (typeof window === 'undefined' || !window.speechSynthesis) { onDone?.(); return; }
   window.speechSynthesis.cancel();
 
   const makeUtt = () => {
     const utt = new SpeechSynthesisUtterance(word.toLowerCase());
-    utt.rate = 0.6;
-    utt.pitch = 1.0;
+    utt.rate = 0.62;
+    utt.pitch = 1.15;
     utt.lang = 'en-US';
     utt.volume = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const preferred =
-      voices.find(v => v.lang === 'en-US' && !v.localService) ||
-      voices.find(v => v.lang === 'en-US') ||
-      voices.find(v => v.lang.startsWith('en'));
-    if (preferred) utt.voice = preferred;
+    const v = pickVoice();
+    if (v) utt.voice = v;
     return utt;
   };
 
@@ -56,6 +64,45 @@ function speakWord(word: string, onDone?: () => void) {
     }, 900);
   };
   window.speechSynthesis.speak(first);
+}
+
+function speakText(text: string) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 0.88;
+  utt.pitch = 1.15;
+  utt.lang = 'en-US';
+  utt.volume = 1;
+  const v = pickVoice();
+  if (v) utt.voice = v;
+  window.speechSynthesis.speak(utt);
+}
+
+// ── Dictionary API ────────────────────────────────────────────────────────────
+
+interface WordDef {
+  partOfSpeech: string;
+  definition: string;
+  example?: string;
+}
+
+async function fetchDefinition(word: string): Promise<WordDef | null> {
+  try {
+    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const meaning = data[0]?.meanings?.[0];
+    const def = meaning?.definitions?.[0];
+    if (!def) return null;
+    return {
+      partOfSpeech: meaning.partOfSpeech ?? '',
+      definition: def.definition ?? '',
+      example: def.example,
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ── Bee SVG ───────────────────────────────────────────────────────────────────
@@ -204,6 +251,8 @@ export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
   const [streak, setStreak] = useState(0);
   const [coinsEarned, setCoinsEarned] = useState(0);
   const [speaking, setSpeaking] = useState(false);
+  const [definition, setDefinition] = useState<WordDef | null>(null);
+  const [defLoading, setDefLoading] = useState(false);
   const startRef = useRef(Date.now());
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -223,6 +272,18 @@ export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
       speakWord(words[idx], () => setSpeaking(false));
     }, 350);
     return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx, phase, words.length]);
+
+  // Fetch definition for current word
+  useEffect(() => {
+    if (phase !== 'playing' || words.length === 0) return;
+    setDefinition(null);
+    setDefLoading(true);
+    fetchDefinition(words[idx]).then(def => {
+      setDefinition(def);
+      setDefLoading(false);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, phase, words.length]);
 
@@ -294,6 +355,7 @@ export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
       setStreak(0);
       setCorrectCount(0);
       setCoinsEarned(0);
+      setDefinition(null);
       startRef.current = Date.now();
       setPhase('playing');
     });
@@ -432,6 +494,41 @@ export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
           </motion.div>
           {speaking ? 'Listening…' : 'Hear the word 🔊'}
         </motion.button>
+
+        {/* Definition card */}
+        <AnimatePresence>
+          {(defLoading || definition) && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
+              className="w-full bg-white/8 border border-white/15 rounded-2xl px-4 py-3"
+            >
+              {defLoading ? (
+                <p className="text-white/25 text-xs text-center tracking-wide">looking up definition…</p>
+              ) : definition ? (
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <span className="bg-yellow-400/20 text-yellow-300 text-xs font-bold px-2 py-0.5 rounded-lg flex-shrink-0">
+                      {definition.partOfSpeech}
+                    </span>
+                    <button
+                      onClick={() => speakText(
+                        definition.definition + (definition.example ? '. For example: ' + definition.example : '')
+                      )}
+                      className="text-white/30 hover:text-yellow-300 transition-colors flex-shrink-0 mt-0.5"
+                      title="Hear definition"
+                    >
+                      <Volume2 size={13} />
+                    </button>
+                  </div>
+                  <p className="text-white/75 text-xs leading-relaxed">{definition.definition}</p>
+                  {definition.example && (
+                    <p className="text-white/40 text-xs italic mt-1.5">"{definition.example}"</p>
+                  )}
+                </div>
+              ) : null}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Letter tiles */}
         <AnimatePresence mode="wait">
