@@ -148,16 +148,16 @@ function Keyboard({
   canSubmit: boolean;
 }) {
   return (
-    <div className="w-full max-w-md space-y-1.5 select-none">
+    <div className="w-full max-w-xl space-y-2 select-none">
       {KB_ROWS.map((row, ri) => (
-        <div key={ri} className="flex justify-center gap-1">
+        <div key={ri} className="flex justify-center gap-1.5">
           {row.map(letter => (
             <motion.button
               key={letter}
               onPointerDown={e => { e.preventDefault(); if (!disabled) onLetter(letter); }}
               whileTap={!disabled ? { scale: 0.85 } : {}}
               disabled={disabled}
-              className={`flex-1 max-w-[2.4rem] h-11 rounded-xl font-black text-sm transition-colors
+              className={`flex-1 h-12 rounded-xl font-black text-base transition-colors
                 ${disabled
                   ? 'bg-white/5 text-white/20'
                   : 'bg-white/20 text-white active:bg-yellow-400 active:text-gray-900 hover:bg-white/30'
@@ -170,7 +170,7 @@ function Keyboard({
       ))}
 
       {/* Bottom row: backspace + check */}
-      <div className="flex gap-2 pt-0.5">
+      <div className="flex gap-1.5 pt-0.5">
         <motion.button
           onPointerDown={e => { e.preventDefault(); if (!disabled) onBackspace(); }}
           whileTap={!disabled ? { scale: 0.88 } : {}}
