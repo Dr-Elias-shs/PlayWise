@@ -419,7 +419,9 @@ function useChessSound() {
       osc.start(t); osc.stop(t + dur + 0.01);
     } catch {}
   };
-  return {
+  // useRef keeps the same object identity across renders so useEffects
+  // that depend on `sound` don't restart every time the component re-renders.
+  const soundRef = useRef({
     move:    () => { tone(520, 0.07, 0.18, 'square'); },
     capture: () => { tone(180, 0.18, 0.45, 'sawtooth'); tone(360, 0.09, 0.2, 'square', 0.04); },
     check:   () => { tone(880, 0.09, 0.3); tone(1100, 0.12, 0.3, 'sine', 0.1); },
@@ -427,7 +429,8 @@ function useChessSound() {
     lose:    () => { [440,392,349,294].forEach((f, i) => tone(f, 0.28, 0.3,  'sine', i * 0.16)); },
     tick:    () => { tone(1100, 0.04, 0.15, 'square'); },
     timeout: () => { tone(330, 0.6, 0.4, 'sawtooth'); },
-  };
+  });
+  return soundRef.current;
 }
 
 // ─── Timer display ─────────────────────────────────────────────────────────────
