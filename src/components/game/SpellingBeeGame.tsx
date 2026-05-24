@@ -75,10 +75,6 @@ function speakText(text: string) {
 
 interface WordDef { partOfSpeech: string; definition: string; example?: string; }
 
-function redactWord(text: string, word: string): string {
-  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return text.replace(new RegExp(`\\b${escaped}(s|es|ies|ing|ed|er|est|'s)?\\b`, 'gi'), '____');
-}
 
 async function fetchDefinition(word: string): Promise<WordDef | null> {
   try {
@@ -654,9 +650,7 @@ export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
               initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
               onClick={() => {
                 if (!definition) return;
-                const def = redactWord(definition.definition, currentWord);
-                const ex = definition.example ? redactWord(definition.example, currentWord) : '';
-                speakText(def + (ex ? '. For example: ' + ex : ''));
+                speakText(definition.definition + (definition.example ? '. For example: ' + definition.example : ''));
               }}
               disabled={defLoading || !definition}
               whileTap={definition ? { scale: 0.94 } : {}}
