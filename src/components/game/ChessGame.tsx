@@ -712,43 +712,43 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
 
       if (!data.fen) return;
 
-      setGame(prev => {
-        if (prev.fen() === data.fen) return prev; // already up to date
-        const dbGame = new Chess(data.fen);
-        // Only apply when it's now my turn (= opponent just moved in DB)
-        if (dbGame.turn() !== playerColor) return prev;
+      // Use ref to read current game without needing a functional updater
+      const prev = gameRef.current;
+      if (prev.fen() === data.fen) return; // already up to date
+      const dbGame = new Chess(data.fen);
+      // Only apply when it's now my turn (= opponent just moved in DB)
+      if (dbGame.turn() !== playerColor) return;
 
-        // Try to reconstruct which move was made so we can animate + record capture
-        const legal = prev.moves({ verbose: true }) as { from: string; to: string; captured?: string; color: string; promotion?: string }[];
-        for (const m of legal) {
-          const test = new Chess(prev.fen());
-          // Use LAN string to avoid chess.js throwing when promotion:'q' is passed for non-promotion moves
-          const lan = m.from + m.to + (m.promotion ?? '');
-          let result: ReturnType<typeof test.move> | null = null;
-          try { result = test.move(lan); } catch { continue; }
-          if (test.fen() === data.fen && result) {
-            setFen(test.fen());
-            setMoveCount(c => c + 1);
-            setLastMove({ from: m.from, to: m.to });
-            if (result.captured) {
-              sound.capture();
-              setCaptureFlash(m.to);
-              setTimeout(() => setCaptureFlash(null), 450);
-              recordCapture(result.captured, result.color);
-            } else {
-              sound.move();
-            }
-            if (test.isCheck() && !test.isCheckmate()) sound.check();
-            syncStatus(test);
-            return test;
+      // Try to reconstruct which move was made so we can animate + record capture
+      const legal = prev.moves({ verbose: true }) as { from: string; to: string; captured?: string; color: string; promotion?: string }[];
+      for (const m of legal) {
+        const test = new Chess(prev.fen());
+        const lan = m.from + m.to + (m.promotion ?? '');
+        let result: ReturnType<typeof test.move> | null = null;
+        try { result = test.move(lan); } catch { continue; }
+        if (test.fen() === data.fen && result) {
+          setGame(test);
+          setFen(test.fen());
+          setMoveCount(c => c + 1);
+          setLastMove({ from: m.from, to: m.to });
+          if (result.captured) {
+            sound.capture();
+            setCaptureFlash(m.to);
+            setTimeout(() => setCaptureFlash(null), 450);
+            recordCapture(result.captured, result.color);
+          } else {
+            sound.move();
           }
+          if (test.isCheck() && !test.isCheckmate()) sound.check();
+          syncStatus(test);
+          return;
         }
-        // Fallback: sync to DB state directly (e.g., promotion edge case)
-        setFen(data.fen);
-        setMoveCount(c => c + 1);
-        syncStatus(dbGame);
-        return dbGame;
-      });
+      }
+      // Fallback: sync to DB state directly (e.g., promotion edge case)
+      setGame(dbGame);
+      setFen(data.fen);
+      setMoveCount(c => c + 1);
+      syncStatus(dbGame);
     }, 1000);
 
     return () => clearInterval(poll);
