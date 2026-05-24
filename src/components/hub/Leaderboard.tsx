@@ -64,6 +64,7 @@ const GAME_LABELS: Record<string, string> = {
   multiplication: '✖️ Multiplication', addition: '➕ Number Sprint',
   division: '➗ Division Dash', fractions: '🍕 Fractions',
   hangman: '🪢 Hangman', brain: '🧩 Brain Logic', memory: '🧠 Memory',
+  'spelling-bee': '🐝 Spelling Bee',
 };
 
 // ── Sub-components ────────────────────────────────────────────────────────────

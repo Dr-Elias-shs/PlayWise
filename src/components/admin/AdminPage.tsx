@@ -15,6 +15,7 @@ import { ALL_GAMES } from '@/lib/gameConfigs';
 import { TimeManagementTab } from './TimeManagementTab';
 import { GradeControlTab } from './GradeControlTab';
 import { LiveNowTab } from './LiveNowTab';
+import { SpellingBeeWordBankTab } from './SpellingBeeWordBankTab';
 import { MAP_REGISTRY } from '@/lib/map-registry';
 import { ROOMS } from '@/lib/rooms';
 import {
@@ -42,7 +43,7 @@ function resolveGameName(id: string | null | undefined, focusTable?: number): st
   return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'grades' | 'live' | 'grade-requests' | 'settings';
+type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'grades' | 'live' | 'grade-requests' | 'settings' | 'spelling-bee';
 
 interface Wallet {
   student_name: string;  // email (DB key)
@@ -278,6 +279,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
           { id: 'analytics',   label: '📊 Analytics' },
           { id: 'games',       label: '🎮 Games', badge: Object.values(gameSettings).filter(v => v === false).length || undefined },
           { id: 'curriculum',  label: '📚 Curriculum' },
+          { id: 'spelling-bee', label: '🐝 Spelling Bee' },
           { id: 'timemgmt',   label: '⏰ Time' },
           { id: 'grades',     label: '📚 Grades' },
           { id: 'live',            label: '🟢 Live' },
@@ -1479,6 +1481,13 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   created_at       TIMESTAMPTZ DEFAULT now()
 );`}</pre>
                 </div>
+              </motion.div>
+            )}
+
+            {/* ── Spelling Bee ── */}
+            {tab === 'spelling-bee' && (
+              <motion.div key="spelling-bee" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <SpellingBeeWordBankTab />
               </motion.div>
             )}
 

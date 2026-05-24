@@ -12,6 +12,7 @@ import { HangmanGame } from "@/components/game/HangmanGame";
 import { BrainGame } from "@/components/game/BrainGame";
 import { TriviaGame } from "@/components/game/TriviaGame";
 import { ChessGame } from "@/components/game/ChessGame";
+import { SpellingBeeGame } from "@/components/game/SpellingBeeGame";
 import { MultiplayerHub } from "@/components/multiplayer/MultiplayerHub";
 import { ProfileSetup } from "@/components/profile/ProfileSetup";
 import { RedeemPage } from "@/components/redeem/RedeemPage";
@@ -360,6 +361,9 @@ export default function Home() {
     }
     if (activeGame.id === 'chess') {
       return <ChessGame onBack={backToHub} />;
+    }
+    if (activeGame.id === 'spelling-bee') {
+      return <SpellingBeeGame onBack={backToHub} />;
     }
     return <GameEngine config={activeGame} onBack={backToHub} />;
   }

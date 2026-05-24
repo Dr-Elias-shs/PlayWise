@@ -300,6 +300,20 @@ export const chessGame: GameConfig = {
   generateQuestion: () => ({ displayText: '', answer: 0, choices: [], formatChoice: n => String(n) }),
 };
 
+// ─── Spelling Bee ─────────────────────────────────────────────────────────────
+
+export const spellingBeeGame: GameConfig = {
+  id: 'spelling-bee',
+  title: 'Spelling Bee',
+  description: 'Listen to the word and spell it correctly!',
+  emoji: '🐝',
+  bgStyle:     'linear-gradient(135deg, #0c1a6e, #1a237e, #0d47a1)',
+  cardStyle:   'linear-gradient(135deg, #1565c0, #1976d2)',
+  accentStyle: 'linear-gradient(135deg, #FDD835, #F9A825)',
+  duration: 0,
+  generateQuestion: () => ({ displayText: '', answer: 0, choices: [], formatChoice: n => String(n) }),
+};
+
 // ─── All games ────────────────────────────────────────────────────────────────
 
 export const ALL_GAMES: GameConfig[] = [
@@ -312,4 +326,5 @@ export const ALL_GAMES: GameConfig[] = [
   memoryGame,
   triviaGame,
   chessGame,
+  spellingBeeGame,
 ];

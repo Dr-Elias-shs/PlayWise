@@ -331,6 +331,20 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.chess_scores;`,
 ALTER TABLE public.curriculum_terms ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "all" ON public.curriculum_terms FOR ALL USING (true) WITH CHECK (true);`,
   },
+  {
+    name: "spelling_bee_words",
+    sql: `CREATE TABLE IF NOT EXISTS public.spelling_bee_words (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  word TEXT NOT NULL,
+  grade INTEGER NOT NULL CHECK (grade >= 1 AND grade <= 12),
+  hint TEXT DEFAULT NULL,
+  is_custom BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sbw_grade ON public.spelling_bee_words(grade);
+ALTER TABLE public.spelling_bee_words ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.spelling_bee_words FOR ALL USING (true) WITH CHECK (true);`,
+  },
 ];
 
 const ALL_SQL = TABLES.map(t => t.sql).join("\n\n");
