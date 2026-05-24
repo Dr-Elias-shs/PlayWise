@@ -208,7 +208,7 @@ function HexBg({ count = 12, opacity = 0.08 }: { count?: number; opacity?: numbe
 
 // ── Lobby screen ──────────────────────────────────────────────────────────────
 
-interface LeaderboardEntry { name: string; accuracy: number; sessions: number; }
+interface LeaderboardEntry { name: string; accuracy: number; sessions: number; score: number; }
 
 function LobbyScreen({ grade, playerName, onStart, onBack }: {
   grade: number;
@@ -227,8 +227,7 @@ function LobbyScreen({ grade, playerName, onStart, onBack }: {
           .select('student_name, avg_accuracy, sessions_count')
           .eq('game_id', 'spelling-bee')
           .gte('sessions_count', 1)
-          .order('avg_accuracy', { ascending: false })
-          .limit(5);
+          .limit(50);
 
         if (!perf || perf.length === 0) { setLoadingLB(false); return; }
 
@@ -241,11 +240,18 @@ function LobbyScreen({ grade, playerName, onStart, onBack }: {
           (wallets ?? []).map(w => [w.student_name, w.display_name])
         );
 
-        setEntries(perf.map(p => ({
-          name: nameMap[p.student_name] || (p.student_name as string).split('@')[0],
-          accuracy: Math.round((p.avg_accuracy ?? 0) * 100),
-          sessions: p.sessions_count,
-        })));
+        // Score = accuracy × ln(sessions + 1) so consistent players rank above lucky one-shots
+        const scored = perf
+          .map(p => ({
+            name: nameMap[p.student_name] || (p.student_name as string).split('@')[0],
+            accuracy: Math.round((p.avg_accuracy ?? 0) * 100),
+            sessions: p.sessions_count as number,
+            score: (p.avg_accuracy ?? 0) * Math.log((p.sessions_count as number) + 1),
+          }))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5);
+
+        setEntries(scored);
       } catch { /* non-fatal */ }
       setLoadingLB(false);
     })();
