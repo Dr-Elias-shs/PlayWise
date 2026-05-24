@@ -647,36 +647,28 @@ export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
           {speaking ? 'Listening…' : 'Hear the word 🔊'}
         </motion.button>
 
-        {/* Definition card */}
+        {/* Definition button */}
         <AnimatePresence>
           {(defLoading || definition) && (
-            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
-              className="w-full bg-white/8 border border-white/15 rounded-2xl px-4 py-3">
-              {defLoading ? (
-                <p className="text-white/25 text-xs text-center tracking-wide">looking up definition…</p>
-              ) : definition ? (
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <span className="bg-yellow-400/20 text-yellow-300 text-xs font-bold px-2 py-0.5 rounded-lg flex-shrink-0">
-                      {definition.partOfSpeech}
-                    </span>
-                    <button
-                      onClick={() => {
-                        const def = redactWord(definition.definition, currentWord);
-                        const ex = definition.example ? redactWord(definition.example, currentWord) : '';
-                        speakText(def + (ex ? '. For example: ' + ex : ''));
-                      }}
-                      className="text-white/30 hover:text-yellow-300 transition-colors flex-shrink-0 mt-0.5" title="Hear definition">
-                      <Volume2 size={13} />
-                    </button>
-                  </div>
-                  <p className="text-white/75 text-xs leading-relaxed">{redactWord(definition.definition, currentWord)}</p>
-                  {definition.example && (
-                    <p className="text-white/40 text-xs italic mt-1.5">&ldquo;{redactWord(definition.example, currentWord)}&rdquo;</p>
-                  )}
-                </div>
-              ) : null}
-            </motion.div>
+            <motion.button
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
+              onClick={() => {
+                if (!definition) return;
+                const def = redactWord(definition.definition, currentWord);
+                const ex = definition.example ? redactWord(definition.example, currentWord) : '';
+                speakText(def + (ex ? '. For example: ' + ex : ''));
+              }}
+              disabled={defLoading || !definition}
+              whileTap={definition ? { scale: 0.94 } : {}}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm border transition-colors ${
+                defLoading
+                  ? 'bg-white/5 border-white/10 text-white/25 cursor-default'
+                  : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/18 hover:text-white'
+              }`}
+            >
+              <Volume2 size={15} />
+              {defLoading ? 'Loading definition…' : 'Hear definition 📖'}
+            </motion.button>
           )}
         </AnimatePresence>
 
