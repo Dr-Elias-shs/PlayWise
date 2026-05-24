@@ -718,6 +718,16 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
       // Use ref to read current game without needing a functional updater
       const prev = gameRef.current;
       if (prev.fen() === data.fen) return; // already up to date
+
+      // Guard against stale reads: skip if DB ply is behind local ply.
+      // This prevents rolling back the local state when the DB write hasn't
+      // landed yet and the poll reads the previous FEN.
+      const plyOf = (fen: string) => {
+        const p = fen.split(' ');
+        return (parseInt(p[5] ?? '1') - 1) * 2 + (p[1] === 'b' ? 1 : 0);
+      };
+      if (plyOf(data.fen) <= plyOf(prev.fen())) return;
+
       const dbGame = new Chess(data.fen);
       // Only apply when it's now my turn (= opponent just moved in DB)
       if (dbGame.turn() !== playerColor) return;
