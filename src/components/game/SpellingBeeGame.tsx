@@ -22,19 +22,36 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function speakWord(word: string) {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return;
+function speakWord(word: string, onDone?: () => void) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) { onDone?.(); return; }
   window.speechSynthesis.cancel();
-  const say = (delay: number) => {
+
+  const makeUtt = () => {
     const utt = new SpeechSynthesisUtterance(word.toLowerCase());
-    utt.rate = 0.78;
+    utt.rate = 0.6;
     utt.pitch = 1.0;
     utt.lang = 'en-US';
     utt.volume = 1;
-    setTimeout(() => window.speechSynthesis.speak(utt), delay);
+    // Prefer a high-quality online English voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const preferred =
+      voices.find(v => v.lang === 'en-US' && !v.localService) ||
+      voices.find(v => v.lang === 'en-US') ||
+      voices.find(v => v.lang.startsWith('en'));
+    if (preferred) utt.voice = preferred;
+    return utt;
   };
-  say(0);
-  say(1400);
+
+  const first = makeUtt();
+  first.onend = () => {
+    // 900 ms pause then repeat once
+    setTimeout(() => {
+      const second = makeUtt();
+      second.onend = () => onDone?.();
+      window.speechSynthesis.speak(second);
+    }, 900);
+  };
+  window.speechSynthesis.speak(first);
 }
 
 // ── Bee SVG ──────────────────────────────────────────────────────────────────
@@ -102,12 +119,13 @@ export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
     return () => { if (advanceTimer.current) clearTimeout(advanceTimer.current); };
   }, [grade]);
 
-  // Auto-speak when a new word appears
+  // Auto-speak when a new word appears — small delay so UI settles first
   useEffect(() => {
     if (phase !== 'playing' || words.length === 0 || result !== 'idle') return;
-    setSpeaking(true);
-    speakWord(words[idx]);
-    const t = setTimeout(() => setSpeaking(false), 3000);
+    const t = setTimeout(() => {
+      setSpeaking(true);
+      speakWord(words[idx], () => setSpeaking(false));
+    }, 350);
     return () => clearTimeout(t);
   // Only fire when idx changes (not on every result change)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,8 +141,7 @@ export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
   const hearAgain = useCallback(() => {
     if (!words[idx]) return;
     setSpeaking(true);
-    speakWord(words[idx]);
-    setTimeout(() => setSpeaking(false), 3000);
+    speakWord(words[idx], () => setSpeaking(false));
   }, [words, idx]);
 
   const advance = useCallback((newCorrect: number, totalIdx: number) => {
@@ -149,7 +166,7 @@ export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
       } else {
         setIdx(nextIdx);
       }
-    }, 1700);
+    }, 2500);
   }, [words.length, grade, playerName, playerEmail, playerGrade]);
 
   const submit = useCallback(() => {
