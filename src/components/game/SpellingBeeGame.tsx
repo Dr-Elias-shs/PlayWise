@@ -473,7 +473,7 @@ export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
           applyDailyFreshness(dbKey, 'spelling-bee', rawCoins).then(coins => {
             setCoinsEarned(coins);
             addCoins(playerName, coins, elapsed, newCorrect > 0, playerGrade ?? '', 'spelling-bee', playerEmail).catch(() => {});
-            recordGameResult(playerName, 'spelling-bee', newCorrect, words.length, playerGrade ?? '').catch(() => {});
+            recordGameResult(dbKey, 'spelling-bee', newCorrect, words.length, playerGrade ?? '').catch(() => {});
           });
         }
       } else {
