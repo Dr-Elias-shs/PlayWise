@@ -60,15 +60,15 @@ export function PlayWiseIntro({ onDone }: Props) {
   function finish() {
     if (doneCalledRef.current) return;
     doneCalledRef.current = true;
-    localStorage.setItem(INTRO_SEEN_KEY, "1");
+    try { localStorage.setItem(INTRO_SEEN_KEY, "1"); } catch { /* storage blocked on some MDM profiles */ }
     setExiting(true);
     // Wait for exit animation before handing off
     setTimeout(onDone, 550);
   }
 
-  // Auto-dismiss safety — if user ignores everything for 12 s, move on
+  // Auto-dismiss — move on after 6 s regardless (covers frozen animations or blocked storage)
   useEffect(() => {
-    const t = setTimeout(finish, 12_000);
+    const t = setTimeout(finish, 6_000);
     return () => clearTimeout(t);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

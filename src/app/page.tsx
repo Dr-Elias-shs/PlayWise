@@ -75,9 +75,10 @@ export default function Home() {
   const { playerName, playerEmail, playerGrade, colorId, characterId, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
   const { playerName: worldName, playerEmail: worldEmail, setPlayerName: setWorldName, syncWithDatabase: syncWorld } = useWorldStore();
   const [screen, setScreen] = useState<Screen>('login');
-  const [showIntro, setShowIntro] = useState(() =>
-    typeof window !== 'undefined' ? !localStorage.getItem(INTRO_SEEN_KEY) : false
-  );
+  const [showIntro, setShowIntro] = useState(() => {
+    try { return typeof window !== 'undefined' ? !localStorage.getItem(INTRO_SEEN_KEY) : false; }
+    catch { return false; } // storage blocked on MDM tablets — skip intro entirely
+  });
 
   // Sync Hub player name and email into World store (for Shop/World currency sync)
   useEffect(() => {
