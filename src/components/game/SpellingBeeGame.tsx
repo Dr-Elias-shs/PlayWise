@@ -233,17 +233,21 @@ function LobbyScreen({ grade, playerName, onStart, onBack }: {
 
         const { data: wallets } = await supabase
           .from('player_wallets')
-          .select('student_name, display_name')
+          .select('student_name, display_name, grade')
           .in('student_name', perf.map(p => p.student_name));
 
-        const nameMap = Object.fromEntries(
-          (wallets ?? []).map(w => [w.student_name, w.display_name])
+        const walletMap = Object.fromEntries(
+          (wallets ?? []).map(w => [w.student_name, w])
         );
 
         // Score = accuracy × ln(sessions + 1) so consistent players rank above lucky one-shots
         const scored = perf
+          .filter(p => {
+            const w = walletMap[p.student_name];
+            return w && String(w.grade) === String(grade);
+          })
           .map(p => ({
-            name: nameMap[p.student_name] || (p.student_name as string).split('@')[0],
+            name: walletMap[p.student_name]?.display_name || (p.student_name as string).split('@')[0],
             accuracy: Math.round((p.avg_accuracy ?? 0) * 100),
             sessions: p.sessions_count as number,
             score: (p.avg_accuracy ?? 0) * Math.log((p.sessions_count as number) + 1),
@@ -326,7 +330,7 @@ function LobbyScreen({ grade, playerName, onStart, onBack }: {
           <div className="bg-white/8 backdrop-blur-sm border border-white/12 rounded-3xl overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
               <span className="text-base">🏆</span>
-              <span className="text-white font-black text-sm tracking-wide">Top Spellers</span>
+              <span className="text-white font-black text-sm tracking-wide">Top Spellers · Grade {grade}</span>
               <span className="ml-auto text-white/30 text-xs font-medium">accuracy</span>
             </div>
 
