@@ -78,7 +78,7 @@ interface WordDef { partOfSpeech: string; definition: string; example?: string; 
 
 async function fetchDefinition(word: string): Promise<WordDef | null> {
   try {
-    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`);
+    const res = await fetch(`/api/dictionary/${encodeURIComponent(word.toLowerCase())}`);
     if (!res.ok) return null;
     const data = await res.json();
     const meaning = data[0]?.meanings?.[0];
