@@ -26,7 +26,8 @@ const BG_BY_CATEGORY: Record<TriviaCategory, string> = {
   languages:  'linear-gradient(135deg, #4c1d95, #7c3aed, #6d28d9)',
   football:   'linear-gradient(135deg, #064e3b, #047857, #065f46)',
   formula1:   'linear-gradient(135deg, #7f1d1d, #dc2626, #b91c1c)',
-  basketball: 'linear-gradient(135deg, #7c2d12, #ea580c, #c2410c)',
+  basketball:    'linear-gradient(135deg, #7c2d12, #ea580c, #c2410c)',
+  robotics_guys: 'linear-gradient(135deg, #0f172a, #1e40af, #0e7490)',
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
