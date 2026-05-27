@@ -9,7 +9,8 @@ export const TRIVIA_CATEGORIES = [
   { id: 'languages',  label: 'Languages',           emoji: '📖' },
   { id: 'football',   label: 'Football',            emoji: '⚽' },
   { id: 'formula1',   label: 'Formula 1',           emoji: '🏎️' },
-  { id: 'basketball', label: 'Basketball',          emoji: '🏀' },
+  { id: 'basketball',    label: 'Basketball',          emoji: '🏀' },
+  { id: 'robotics_guys', label: 'Robotics Guys',        emoji: '🤖' },
 ] as const;
 
 export type TriviaCategory = typeof TRIVIA_CATEGORIES[number]['id'];
