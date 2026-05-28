@@ -81,6 +81,7 @@ function ScoreBar({ value, max = 100, color }: { value: number; max?: number; co
 
 const TINY_H   = 36;   // character image size
 const TINY_PAD = 10;   // extra top space so hat emojis (negative yFraction) stay inside bounds
+const CHAR_H   = 72;   // reference height used by WalkingCharacter & the accessory editor
 
 function TinyAvatar({ characterId = 'male', colorId = 'green', equippedClothingId, equippedId }: PlayerAppearance) {
   const registry  = useCharacterRegistry();
@@ -107,9 +108,9 @@ function TinyAvatar({ characterId = 'male', colorId = 'green', equippedClothingI
           position: 'absolute',
           // TINY_PAD shifts origin down so negative yFractions land inside the container
           top: TINY_PAD + itemTopFraction(accItem) * TINY_H,
-          left: `calc(50% + ${accItem.xOffset ?? 0}px)`,
+          left: `calc(50% + ${((accItem.xOffset ?? 0) * TINY_H / CHAR_H).toFixed(1)}px)`,
           transform: 'translateX(-50%)',
-          fontSize: Math.round(TINY_H * 0.34),
+          fontSize: Math.round(TINY_H * 0.30),
           lineHeight: 1,
           pointerEvents: 'none',
           zIndex: 3,
