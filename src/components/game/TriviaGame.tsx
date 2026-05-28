@@ -455,10 +455,10 @@ export function TriviaGame({ onBack }: { onBack: () => void }) {
     setFinalCoins(coins);
     setLostLives(lostAllLives);
     if (coins > 0 && playerName) {
-      await addCoins(playerName, coins, 0, true, '', 'trivia', playerEmail ?? '').catch(() => {});
+      await addCoins(playerName, coins, 0, true, '', `trivia-${category}`, playerEmail ?? '').catch(() => {});
     }
     setPhase('done');
-  }, [playerName, playerEmail]);
+  }, [playerName, playerEmail, category]);
 
   if (phase === 'level') {
     return (
