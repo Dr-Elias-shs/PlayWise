@@ -22,6 +22,7 @@ import { useWorldStore } from "@/store/useWorldStore";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { loginRequest } from "@/lib/msal";
 import { Leaderboard } from "@/components/hub/Leaderboard";
+import { SpinWheel } from "@/components/hub/SpinWheel";
 import { PlayerStatsModal } from "@/components/hub/PlayerStatsModal";
 import { ALL_GAMES, GameConfig } from "@/lib/gameConfigs";
 import { OwlMini } from "@/components/game/OwlCharacter";
@@ -425,6 +426,7 @@ export default function Home() {
               setScreen('shop');
             }}
           />
+          <SpinWheel onWin={() => setWalletRefresh(r => r + 1)} />
           <div className="bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-2">
             <Trophy size={16} className="text-brand-accent" />
             <span className="font-bold text-slate-700 text-sm">Explorer</span>
