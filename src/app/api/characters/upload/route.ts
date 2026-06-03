@@ -24,6 +24,10 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get('content-type') || 'image/png';
     const buffer      = await req.arrayBuffer();
 
+    if (buffer.byteLength === 0) {
+      return NextResponse.json({ error: 'Received 0 bytes — browser did not send file body' }, { status: 400 });
+    }
+
     // Upload directly via Supabase Storage REST API (bypasses storage-js, shows raw errors)
     const uploadUrl = `${supabaseUrl}/storage/v1/object/characters/${relPath}`;
     const uploadRes = await fetch(uploadUrl, {
@@ -39,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (!uploadRes.ok) {
       const errText = await uploadRes.text().catch(() => '(no body)');
       return NextResponse.json(
-        { error: `Supabase storage ${uploadRes.status}: ${errText}` },
+        { error: `Supabase ${uploadRes.status}: ${errText} [bytes=${buffer.byteLength}]` },
         { status: 500 },
       );
     }
@@ -48,7 +52,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ publicUrl, path: relPath });
   } catch (e) {
     console.error('[upload POST]', e);
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return NextResponse.json({ error: `exception: ${String(e)}` }, { status: 500 });
   }
 }
 
