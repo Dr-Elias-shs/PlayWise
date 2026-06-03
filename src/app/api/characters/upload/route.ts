@@ -21,14 +21,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const contentType = req.headers.get('content-type') || 'image/png';
-    const buffer      = await req.arrayBuffer();
+    // Use formData() — the most reliable way to receive file uploads in Next.js App Router
+    const form     = await req.formData();
+    const fileData = form.get('file');
+    if (!fileData || typeof fileData === 'string') {
+      return NextResponse.json({ error: 'No file field in form data' }, { status: 400 });
+    }
+    const contentType = (fileData as File).type || 'image/png';
+    const buffer      = Buffer.from(await (fileData as File).arrayBuffer());
 
     if (buffer.byteLength === 0) {
-      return NextResponse.json({ error: 'Received 0 bytes — browser did not send file body' }, { status: 400 });
+      return NextResponse.json({ error: 'Received 0 bytes' }, { status: 400 });
     }
 
-    // Upload directly via Supabase Storage REST API (bypasses storage-js, shows raw errors)
     const uploadUrl = `${supabaseUrl}/storage/v1/object/characters/${relPath}`;
     const uploadRes = await fetch(uploadUrl, {
       method: 'POST',

@@ -146,15 +146,17 @@ export async function uploadCharacterFile(
 ): Promise<string> {
   // Strip /characters/ prefix; POST the raw bytes to our server route which
   // uses the service role key to upload directly to Supabase Storage.
-  const relPath = targetPath.replace(/^\/characters\//, '');
+  const relPath  = targetPath.replace(/^\/characters\//, '');
+  const formData = new FormData();
+  formData.append('file', file, file.name);
+  // No Content-Type header — browser sets it automatically with multipart boundary
   const res = await fetch(`/api/characters/upload?p=${relPath}`, {
     method: 'POST',
-    headers: { 'Content-Type': file.type || 'image/png' },
-    body: await file.arrayBuffer(),
+    body: formData,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error((err as any).error ?? 'Upload failed');
+    throw new Error((err as any).error ?? `Upload failed (HTTP ${res.status})`);
   }
   const { publicUrl } = await res.json();
   return publicUrl;
