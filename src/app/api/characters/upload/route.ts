@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET /api/characters/upload (no params) → diagnostics
+// GET /api/characters/upload (no params) → diagnostics incl. write test
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   if (searchParams.get('p')) {
@@ -58,9 +58,19 @@ export async function GET(req: NextRequest) {
   } else {
     try {
       const supabase = createClient(url, key);
-      const { data, error } = await supabase.storage.from('characters').list('', { limit: 1 });
-      if (error) result = `FAIL: ${error.message}`;
-      else result = `OK v8: bucket accessible, ${data?.length ?? 0} top-level items`;
+      // Read test
+      const { data: listData, error: listErr } = await supabase.storage.from('characters').list('', { limit: 1 });
+      if (listErr) { result = `FAIL read: ${listErr.message}`; }
+      else {
+        result = `OK v9: read OK (${listData?.length ?? 0} items). `;
+        // Write test — tiny 1×1 transparent PNG
+        const tiny = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+        const { error: upErr } = await supabase.storage
+          .from('characters')
+          .upload('_diag_test.png', tiny, { contentType: 'image/png', upsert: true });
+        if (upErr) result += `FAIL write: ${upErr.message} (status=${(upErr as any).status ?? '?'})`;
+        else result += `write OK`;
+      }
     } catch (e) {
       result = `FAIL: ${String(e)}`;
     }
