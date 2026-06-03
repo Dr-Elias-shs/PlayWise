@@ -144,24 +144,19 @@ export async function uploadCharacterFile(
   file:       File,
   targetPath: string,   // e.g. "/characters/robot/walk1.png"
 ): Promise<string> {
-  // Step 1: get a signed upload URL from our server (uses service role key → bypasses RLS)
-  // Strip /characters/ prefix and avoid %2F encoding so Cloudflare WAF doesn't block it
+  // Strip /characters/ prefix; POST the raw bytes to our server route which
+  // uses the service role key to upload directly to Supabase Storage.
   const relPath = targetPath.replace(/^\/characters\//, '');
-  const res = await fetch(`/api/characters/upload?p=${relPath}`);
+  const res = await fetch(`/api/characters/upload?p=${relPath}`, {
+    method: 'POST',
+    headers: { 'Content-Type': file.type || 'image/png' },
+    body: await file.arrayBuffer(),
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error((err as any).error ?? 'Failed to get upload URL');
+    throw new Error((err as any).error ?? 'Upload failed');
   }
-  const { token, path: storagePath } = await res.json();
-
-  // Step 2: upload directly to Supabase using the signed URL (no RLS needed)
-  const { error } = await supabase.storage
-    .from('characters')
-    .uploadToSignedUrl(storagePath, token, file, { contentType: file.type || 'image/png' });
-
-  if (error) throw new Error(error.message);
-
-  const { data: { publicUrl } } = supabase.storage.from('characters').getPublicUrl(storagePath);
+  const { publicUrl } = await res.json();
   return publicUrl;
 }
 

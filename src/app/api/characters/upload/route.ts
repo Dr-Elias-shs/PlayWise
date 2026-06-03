@@ -11,37 +11,47 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-// GET /api/characters/upload?path=/characters/xxx/walk1.png
-// → returns a signed upload URL (using service role key, bypasses RLS)
-// GET /api/characters/upload (no path)
-// → diagnostics
+// POST /api/characters/upload?p=relPath
+// Body: raw file bytes, Content-Type header set to the file's MIME type
+// → uploads directly to Supabase Storage via service role (no signed URLs needed)
+export async function POST(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const relPath = searchParams.get('p');
+  if (!relPath) return NextResponse.json({ error: 'Missing ?p= path param' }, { status: 400 });
+
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return NextResponse.json({ error: 'Missing service key env var' }, { status: 500 });
+
+    const contentType = req.headers.get('content-type') || 'image/png';
+    const buffer = Buffer.from(new Uint8Array(await req.arrayBuffer()));
+
+    const { error } = await supabase.storage
+      .from('characters')
+      .upload(relPath, buffer, { contentType, upsert: true });
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const { data: { publicUrl } } = supabase.storage.from('characters').getPublicUrl(relPath);
+    return NextResponse.json({ publicUrl, path: relPath });
+  } catch (e) {
+    console.error('[upload POST] error:', e);
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
+
+// GET /api/characters/upload (no params) → diagnostics
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  // ?p= is a simple relative path like "pinky/walk1.png" — no encoded slashes
-  const relPath = searchParams.get('p');
-
-  if (relPath) {
-    try {
-      const supabase = getSupabase();
-      if (!supabase) {
-        return NextResponse.json({ error: 'Missing service key env var' }, { status: 500 });
-      }
-      const { data, error } = await supabase.storage
-        .from('characters')
-        .createSignedUploadUrl(relPath, { upsert: true });
-      if (error) {
-        return NextResponse.json({ error: `createSignedUploadUrl: ${error.message}` }, { status: 500 });
-      }
-      return NextResponse.json({ token: data.token, path: relPath });
-    } catch (e) {
-      console.error('[upload GET] error:', e);
-      return NextResponse.json({ error: String(e) }, { status: 500 });
-    }
+  if (searchParams.get('p')) {
+    return NextResponse.json(
+      { error: 'GET upload is no longer supported — use POST instead' },
+      { status: 405 }
+    );
   }
 
-  // Diagnostics
-  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
   let result = '';
   if (!url || !key) {
     result = `FAIL: missing env vars — url=${!!url} serviceKey=${!!key}`;
@@ -50,7 +60,7 @@ export async function GET(req: NextRequest) {
       const supabase = createClient(url, key);
       const { data, error } = await supabase.storage.from('characters').list('', { limit: 1 });
       if (error) result = `FAIL: ${error.message}`;
-      else result = `OK v7: bucket accessible, ${data?.length ?? 0} top-level items`;
+      else result = `OK v8: bucket accessible, ${data?.length ?? 0} top-level items`;
     } catch (e) {
       result = `FAIL: ${String(e)}`;
     }
