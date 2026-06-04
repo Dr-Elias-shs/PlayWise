@@ -33,10 +33,45 @@ function shuffle<T>(arr: T[]): T[] {
 
 // ── TTS ───────────────────────────────────────────────────────────────────────
 
+// Module-level preferred voice name — set from picker, persisted to localStorage
+let _preferredVoice: string | null = null;
+export function setPreferredVoice(name: string | null) { _preferredVoice = name; }
+
+// Curated list of decent English voices shown in the picker
+export const VOICE_OPTIONS: Array<{ match: RegExp; label: string; flag: string }> = [
+  { match: /samantha/i,                    label: 'Samantha',   flag: '🇺🇸' },
+  { match: /google us english(?! male)/i,  label: 'Google US',  flag: '🇺🇸' },
+  { match: /zira/i,                        label: 'Zira',       flag: '🇺🇸' },
+  { match: /karen/i,                       label: 'Karen',      flag: '🇦🇺' },
+  { match: /victoria/i,                    label: 'Victoria',   flag: '🇦🇺' },
+  { match: /serena/i,                      label: 'Serena',     flag: '🇬🇧' },
+  { match: /google uk english female/i,    label: 'Google UK',  flag: '🇬🇧' },
+  { match: /moira/i,                       label: 'Moira',      flag: '🇮🇪' },
+  { match: /tessa/i,                       label: 'Tessa',      flag: '🇿🇦' },
+  { match: /microsoft.*zira/i,             label: 'MS Zira',    flag: '🇺🇸' },
+  { match: /microsoft.*hazel/i,            label: 'MS Hazel',   flag: '🇬🇧' },
+];
+
+function getAvailableVoices(): Array<{ voice: SpeechSynthesisVoice; label: string; flag: string }> {
+  if (typeof window === 'undefined') return [];
+  const voices = window.speechSynthesis.getVoices();
+  const result: Array<{ voice: SpeechSynthesisVoice; label: string; flag: string }> = [];
+  for (const opt of VOICE_OPTIONS) {
+    const found = voices.find(v => opt.match.test(v.name));
+    if (found) result.push({ voice: found, label: opt.label, flag: opt.flag });
+  }
+  return result;
+}
+
 function pickVoice(): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis.getVoices();
+  const preferred = _preferredVoice ?? (typeof window !== 'undefined' ? localStorage.getItem('sb_voice') : null);
+  if (preferred) {
+    const found = voices.find(v => v.name === preferred);
+    if (found) return found;
+  }
   return (
-    voices.find(v => /samantha|karen|victoria|zira|susan|moira/i.test(v.name)) ||
+    voices.find(v => /samantha|google us english(?! male)|zira|karen|victoria|serena/i.test(v.name)) ||
     voices.find(v => v.lang === 'en-US' && !v.localService) ||
     voices.find(v => v.lang === 'en-US') ||
     voices.find(v => v.lang.startsWith('en')) ||
@@ -69,6 +104,60 @@ function speakText(text: string) {
   utt.rate = 0.88; utt.pitch = 1.15; utt.lang = 'en-US'; utt.volume = 1;
   const v = pickVoice(); if (v) utt.voice = v;
   window.speechSynthesis.speak(utt);
+}
+
+// ── Voice Picker component ────────────────────────────────────────────────────
+
+function VoicePicker({ selectedName, onSelect }: {
+  selectedName: string | null;
+  onSelect: (name: string) => void;
+}) {
+  const [available, setAvailable] = useState<Array<{ voice: SpeechSynthesisVoice; label: string; flag: string }>>([]);
+
+  useEffect(() => {
+    const load = () => {
+      const list = getAvailableVoices();
+      if (list.length > 0) setAvailable(list);
+    };
+    load();
+    window.speechSynthesis.addEventListener('voiceschanged', load);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', load);
+  }, []);
+
+  if (available.length === 0) return null;
+
+  return (
+    <div className="w-full">
+      <p className="text-white/40 text-xs font-semibold text-center mb-2 uppercase tracking-wide">🔊 Speaker Voice</p>
+      <div className="flex flex-wrap justify-center gap-2">
+        {available.map(({ voice, label, flag }) => {
+          const active = selectedName === voice.name;
+          return (
+            <button
+              key={voice.name}
+              onClick={() => {
+                onSelect(voice.name);
+                // Quick preview
+                window.speechSynthesis.cancel();
+                const utt = new SpeechSynthesisUtterance('Hello!');
+                utt.voice = voice; utt.rate = 0.9; utt.pitch = 1.1;
+                window.speechSynthesis.speak(utt);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                active
+                  ? 'bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-400/30'
+                  : 'bg-white/10 text-white/70 hover:bg-white/20 border border-white/15'
+              }`}
+            >
+              <span>{flag}</span>
+              <span>{label}</span>
+              {active && <span>✓</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ── Dictionary API ────────────────────────────────────────────────────────────
@@ -210,9 +299,11 @@ function HexBg({ count = 12, opacity = 0.08 }: { count?: number; opacity?: numbe
 
 interface LeaderboardEntry { name: string; accuracy: number; sessions: number; score: number; }
 
-function LobbyScreen({ grade, playerName, onStart, onBack }: {
+function LobbyScreen({ grade, playerName, selectedVoice, onVoiceSelect, onStart, onBack }: {
   grade: number;
   playerName: string;
+  selectedVoice: string | null;
+  onVoiceSelect: (name: string) => void;
   onStart: () => void;
   onBack: () => void;
 }) {
@@ -372,6 +463,12 @@ function LobbyScreen({ grade, playerName, onStart, onBack }: {
           </div>
         </motion.div>
 
+        {/* Voice picker */}
+        <motion.div className="w-full"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 }}>
+          <VoicePicker selectedName={selectedVoice} onSelect={onVoiceSelect} />
+        </motion.div>
+
         {/* Start button */}
         <motion.div className="w-full"
           initial={{ scale: 0.7, opacity: 0 }}
@@ -404,6 +501,17 @@ function LobbyScreen({ grade, playerName, onStart, onBack }: {
 export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
   const { playerName, playerEmail, playerGrade } = useGameStore();
   const grade = Math.max(1, Math.min(12, parseInt(playerGrade ?? '1', 10) || 1));
+
+  const [selectedVoice, setSelectedVoice] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('sb_voice');
+  });
+
+  const handleVoiceSelect = (name: string) => {
+    setSelectedVoice(name);
+    setPreferredVoice(name);
+    localStorage.setItem('sb_voice', name);
+  };
 
   const [phase, setPhase] = useState<'lobby' | 'loading' | 'playing' | 'done'>('lobby');
   const [words, setWords] = useState<string[]>([]);
@@ -517,6 +625,8 @@ export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
       <LobbyScreen
         grade={grade}
         playerName={playerName ?? ''}
+        selectedVoice={selectedVoice}
+        onVoiceSelect={handleVoiceSelect}
         onStart={() => { startRef.current = Date.now(); setPhase('loading'); }}
         onBack={onBack}
       />

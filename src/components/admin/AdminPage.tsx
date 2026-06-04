@@ -16,6 +16,7 @@ import { TimeManagementTab } from './TimeManagementTab';
 import { GradeControlTab } from './GradeControlTab';
 import { LiveNowTab } from './LiveNowTab';
 import { SpellingBeeWordBankTab } from './SpellingBeeWordBankTab';
+import { SpinWheelTab } from './SpinWheelTab';
 import { MAP_REGISTRY } from '@/lib/map-registry';
 import { ROOMS } from '@/lib/rooms';
 import {
@@ -43,7 +44,7 @@ function resolveGameName(id: string | null | undefined, focusTable?: number): st
   return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'grades' | 'live' | 'grade-requests' | 'settings' | 'spelling-bee';
+type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'grades' | 'live' | 'grade-requests' | 'settings' | 'spelling-bee' | 'spin-wheel';
 
 interface Wallet {
   student_name: string;  // email (DB key)
@@ -280,6 +281,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
           { id: 'games',       label: '🎮 Games', badge: Object.values(gameSettings).filter(v => v === false).length || undefined },
           { id: 'curriculum',  label: '📚 Curriculum' },
           { id: 'spelling-bee', label: '🐝 Spelling Bee' },
+          { id: 'spin-wheel',  label: '🎡 Spin Wheel' },
           { id: 'timemgmt',   label: '⏰ Time' },
           { id: 'grades',     label: '📚 Grades' },
           { id: 'live',            label: '🟢 Live' },
@@ -1488,6 +1490,12 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
             {tab === 'spelling-bee' && (
               <motion.div key="spelling-bee" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <SpellingBeeWordBankTab />
+              </motion.div>
+            )}
+
+            {tab === 'spin-wheel' && (
+              <motion.div key="spin-wheel" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <SpinWheelTab />
               </motion.div>
             )}
 
