@@ -369,26 +369,66 @@ function WorldComingSoon({ onBack }: { onBack: () => void }) {
   const [selected,  setSelected]  = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [saving,    setSaving]    = useState(false);
+  const [synced,    setSynced]    = useState(false);
 
-  // Check if already rated (localStorage)
+  // On mount: restore from localStorage, try to sync if pending, check Supabase as fallback
   useEffect(() => {
-    const prev = localStorage.getItem('world_rating_v1');
-    if (prev) { setSelected(parseInt(prev, 10) || 0); setSubmitted(true); }
-  }, []);
+    if (!studentKey) return;
+    const localStars  = localStorage.getItem('world_rating_v1');
+    const localSynced = localStorage.getItem('world_rating_synced') === 'true';
+
+    if (localStars) {
+      // Already rated locally — show it immediately
+      setSelected(parseInt(localStars, 10) || 0);
+      setSubmitted(true);
+      setSynced(localSynced);
+
+      // If not yet synced, try now (Supabase may be back)
+      if (!localSynced) {
+        supabase.from('world_ratings').upsert({
+          student_name: studentKey,
+          stars: parseInt(localStars, 10),
+          created_at: new Date().toISOString(),
+        }, { onConflict: 'student_name' }).then(({ error }) => {
+          if (!error) {
+            localStorage.setItem('world_rating_synced', 'true');
+            setSynced(true);
+          }
+        });
+      }
+    } else {
+      // No local rating — check Supabase in case localStorage was cleared
+      supabase.from('world_ratings')
+        .select('stars').eq('student_name', studentKey).maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setSelected(data.stars);
+            setSubmitted(true);
+            setSynced(true);
+            localStorage.setItem('world_rating_v1', String(data.stars));
+            localStorage.setItem('world_rating_synced', 'true');
+          }
+        });
+    }
+  }, [studentKey]);
 
   const submitRating = async (stars: number) => {
     if (saving || submitted) return;
     setSaving(true);
+    // Save locally first so it's never lost
     localStorage.setItem('world_rating_v1', String(stars));
 
-    // Try Supabase — silently ignore if quota still exhausted
-    try {
-      await supabase.from('world_ratings').upsert({
-        student_name: studentKey,
-        stars,
-        created_at: new Date().toISOString(),
-      }, { onConflict: 'student_name' });
-    } catch { /* will retry next time DB is back */ }
+    // Try Supabase
+    const { error } = await supabase.from('world_ratings').upsert({
+      student_name: studentKey,
+      stars,
+      created_at: new Date().toISOString(),
+    }, { onConflict: 'student_name' });
+
+    if (!error) {
+      localStorage.setItem('world_rating_synced', 'true');
+      setSynced(true);
+    }
 
     setSelected(stars);
     setSubmitted(true);
@@ -493,6 +533,9 @@ function WorldComingSoon({ onBack }: { onBack: () => void }) {
               <div className="text-4xl">{'⭐'.repeat(selected)}</div>
               <p className="text-white font-black text-base">Thanks for rating! 🎉</p>
               <p className="text-white/50 text-xs">Your feedback helps us build something incredible.</p>
+              <p className={`text-xs font-semibold mt-1 ${synced ? 'text-emerald-400' : 'text-yellow-400/70'}`}>
+                {synced ? '✓ Saved' : '⏳ Will sync when connection is back'}
+              </p>
             </motion.div>
           )}
         </motion.div>
