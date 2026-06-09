@@ -377,6 +377,10 @@ export default function WorldPage() {
   useAccessoryPositions();
 
   useEffect(() => {
+    // Hard-disabled until Supabase quota resets — remove this line to re-enable
+    setAllowed(false);
+    return;
+
     // Always allow on localhost so you can test without affecting students
     if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
       setAllowed(true);
@@ -389,7 +393,7 @@ export default function WorldPage() {
       const perGrade = playerGrade && gradeSettings?.[playerGrade];
       const effective = perGrade || globalSettings || {};
       setAllowed(effective['world'] !== false);
-    }).catch(() => setAllowed(true));
+    }).catch(() => setAllowed(false)); // fail closed — if DB unreachable, deny access
   }, []);
 
   if (allowed === null) {

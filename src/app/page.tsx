@@ -467,8 +467,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* World Exploration */}
-          {gameSettings['world'] !== false && <section
+          {/* World Exploration — hard-disabled until Supabase quota resets */}
+          {false && <section
             className="rounded-3xl p-7 flex items-center gap-6 cursor-pointer hover:scale-[1.02] transition-transform shadow-lg"
             style={{ background: 'linear-gradient(135deg, #1a3a1a 0%, #2d6e2d 100%)' }}
             onClick={() => router.push('/world')}
