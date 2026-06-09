@@ -4,6 +4,7 @@ import { useGameStore } from '@/store/useGameStore';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
 import { WorldMap } from '@/components/world/WorldMap';
 import { WorldMultiLobby } from '@/components/world/WorldMultiLobby';
 import { WorldMultiMap } from '@/components/world/WorldMultiMap';
@@ -356,6 +357,162 @@ function WorldLobby({ onEnter, onMultiplayer }: { onEnter: (mapId: string) => vo
   );
 }
 
+// ── Coming Soon / Rating page ─────────────────────────────────────────────────
+
+const STARS = [1, 2, 3, 4, 5];
+
+function WorldComingSoon({ onBack }: { onBack: () => void }) {
+  const { playerName, playerEmail } = useGameStore();
+  const studentKey = playerEmail?.trim().toLowerCase() || playerName || '';
+
+  const [hovered,   setHovered]   = useState(0);
+  const [selected,  setSelected]  = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [saving,    setSaving]    = useState(false);
+
+  // Check if already rated (localStorage)
+  useEffect(() => {
+    const prev = localStorage.getItem('world_rating_v1');
+    if (prev) { setSelected(parseInt(prev, 10) || 0); setSubmitted(true); }
+  }, []);
+
+  const submitRating = async (stars: number) => {
+    if (saving || submitted) return;
+    setSaving(true);
+    localStorage.setItem('world_rating_v1', String(stars));
+
+    // Try Supabase — silently ignore if quota still exhausted
+    try {
+      await supabase.from('world_ratings').upsert({
+        student_name: studentKey,
+        stars,
+        created_at: new Date().toISOString(),
+      }, { onConflict: 'student_name' });
+    } catch { /* will retry next time DB is back */ }
+
+    setSelected(stars);
+    setSubmitted(true);
+    setSaving(false);
+  };
+
+  const stars = hovered || selected;
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden"
+      style={{ background: 'linear-gradient(160deg, #060d1a 0%, #0d1f3c 50%, #0a2e1a 100%)' }}>
+
+      {/* Animated background stars */}
+      {[...Array(18)].map((_, i) => (
+        <motion.div key={i}
+          className="absolute rounded-full bg-white"
+          style={{
+            width: Math.random() * 3 + 1,
+            height: Math.random() * 3 + 1,
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+          }}
+          animate={{ opacity: [0.1, 0.6, 0.1] }}
+          transition={{ duration: 2 + Math.random() * 3, repeat: Infinity, delay: Math.random() * 3 }}
+        />
+      ))}
+
+      <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-6 text-center">
+
+        {/* Icon */}
+        <motion.div
+          initial={{ scale: 0, rotate: -20 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 14 }}
+          className="text-7xl"
+        >🌍</motion.div>
+
+        {/* Headline */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="space-y-2"
+        >
+          <h1 className="text-3xl font-black text-white leading-tight">
+            We're levelling up<br />
+            <span className="text-emerald-400">PlayWise World</span> 🚀
+          </h1>
+          <p className="text-white/60 text-sm leading-relaxed">
+            Coming back soon — with <span className="text-white font-bold">all your curriculum</span> built into the game.
+            Learning through exploration, quests &amp; discovery.
+          </p>
+        </motion.div>
+
+        {/* SHS badge */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.55 }}
+          className="flex items-center gap-2 bg-white/8 border border-white/15 px-4 py-2 rounded-full"
+        >
+          <span className="text-lg">🏫</span>
+          <span className="text-white/80 text-xs font-bold tracking-wide uppercase">SHS Leads Innovation</span>
+        </motion.div>
+
+        {/* Rating section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.75 }}
+          className="w-full bg-white/8 backdrop-blur-sm border border-white/12 rounded-3xl p-6 space-y-4"
+        >
+          {!submitted ? (
+            <>
+              <p className="text-white font-black text-base">Did you try the World? ⭐</p>
+              <p className="text-white/50 text-xs">Rate your experience — your feedback shapes what we build next!</p>
+              <div className="flex justify-center gap-3">
+                {STARS.map(s => (
+                  <motion.button
+                    key={s}
+                    whileHover={{ scale: 1.25 }}
+                    whileTap={{ scale: 0.9 }}
+                    onMouseEnter={() => setHovered(s)}
+                    onMouseLeave={() => setHovered(0)}
+                    onClick={() => submitRating(s)}
+                    className="text-4xl transition-all"
+                    style={{ filter: s <= stars ? 'none' : 'grayscale(1) opacity(0.3)' }}
+                  >⭐</motion.button>
+                ))}
+              </div>
+              <p className="text-white/30 text-xs">
+                {stars === 0 ? 'Tap a star to rate' : stars === 1 ? 'Needs work 🤔' : stars === 2 ? 'It was okay 😐' : stars === 3 ? 'Pretty good! 🙂' : stars === 4 ? 'Really fun! 😄' : 'AMAZING! 🤩'}
+              </p>
+            </>
+          ) : (
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', damping: 12 }}
+              className="space-y-2"
+            >
+              <div className="text-4xl">{'⭐'.repeat(selected)}</div>
+              <p className="text-white font-black text-base">Thanks for rating! 🎉</p>
+              <p className="text-white/50 text-xs">Your feedback helps us build something incredible.</p>
+            </motion.div>
+          )}
+        </motion.div>
+
+        {/* Back button */}
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+          onClick={onBack}
+          className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-2xl transition-all text-sm"
+        >
+          ← Back to Hub
+        </motion.button>
+
+      </div>
+    </div>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function WorldPage() {
@@ -406,22 +563,7 @@ export default function WorldPage() {
   }
 
   if (!allowed) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6"
-        style={{ background: 'linear-gradient(160deg, #0d1f0d 0%, #1a3a1a 100%)' }}>
-        <div className="text-center space-y-4">
-          <div className="text-6xl">🔒</div>
-          <h1 className="text-white font-black text-2xl">World Unavailable</h1>
-          <p className="text-white/50 text-sm max-w-xs">
-            The PlayWise World is currently disabled by your teacher. Check back later!
-          </p>
-          <button onClick={() => router.push('/')}
-            className="mt-4 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl transition-colors text-sm">
-            ← Go Back
-          </button>
-        </div>
-      </div>
-    );
+    return <WorldComingSoon onBack={() => router.push('/')} />;
   }
 
   // ── Time-management gate (skipped on localhost) ───────────────────────────

@@ -345,6 +345,18 @@ CREATE INDEX IF NOT EXISTS idx_sbw_grade ON public.spelling_bee_words(grade);
 ALTER TABLE public.spelling_bee_words ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "all" ON public.spelling_bee_words FOR ALL USING (true) WITH CHECK (true);`,
   },
+  {
+    name: "world_ratings",
+    sql: `CREATE TABLE IF NOT EXISTS public.world_ratings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_name TEXT NOT NULL,
+  stars INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_world_ratings_student ON public.world_ratings(student_name);
+ALTER TABLE public.world_ratings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "all" ON public.world_ratings FOR ALL USING (true) WITH CHECK (true);`,
+  },
 ];
 
 const ALL_SQL = TABLES.map(t => t.sql).join("\n\n");

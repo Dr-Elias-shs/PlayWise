@@ -17,6 +17,7 @@ import { GradeControlTab } from './GradeControlTab';
 import { LiveNowTab } from './LiveNowTab';
 import { SpellingBeeWordBankTab } from './SpellingBeeWordBankTab';
 import { SpinWheelTab } from './SpinWheelTab';
+import { WorldRatingsTab } from './WorldRatingsTab';
 import { MAP_REGISTRY } from '@/lib/map-registry';
 import { ROOMS } from '@/lib/rooms';
 import {
@@ -44,7 +45,7 @@ function resolveGameName(id: string | null | undefined, focusTable?: number): st
   return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'grades' | 'live' | 'grade-requests' | 'settings' | 'spelling-bee' | 'spin-wheel';
+type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'grades' | 'live' | 'grade-requests' | 'settings' | 'spelling-bee' | 'spin-wheel' | 'world-ratings';
 
 interface Wallet {
   student_name: string;  // email (DB key)
@@ -281,7 +282,8 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
           { id: 'games',       label: '🎮 Games', badge: Object.values(gameSettings).filter(v => v === false).length || undefined },
           { id: 'curriculum',  label: '📚 Curriculum' },
           { id: 'spelling-bee', label: '🐝 Spelling Bee' },
-          { id: 'spin-wheel',  label: '🎡 Spin Wheel' },
+          { id: 'spin-wheel',   label: '🎡 Spin Wheel' },
+          { id: 'world-ratings', label: '🌍 World Ratings' },
           { id: 'timemgmt',   label: '⏰ Time' },
           { id: 'grades',     label: '📚 Grades' },
           { id: 'live',            label: '🟢 Live' },
@@ -1496,6 +1498,12 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
             {tab === 'spin-wheel' && (
               <motion.div key="spin-wheel" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <SpinWheelTab />
+              </motion.div>
+            )}
+
+            {tab === 'world-ratings' && (
+              <motion.div key="world-ratings" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <WorldRatingsTab />
               </motion.div>
             )}
 
