@@ -32,6 +32,120 @@ import { PlayWiseIntro, INTRO_SEEN_KEY } from "@/components/PlayWiseIntro";
 import { useTimeGuard } from "@/hooks/useTimeGuard";
 import { TimeGate } from "@/components/TimeGate";
 import { useHeartbeat } from "@/hooks/useHeartbeat";
+import { supabase } from "@/lib/supabase";
+
+// ─── Maintenance screen ───────────────────────────────────────────────────────
+
+const RATING_LABELS: Record<number, string> = { 1: 'Needs work 🤔', 2: 'It was okay 😐', 3: 'Pretty good! 🙂', 4: 'Really fun! 😄', 5: 'AMAZING! 🤩' };
+
+function MaintenanceScreen({ playerName, onLogout }: { playerName: string; onLogout: () => void }) {
+  const { playerEmail } = useGameStore();
+  const studentKey = playerEmail?.trim().toLowerCase() || playerName || '';
+
+  const [hovered,   setHovered]   = useState(0);
+  const [selected,  setSelected]  = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const [synced,    setSynced]    = useState(false);
+
+  useEffect(() => {
+    if (!studentKey) return;
+    const localStars  = localStorage.getItem('world_rating_v1');
+    const localSynced = localStorage.getItem('world_rating_synced') === 'true';
+    if (localStars) {
+      setSelected(parseInt(localStars, 10) || 0);
+      setSubmitted(true);
+      setSynced(localSynced);
+      if (!localSynced) {
+        supabase.from('world_ratings').upsert({ student_name: studentKey, stars: parseInt(localStars, 10), created_at: new Date().toISOString() }, { onConflict: 'student_name' })
+          .then(({ error }) => { if (!error) { localStorage.setItem('world_rating_synced', 'true'); setSynced(true); } });
+      }
+    } else {
+      supabase.from('world_ratings').select('stars').eq('student_name', studentKey).maybeSingle()
+        .then(({ data }) => { if (data) { setSelected(data.stars); setSubmitted(true); setSynced(true); localStorage.setItem('world_rating_v1', String(data.stars)); localStorage.setItem('world_rating_synced', 'true'); } });
+    }
+  }, [studentKey]);
+
+  const submitRating = async (stars: number) => {
+    if (saving || submitted) return;
+    setSaving(true);
+    localStorage.setItem('world_rating_v1', String(stars));
+    const { error } = await supabase.from('world_ratings').upsert({ student_name: studentKey, stars, created_at: new Date().toISOString() }, { onConflict: 'student_name' });
+    if (!error) { localStorage.setItem('world_rating_synced', 'true'); setSynced(true); }
+    setSelected(stars); setSubmitted(true); setSaving(false);
+  };
+
+  const displayStars = hovered || selected;
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden"
+      style={{ background: 'linear-gradient(160deg, #060d1a 0%, #0d1f3c 50%, #0a2e1a 100%)' }}>
+
+      {[...Array(20)].map((_, i) => (
+        <motion.div key={i} className="absolute rounded-full bg-white pointer-events-none"
+          style={{ width: Math.random() * 3 + 1, height: Math.random() * 3 + 1, left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%` }}
+          animate={{ opacity: [0.1, 0.5, 0.1] }}
+          transition={{ duration: 2 + Math.random() * 3, repeat: Infinity, delay: Math.random() * 3 }} />
+      ))}
+
+      <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-5 text-center">
+
+        <motion.div initial={{ scale: 0, rotate: -15 }} animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 14 }} className="text-6xl">🛠️</motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="space-y-2">
+          <h1 className="text-3xl font-black text-white leading-tight">
+            PlayWise is getting<br /><span className="text-emerald-400">a big upgrade</span> 🚀
+          </h1>
+          <p className="text-white/55 text-sm leading-relaxed">
+            We'll be right back — bigger, better, and with your <span className="text-white font-bold">full curriculum</span> built into the game.
+          </p>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.45 }}
+          className="flex items-center gap-2 bg-white/8 border border-white/15 px-4 py-2 rounded-full">
+          <span className="text-base">🏫</span>
+          <span className="text-white/80 text-xs font-bold tracking-wide uppercase">SHS Leads Innovation</span>
+        </motion.div>
+
+        {/* World rating card */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }}
+          className="w-full bg-white/8 backdrop-blur-sm border border-white/12 rounded-3xl p-6 space-y-3">
+          {!submitted ? (
+            <>
+              <p className="text-white font-black text-base">Did you play PlayWise World? ⭐</p>
+              <p className="text-white/45 text-xs">Rate your experience — it shapes what we build next!</p>
+              <div className="flex justify-center gap-2">
+                {[1,2,3,4,5].map(s => (
+                  <motion.button key={s} whileHover={{ scale: 1.25 }} whileTap={{ scale: 0.9 }}
+                    onMouseEnter={() => setHovered(s)} onMouseLeave={() => setHovered(0)}
+                    onClick={() => submitRating(s)} disabled={saving}
+                    className="text-4xl transition-all" style={{ filter: s <= displayStars ? 'none' : 'grayscale(1) opacity(0.3)' }}>⭐</motion.button>
+                ))}
+              </div>
+              <p className="text-white/35 text-xs h-4">{displayStars ? RATING_LABELS[displayStars] : 'Tap a star to rate'}</p>
+            </>
+          ) : (
+            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 12 }} className="space-y-1.5">
+              <div className="text-3xl">{'⭐'.repeat(selected)}</div>
+              <p className="text-white font-black">Thanks for rating! 🎉</p>
+              <p className="text-white/45 text-xs">Your feedback helps us build something incredible.</p>
+              <p className={`text-xs font-semibold ${synced ? 'text-emerald-400' : 'text-yellow-400/70'}`}>
+                {synced ? '✓ Saved' : '⏳ Will sync when connection is back'}
+              </p>
+            </motion.div>
+          )}
+        </motion.div>
+
+        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
+          onClick={onLogout}
+          className="text-white/30 hover:text-white/60 text-xs font-semibold transition-colors py-2">
+          Sign out
+        </motion.button>
+      </div>
+    </div>
+  );
+}
 
 // ─── Hub game card ────────────────────────────────────────────────────────────
 
@@ -261,6 +375,12 @@ export default function Home() {
   // ── Time-management gate (hub + game only, not login/profile-setup) ──
   if (!isLocal && (screen === 'hub' || screen === 'game') && !access.allowed) {
     return <TimeGate access={access} loading={false} grade={playerGrade ?? ''} onRetry={tmRefresh} />;
+  }
+
+  // ── Maintenance gate — shown to all logged-in students ──────────────────────
+  // Remove this block when Supabase quota resets and service is ready
+  if (!isLocal && playerName && screen !== 'login' && screen !== 'profile-setup') {
+    return <MaintenanceScreen playerName={playerName} onLogout={handleLogout} />;
   }
 
   // ── Login ──
