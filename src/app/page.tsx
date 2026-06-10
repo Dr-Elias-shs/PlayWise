@@ -13,6 +13,7 @@ import { BrainGame } from "@/components/game/BrainGame";
 import { TriviaGame } from "@/components/game/TriviaGame";
 import { ChessGame } from "@/components/game/ChessGame";
 import { SpellingBeeGame } from "@/components/game/SpellingBeeGame";
+import { GameIntro } from "@/components/game/GameIntro";
 import { MultiplayerHub } from "@/components/multiplayer/MultiplayerHub";
 import { ProfileSetup } from "@/components/profile/ProfileSetup";
 import { RedeemPage } from "@/components/redeem/RedeemPage";
@@ -192,7 +193,7 @@ function HubGameCard({ config, onClick, multiplayerBadge, index = 0 }: {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 
-type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game' | 'multiplayer' | 'redeem' | 'shop';
+type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game-intro' | 'game' | 'multiplayer' | 'redeem' | 'shop';
 
 export default function Home() {
   const { playerName, playerEmail, playerGrade, colorId, characterId, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
@@ -227,7 +228,7 @@ export default function Home() {
   const isAuthenticated = useIsAuthenticated();
 
   // Heartbeat — tracks this student as active while on hub or in a game
-  const heartbeatGame = screen === 'game' ? (activeGame?.title ?? 'Game') : screen === 'multiplayer' ? 'Multiplayer Hub' : 'Hub';
+  const heartbeatGame = (screen === 'game' || screen === 'game-intro') ? (activeGame?.title ?? 'Game') : screen === 'multiplayer' ? 'Multiplayer Hub' : 'Hub';
   useHeartbeat(
     screen === 'hub' || screen === 'game' || screen === 'multiplayer' ? playerEmail : '',
     playerName, playerGrade ?? '', heartbeatGame,
@@ -336,8 +337,7 @@ export default function Home() {
   const handleGameCardClick = (config: GameConfig) => {
     resetGame();
     setActiveGame(config);
-    enterFullscreen();
-    setScreen('game');
+    setScreen('game-intro');
   };
 
   const handleMultiplayerStart = (gameId: string) => {
@@ -469,6 +469,17 @@ export default function Home() {
   // ── Profile edit ──
   if (screen === 'profile-edit') {
     return <ProfileSetup onDone={() => setScreen('hub')} isEditing />;
+  }
+
+  // ── Game intro ──
+  if (screen === 'game-intro' && activeGame) {
+    return (
+      <GameIntro
+        config={activeGame}
+        onPlay={() => { enterFullscreen(); setScreen('game'); }}
+        onBack={() => { resetGame(); setScreen('hub'); }}
+      />
+    );
   }
 
   // ── Active solo game ──
