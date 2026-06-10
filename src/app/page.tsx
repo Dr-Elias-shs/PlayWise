@@ -149,33 +149,41 @@ function MaintenanceScreen({ playerName, onLogout }: { playerName: string; onLog
 
 // ─── Hub game card ────────────────────────────────────────────────────────────
 
-function HubGameCard({ config, onClick, multiplayerBadge }: {
+function HubGameCard({ config, onClick, multiplayerBadge, index = 0 }: {
   config: GameConfig;
   onClick: () => void;
   multiplayerBadge?: boolean;
+  index?: number;
 }) {
   return (
     <motion.div
-      whileHover={{ y: -4, scale: 1.02 }}
-      whileTap={{ scale: 0.97 }}
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.06, type: 'spring', stiffness: 260, damping: 22 }}
+      whileHover={{ y: -6, scale: 1.03 }}
+      whileTap={{ scale: 0.96 }}
       onClick={onClick}
-      className="bg-white rounded-3xl shadow-lg border border-slate-100 overflow-hidden cursor-pointer hover:shadow-xl transition-shadow"
+      className="relative overflow-hidden rounded-3xl cursor-pointer group"
+      style={{ background: config.cardStyle, minHeight: 160 }}
     >
-      <div className="p-6 flex items-center justify-between" style={{ background: config.cardStyle }}>
-        <span className="text-5xl">{config.emoji}</span>
-        {multiplayerBadge && (
-          <span className="bg-white/20 text-white text-xs font-bold px-2 py-1 rounded-full">⚔️ Multiplayer</span>
-        )}
-      </div>
-      <div className="p-5">
-        <h3 className="text-lg font-black text-slate-800">{config.title}</h3>
-        <p className="text-slate-500 text-sm mt-1">{config.description}</p>
-        <button
-          style={{ background: config.cardStyle }}
-          className="mt-4 w-full py-2.5 text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
-        >
-          Play Now →
-        </button>
+      {/* Shine sweep on hover */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+        style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%)' }} />
+
+      <div className="relative z-10 p-5 flex flex-col h-full" style={{ minHeight: 160 }}>
+        <div className="flex items-start justify-between mb-3">
+          <span className="text-5xl drop-shadow-lg">{config.emoji}</span>
+          {multiplayerBadge && (
+            <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-black px-2.5 py-1 rounded-full border border-white/20">
+              ⚔️ MULTI
+            </span>
+          )}
+        </div>
+        <h3 className="text-lg font-black text-white leading-tight">{config.title}</h3>
+        <p className="text-white/65 text-xs mt-1 leading-relaxed flex-1">{config.description}</p>
+        <div className="mt-3 flex items-center gap-1 text-white/80 text-xs font-bold">
+          Play Now <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
+        </div>
       </div>
     </motion.div>
   );
@@ -511,133 +519,141 @@ export default function Home() {
   }
 
   // ── Main Hub ──
+  const visibleGames = ALL_GAMES.filter(g => gameSettings[g.id] !== false);
+
   return (
-    <div className="flex-1 bg-brand-background p-6 md:p-10 lg:p-16">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-        <div className="flex items-center gap-4">
-          <div className="bg-white p-2 rounded-xl shadow-sm border border-slate-100 hidden sm:block">
-            <img src="/playwise-logo.png" alt="Logo" className="w-12 h-12 object-contain" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <OwlMini size={44} />
-              <button
-                onClick={() => setShowStats(true)}
-                className="text-left group"
-                title="View my stats"
-              >
-                <h1 className="text-3xl font-black text-slate-800 tracking-tight group-hover:text-violet-600 transition-colors">
+    <div className="min-h-screen relative overflow-x-hidden"
+      style={{ background: 'linear-gradient(160deg, #0f0c29 0%, #1a1040 40%, #0d1f3c 100%)' }}>
+
+      {/* Subtle background glow orbs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full opacity-20"
+          style={{ background: 'radial-gradient(circle, #7c3aed, transparent)' }} />
+        <div className="absolute top-1/3 -right-32 w-80 h-80 rounded-full opacity-15"
+          style={{ background: 'radial-gradient(circle, #0ea5e9, transparent)' }} />
+        <div className="absolute bottom-0 left-1/3 w-72 h-72 rounded-full opacity-10"
+          style={{ background: 'radial-gradient(circle, #10b981, transparent)' }} />
+      </div>
+
+      <div className="relative z-10 p-4 md:p-8 lg:p-10 max-w-7xl mx-auto">
+
+        {/* ── Header ── */}
+        <header className="flex items-center justify-between gap-4 mb-8 flex-wrap">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3"
+          >
+            <div className="bg-white/10 backdrop-blur-sm p-2 rounded-2xl border border-white/15 hidden sm:block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/playwise-logo.png" alt="Logo" className="w-10 h-10 object-contain" />
+            </div>
+            <div>
+              <button onClick={() => setShowStats(true)} className="text-left group">
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight group-hover:text-violet-300 transition-colors">
                   Hey, {playerName}! 👋
                 </h1>
               </button>
+              <p className="text-white/40 text-sm font-medium">
+                Grade {playerGrade} · Ready to play?
+              </p>
             </div>
-            <p className="text-slate-500 text-base mt-0.5 font-medium">Pick a game and start playing</p>
-          </div>
-        </div>
+          </motion.div>
 
-        <div className="flex gap-3 items-center flex-wrap">
-          {/* Wallet */}
-          <WalletBadge
-            studentName={playerName}
-            playerEmail={playerEmail}
-            refreshKey={walletRefresh}
-            onClick={() => {
-              if (playerName) syncWorld(playerName, playerEmail);
-              setScreen('shop');
-            }}
-          />
-          <SpinWheel onWin={() => setWalletRefresh(r => r + 1)} />
-          <div className="bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-2">
-            <Trophy size={16} className="text-brand-accent" />
-            <span className="font-bold text-slate-700 text-sm">Explorer</span>
-          </div>
-          <button onClick={toggleFullscreen}
-            className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 text-slate-400 hover:text-violet-500 transition-colors"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
-            {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
-          </button>
-          <button onClick={() => setScreen('profile-edit')}
-            className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 text-slate-400 hover:text-violet-500 transition-colors"
-            title="Edit Profile">
-            <Settings size={20} />
-          </button>
-          {isAuthenticated && (
-            <button onClick={handleLogout}
-              className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 text-slate-400 hover:text-red-500 transition-colors"
-              title="Sign Out">
-              <LogOut size={20} />
+          <motion.div
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2 flex-wrap"
+          >
+            <WalletBadge
+              studentName={playerName} playerEmail={playerEmail} refreshKey={walletRefresh}
+              onClick={() => { if (playerName) syncWorld(playerName, playerEmail); setScreen('shop'); }}
+            />
+            <SpinWheel onWin={() => setWalletRefresh(r => r + 1)} />
+            <button onClick={toggleFullscreen}
+              className="bg-white/10 backdrop-blur-sm p-2.5 rounded-2xl border border-white/15 text-white/50 hover:text-white hover:bg-white/20 transition-all"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
+              {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
             </button>
-          )}
-        </div>
-      </header>
+            <button onClick={() => setScreen('profile-edit')}
+              className="bg-white/10 backdrop-blur-sm p-2.5 rounded-2xl border border-white/15 text-white/50 hover:text-white hover:bg-white/20 transition-all"
+              title="Edit Profile">
+              <Settings size={18} />
+            </button>
+            {isAuthenticated && (
+              <button onClick={handleLogout}
+                className="bg-white/10 backdrop-blur-sm p-2.5 rounded-2xl border border-white/15 text-white/50 hover:text-red-400 hover:bg-white/20 transition-all"
+                title="Sign Out">
+                <LogOut size={18} />
+              </button>
+            )}
+          </motion.div>
+        </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <div>
-            <h2 className="text-xl font-black text-slate-700 mb-4">🎮 Choose Your Game</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {ALL_GAMES.filter(g => gameSettings[g.id] !== false).map(config => (
+        {/* ── Main grid ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+
+            {/* Section label */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
+              className="flex items-center gap-3">
+              <h2 className="text-white font-black text-lg tracking-tight">🎮 Choose Your Game</h2>
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-white/30 text-xs font-semibold">{visibleGames.length} games</span>
+            </motion.div>
+
+            {/* Game cards grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {visibleGames.map((config, i) => (
                 <HubGameCard
                   key={config.id}
                   config={config}
+                  index={i}
                   onClick={() => handleGameCardClick(config)}
                   multiplayerBadge={config.id === 'multiplication'}
                 />
               ))}
             </div>
+
+            {/* Math Duels banner */}
+            <motion.section
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
+              onClick={() => setScreen('multiplayer')}
+              className="relative overflow-hidden rounded-3xl cursor-pointer group"
+              style={{ background: 'linear-gradient(135deg, #2e1065, #4c1d95, #7c3aed)' }}
+            >
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.08), transparent)' }} />
+              <div className="relative z-10 p-6 flex items-center gap-5">
+                <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 border border-white/20 flex-shrink-0">
+                  <Users size={28} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-xl font-black text-white">Math Duels ⚔️</h2>
+                  <p className="text-white/60 text-sm mt-0.5">Challenge classmates live — all games available</p>
+                </div>
+                <motion.div
+                  whileHover={{ x: 4 }}
+                  className="bg-white text-violet-700 font-black text-sm px-5 py-2.5 rounded-2xl shadow-lg flex-shrink-0 hidden sm:block"
+                >
+                  Enter Lobby →
+                </motion.div>
+              </div>
+            </motion.section>
+
           </div>
 
-          {/* World Exploration — hard-disabled until Supabase quota resets */}
-          {false && <section
-            className="rounded-3xl p-7 flex items-center gap-6 cursor-pointer hover:scale-[1.02] transition-transform shadow-lg"
-            style={{ background: 'linear-gradient(135deg, #1a3a1a 0%, #2d6e2d 100%)' }}
-            onClick={() => router.push('/world')}
+          {/* Leaderboard */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+            className="lg:col-span-1"
           >
-            <OwlMini size={80} />
-            <div className="flex-1">
-              <h2 className="text-xl font-black text-white">PlayWise World 🗺️</h2>
-              <p className="text-white/70 text-sm font-medium mt-1">
-                Walk the school, enter rooms, answer questions, earn PlayBits!
-              </p>
-              <button className="mt-3 bg-emerald-500 hover:bg-emerald-400 text-white font-black px-5 py-2 rounded-xl text-sm transition-colors">
-                Explore Now →
-              </button>
-            </div>
-          </section>}
-
-          {/* Math Duels section */}
-          <section className="bg-gradient-to-br from-violet-50 to-purple-50 border-2 border-violet-100 rounded-3xl p-7">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="bg-violet-100 p-3 rounded-2xl text-violet-600">
-                <Users size={26} />
-              </div>
-              <div>
-                <h2 className="text-xl font-black text-slate-800">Math Duels ⚔️</h2>
-                <p className="text-slate-500 text-sm font-medium">All 4 games — challenge anyone live</p>
-              </div>
-            </div>
-            <p className="text-slate-500 text-sm mb-5">
-              Browse open rooms or create your own. All games available for multiplayer.
-            </p>
-            <button onClick={() => setScreen('multiplayer')}
-              className="text-white font-black px-6 py-3 rounded-xl hover:scale-105 transition-transform shadow-md text-sm"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #9333ea)' }}>
-              ⚔️ Enter Lobby
-            </button>
-          </section>
-        </div>
-
-        <div className="lg:col-span-1">
-          <Leaderboard />
+            <Leaderboard />
+          </motion.div>
         </div>
       </div>
 
       <PlayerStatsModal
-        studentName={playerName}
-        playerEmail={playerEmail}
-        grade={playerGrade}
-        open={showStats}
-        onClose={() => setShowStats(false)}
+        studentName={playerName} playerEmail={playerEmail} grade={playerGrade}
+        open={showStats} onClose={() => setShowStats(false)}
       />
     </div>
   );
