@@ -237,10 +237,11 @@ export function PenaltyShootout({ onBack }: Props) {
       // Keeper dives WRONG way — empty hands (miss pose)
       setKeeperPose(zone.x < 0 ? "miss-right" : "miss-left");
     } else {
-      // Ball flies toward keeper (center-ish)
-      setBallTarget({ x: randInt(-8, 8), y: -38 });
-      // Keeper dives to CATCH — with ball (dive pose)
-      setKeeperPose(Math.random() > 0.5 ? "dive-left" : "dive-right");
+      // Keeper dives a random direction, ball follows to their hands
+      const diveLeft = Math.random() > 0.5;
+      const xTarget  = diveLeft ? -randInt(16, 22) : randInt(16, 22);
+      setBallTarget({ x: xTarget, y: -20 });
+      setKeeperPose(diveLeft ? "dive-left" : "dive-right");
     }
 
     setLastResult(result);
