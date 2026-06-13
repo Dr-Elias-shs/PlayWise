@@ -369,7 +369,9 @@ export function PenaltyShootout({ onBack }: Props) {
           className="object-contain drop-shadow-2xl"
           style={{
             height: "clamp(100px, 16vw, 155px)",
-            mixBlendMode: "multiply",
+            // multiply removes white/grass backgrounds on non-transparent images
+            // miss poses are already transparent — use normal so yellow isn't darkened
+            mixBlendMode: (keeperPose === "miss-left" || keeperPose === "miss-right") ? "normal" : "multiply",
           }}
         />
       </div>
