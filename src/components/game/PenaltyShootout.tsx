@@ -64,7 +64,7 @@ const GOAL_ZONES = [
 
 type KickState = "idle" | "animating" | "result";
 type KickResult = "goal" | "saved" | "timeout";
-type KeeperPose = "stand" | "dive-left" | "dive-right";
+type KeeperPose = "stand" | "dive-left" | "dive-right" | "miss-left" | "miss-right";
 
 // ─── Difficulty picker ────────────────────────────────────────────────────────
 
@@ -234,12 +234,12 @@ export function PenaltyShootout({ onBack }: Props) {
       // Ball flies to a random corner
       const zone = GOAL_ZONES[Math.floor(Math.random() * GOAL_ZONES.length)];
       setBallTarget(zone);
-      // Keeper dives WRONG way
-      setKeeperPose(zone.x < 0 ? "dive-right" : "dive-left");
+      // Keeper dives WRONG way — empty hands (miss pose)
+      setKeeperPose(zone.x < 0 ? "miss-right" : "miss-left");
     } else {
       // Ball flies toward keeper (center-ish)
       setBallTarget({ x: randInt(-8, 8), y: -38 });
-      // Keeper dives to catch
+      // Keeper dives to CATCH — with ball (dive pose)
       setKeeperPose(Math.random() > 0.5 ? "dive-left" : "dive-right");
     }
 
@@ -297,9 +297,11 @@ export function PenaltyShootout({ onBack }: Props) {
   }
 
   const keeperSrc =
-    keeperPose === "stand"      ? "/games/penalty/keeper-stand.png" :
-    keeperPose === "dive-left"  ? "/games/penalty/keeper-dive-left.png" :
-                                  "/games/penalty/keeper-dive-right.png";
+    keeperPose === "stand"       ? "/games/penalty/keeper-stand.png"      :
+    keeperPose === "dive-left"   ? "/games/penalty/keeper-dive-left.png"  :
+    keeperPose === "dive-right"  ? "/games/penalty/keeper-dive-right.png" :
+    keeperPose === "miss-left"   ? "/games/penalty/keeper-miss-left.png"  :
+                                   "/games/penalty/keeper-miss-right.png";
 
   const timeColor = timeLeft > 0.5 ? "#22c55e" : timeLeft > 0.25 ? "#f59e0b" : "#ef4444";
 
@@ -356,7 +358,7 @@ export function PenaltyShootout({ onBack }: Props) {
 
       {/* ── Goalkeeper ── */}
       <div className="absolute left-0 right-0 flex justify-center"
-        style={{ top: "18%", zIndex: 10 }}>
+        style={{ top: "36%", zIndex: 10 }}>
         <motion.img
           key={keeperPose}
           src={keeperSrc}
@@ -365,7 +367,10 @@ export function PenaltyShootout({ onBack }: Props) {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.18 }}
           className="object-contain drop-shadow-2xl"
-          style={{ height: "clamp(120px, 22vw, 200px)" }}
+          style={{
+            height: "clamp(100px, 16vw, 155px)",
+            mixBlendMode: "multiply",
+          }}
         />
       </div>
 
