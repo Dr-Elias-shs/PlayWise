@@ -54,12 +54,12 @@ function generateQuestion(diff: Difficulty): Question {
 const KICKS = 5;
 const TIME_BY_DIFF: Record<Difficulty, number> = { easy: 12, medium: 10, hard: 8 };
 
-// Ball target zones (% from center of screen): [x offset vw, y offset vh]
+// Ball target zones — tuned so ball lands inside the goal net, not above it
 const GOAL_ZONES = [
-  { x: -28, y: -52 }, // top-left corner
-  { x:  28, y: -52 }, // top-right corner
-  { x: -18, y: -44 }, // mid-left
-  { x:  18, y: -44 }, // mid-right
+  { x: -22, y: -30 }, // top-left corner
+  { x:  22, y: -30 }, // top-right corner
+  { x: -16, y: -25 }, // mid-left
+  { x:  16, y: -25 }, // mid-right
 ];
 
 type KickState = "idle" | "animating" | "result";
@@ -319,15 +319,21 @@ export function PenaltyShootout({ onBack }: Props) {
       <div className="absolute inset-0"
         style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.1) 55%, transparent 100%)" }} />
 
-      {/* ── Goal flash ── */}
+      {/* ── Goal celebration flash ── */}
       <AnimatePresence>
         {kickState === "result" && lastResult === "goal" && (
-          <motion.div key="goal-flash" className="absolute inset-0 pointer-events-none"
-            initial={{ opacity: 0.7 }} animate={{ opacity: 0 }} transition={{ duration: 0.8 }}
-            style={{ background: "radial-gradient(ellipse at center, rgba(34,197,94,0.5), transparent 70%)" }} />
+          <motion.div key="goal-flash" className="absolute inset-0 pointer-events-none z-20"
+            initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 1, 0] }}
+            transition={{ duration: 1.4, times: [0, 0.15, 0.7, 1] }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/games/penalty/goal-celebration.png" alt=""
+              className="w-full h-full object-cover" style={{ opacity: 0.82 }} />
+            <div className="absolute inset-0"
+              style={{ background: "radial-gradient(ellipse at center, rgba(251,191,36,0.3), transparent 70%)" }} />
+          </motion.div>
         )}
         {kickState === "result" && lastResult !== "goal" && (
-          <motion.div key="save-flash" className="absolute inset-0 pointer-events-none"
+          <motion.div key="save-flash" className="absolute inset-0 pointer-events-none z-20"
             initial={{ opacity: 0.6 }} animate={{ opacity: 0 }} transition={{ duration: 0.8 }}
             style={{ background: "radial-gradient(ellipse at center, rgba(239,68,68,0.4), transparent 70%)" }} />
         )}
@@ -358,7 +364,7 @@ export function PenaltyShootout({ onBack }: Props) {
 
       {/* ── Goalkeeper ── */}
       <div className="absolute left-0 right-0 flex justify-center"
-        style={{ top: "36%", zIndex: 10 }}>
+        style={{ top: "42%", zIndex: 10 }}>
         <motion.img
           key={keeperPose}
           src={keeperSrc}
