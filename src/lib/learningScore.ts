@@ -12,7 +12,7 @@ import { supabase } from './supabase';
 // All recognised game IDs
 export const ALL_GAME_IDS = [
   'multiplication', 'addition', 'division',
-  'fractions', 'hangman', 'brain', 'memory', 'spelling-bee',
+  'fractions', 'hangman', 'brain', 'memory', 'spelling-bee', 'penalty',
 ] as const;
 export type GameId = typeof ALL_GAME_IDS[number];
 

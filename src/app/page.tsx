@@ -14,6 +14,7 @@ import { TriviaGame } from "@/components/game/TriviaGame";
 import { ChessGame } from "@/components/game/ChessGame";
 import { SpellingBeeGame } from "@/components/game/SpellingBeeGame";
 import { GameIntro } from "@/components/game/GameIntro";
+import { PenaltyShootout } from "@/components/game/PenaltyShootout";
 import { MultiplayerHub } from "@/components/multiplayer/MultiplayerHub";
 import { ProfileSetup } from "@/components/profile/ProfileSetup";
 import { RedeemPage } from "@/components/redeem/RedeemPage";
@@ -505,6 +506,9 @@ export default function Home() {
     }
     if (activeGame.id === 'spelling-bee') {
       return <SpellingBeeGame onBack={backToHub} />;
+    }
+    if (activeGame.id === 'penalty') {
+      return <PenaltyShootout onBack={backToHub} />;
     }
     return <GameEngine config={activeGame} onBack={backToHub} />;
   }

@@ -74,6 +74,12 @@ const EXTRAS: Record<string, GameExtras> = {
     decorations: ["🐝", "🔊", "🔤", "✨", "🌟", "🎧"],
     accentLight: "rgba(21,101,192,0.25)",
   },
+  penalty: {
+    tagline: "Answer the question fast — then shoot for goal!",
+    tips: ["5 kicks per round", "Answer correctly = ball flies into the net ⚽", "Wrong or too slow = the keeper saves it 🧤"],
+    decorations: ["⚽", "🥅", "🏆", "🔥", "🌍", "👟"],
+    accentLight: "rgba(22,163,74,0.22)",
+  },
 };
 
 // ─── Floating particle ────────────────────────────────────────────────────────

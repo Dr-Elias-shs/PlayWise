@@ -314,6 +314,20 @@ export const spellingBeeGame: GameConfig = {
   generateQuestion: () => ({ displayText: '', answer: 0, choices: [], formatChoice: n => String(n) }),
 };
 
+// ─── Penalty Shootout ─────────────────────────────────────────────────────────
+
+export const penaltyGame: GameConfig = {
+  id: 'penalty',
+  title: 'Penalty Shootout',
+  description: 'Answer fast and score goals — 5 kicks to glory!',
+  emoji: '⚽',
+  bgStyle:     'linear-gradient(135deg, #064e3b, #065f46, #047857)',
+  cardStyle:   'linear-gradient(135deg, #059669, #10b981)',
+  accentStyle: 'linear-gradient(135deg, #16a34a, #15803d)',
+  duration: 0,
+  generateQuestion: () => ({ displayText: '', answer: 0, choices: [], formatChoice: n => String(n) }),
+};
+
 // ─── All games ────────────────────────────────────────────────────────────────
 
 export const ALL_GAMES: GameConfig[] = [
@@ -327,4 +341,5 @@ export const ALL_GAMES: GameConfig[] = [
   triviaGame,
   chessGame,
   spellingBeeGame,
+  penaltyGame,
 ];
