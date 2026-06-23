@@ -86,8 +86,42 @@ interface RegistryStore extends CharacterRegistry {
   loaded:       boolean;
   character:    (id: string) => CharacterDef | undefined;
   outfit:       (id: string) => RegistryOutfit | undefined;
-  refresh:      () => Promise<void>;
+  /** Loads from cache instantly; refetches from Supabase only if cache is stale. */
+  refresh:      (force?: boolean) => Promise<void>;
   save:         (r: CharacterRegistry) => Promise<void>;
+}
+
+// ─── Cache config ─────────────────────────────────────────────────────────────
+
+const CACHE_KEY = 'character_registry_cache_v1';
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+interface CachedRegistry {
+  registry:  CharacterRegistry;
+  cachedAt:  number;
+}
+
+function readCache(): CachedRegistry | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedRegistry;
+    if (!parsed.registry?.characters || !parsed.registry?.outfits) return null;
+    return parsed;
+  } catch { return null; }
+}
+
+function writeCache(registry: CharacterRegistry) {
+  if (typeof window === 'undefined') return;
+  try {
+    const payload: CachedRegistry = { registry, cachedAt: Date.now() };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+  } catch { /* quota or disabled — ignore */ }
+}
+
+function isFresh(cache: CachedRegistry): boolean {
+  return (Date.now() - cache.cachedAt) < CACHE_TTL_MS;
 }
 
 export const useCharacterRegistry = create<RegistryStore>((set, get) => ({
@@ -97,9 +131,17 @@ export const useCharacterRegistry = create<RegistryStore>((set, get) => ({
   character: (id) => get().characters.find(c => c.id === id),
   outfit:    (id) => get().outfits.find(o => o.id === id),
 
-  async refresh() {
+  async refresh(force = false) {
+    // ── Step 1: hydrate from cache instantly (no network) ─────────────────
+    const cached = readCache();
+    if (cached) {
+      set({ characters: cached.registry.characters, outfits: cached.registry.outfits, loaded: true });
+      // Fresh cache → done. No Supabase call. This is the egress win.
+      if (!force && isFresh(cached)) return;
+    }
+
+    // ── Step 2: cache missing or stale → fetch from Supabase ──────────────
     try {
-      // Try Supabase global_config first (source of truth for admin updates)
       const { data } = await supabase
         .from('global_config')
         .select('value')
@@ -108,16 +150,18 @@ export const useCharacterRegistry = create<RegistryStore>((set, get) => ({
       if (data?.value) {
         const reg = data.value as CharacterRegistry;
         set({ characters: reg.characters, outfits: reg.outfits, loaded: true });
+        writeCache(reg);
         return;
       }
     } catch { /* fall through */ }
 
+    // ── Step 3: Supabase failed → try static JSON fallback ────────────────
     try {
-      // Fallback: static file bundled with the deployment
       const res = await fetch(`/characters/registry.json?t=${Date.now()}`);
       if (res.ok) {
         const data: CharacterRegistry = await res.json();
         set({ characters: data.characters, outfits: data.outfits, loaded: true });
+        writeCache(data);
         return;
       }
     } catch { /* fall through */ }
@@ -127,13 +171,14 @@ export const useCharacterRegistry = create<RegistryStore>((set, get) => ({
 
   async save(registry) {
     set({ characters: registry.characters, outfits: registry.outfits });
+    writeCache(registry);   // update cache so next reader doesn't re-fetch
     await supabase
       .from('global_config')
       .upsert({ key: 'character_registry', value: registry }, { onConflict: 'key' });
   },
 }));
 
-// Auto-load once on client
+// Auto-load once on client — cache-first, so this is free on repeat visits.
 if (typeof window !== 'undefined') {
   useCharacterRegistry.getState().refresh();
 }
