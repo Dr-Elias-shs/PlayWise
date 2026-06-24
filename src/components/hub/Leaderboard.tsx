@@ -269,14 +269,27 @@ export function Leaderboard() {
 
   useEffect(() => {
     fetchAll();
+
+    // Debounce realtime-triggered refetches. Without this, every game finish
+    // anywhere in the school fires ~12 queries per student that has the hub
+    // open. We coalesce bursts (e.g. a class finishing simultaneously) into a
+    // single refetch after activity settles.
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefetch = () => {
+      setFlash(true); setTimeout(() => setFlash(false), 600);
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => { fetchAll(); }, 8000);
+    };
+
     const ch = supabase
       .channel('ls-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'learning_scores' }, () => {
-        setFlash(true); setTimeout(() => setFlash(false), 600);
-        fetchAll();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'learning_scores' }, scheduleRefetch)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+
+    return () => {
+      if (debounce) clearTimeout(debounce);
+      supabase.removeChannel(ch);
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Merge current player's live appearance (local store is authoritative for self)

@@ -255,18 +255,34 @@ export function MultiplayerHub({ onGameStart, onBack }: Props) {
   useEffect(() => {
     loadRooms();
 
-    // Supabase Realtime for instant updates
+    // Debounce burst writes (e.g. several students joining/leaving at once)
+    // into a single refetch a short moment after activity settles.
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefetch = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => { loadRooms(); }, 1500);
+    };
+
+    // Track whether Realtime succeeded so we only fall back to polling if it didn't.
+    let realtimeOk = false;
     const channel = supabase
       .channel('game-rooms-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_rooms' }, () => loadRooms())
-      .subscribe();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_rooms' }, scheduleRefetch)
+      .subscribe(status => { if (status === 'SUBSCRIBED') realtimeOk = true; });
 
-    // Polling fallback every 4s in case Realtime isn't enabled
-    const poll = setInterval(() => loadRooms(), 4000);
+    // Polling fallback — runs once after 5s to check if Realtime is alive; if not,
+    // poll at a relaxed 15s interval. Previously this polled every 4s alongside
+    // Realtime, doubling DB load.
+    let poll: ReturnType<typeof setInterval> | null = null;
+    const fallbackCheck = setTimeout(() => {
+      if (!realtimeOk) poll = setInterval(() => loadRooms(), 15000);
+    }, 5000);
 
     return () => {
+      if (debounce)      clearTimeout(debounce);
+      if (poll)          clearInterval(poll);
+      clearTimeout(fallbackCheck);
       supabase.removeChannel(channel);
-      clearInterval(poll);
     };
   }, [loadRooms]);
 
