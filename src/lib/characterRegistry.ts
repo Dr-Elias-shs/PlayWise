@@ -91,9 +91,49 @@ interface RegistryStore extends CharacterRegistry {
   save:         (r: CharacterRegistry) => Promise<void>;
 }
 
+// ─── URL rewriting (Supabase Storage → in-app proxy) ─────────────────────────
+//
+// Sprite URLs stored in the registry historically point straight at Supabase
+// Storage public URLs. Serving them from there burns the free-tier egress
+// quota. Rewriting them to /api/sprite/* makes them flow through our proxy
+// route, which fetches once per server lifetime and caches indefinitely in
+// the browser (1-year immutable Cache-Control).
+
+const SUPABASE_STORAGE_RE = /\/storage\/v1\/object\/public\/characters\/(.+)$/;
+
+function rewriteSpriteUrl(url: string): string {
+  if (!url) return url;
+  const m = url.match(SUPABASE_STORAGE_RE);
+  return m ? `/api/sprite/${m[1]}` : url;
+}
+
+function rewriteRegistryUrls(reg: CharacterRegistry): CharacterRegistry {
+  return {
+    characters: reg.characters.map(c => ({
+      ...c,
+      frames: [
+        rewriteSpriteUrl(c.frames[0]),
+        rewriteSpriteUrl(c.frames[1]),
+        rewriteSpriteUrl(c.frames[2]),
+      ] as [string, string, string],
+      standFrame: rewriteSpriteUrl(c.standFrame),
+    })),
+    outfits: reg.outfits.map(o => ({
+      ...o,
+      thumbnail: o.thumbnail ? rewriteSpriteUrl(o.thumbnail) : undefined,
+      sprites: Object.fromEntries(
+        Object.entries(o.sprites).map(([k, v]) => [
+          k,
+          typeof v === 'string' ? rewriteSpriteUrl(v) : v.map(rewriteSpriteUrl),
+        ])
+      ) as Record<string, string | string[]>,
+    })),
+  };
+}
+
 // ─── Cache config ─────────────────────────────────────────────────────────────
 
-const CACHE_KEY = 'character_registry_cache_v1';
+const CACHE_KEY = 'character_registry_cache_v2'; // v2: URLs rewritten to /api/sprite
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 interface CachedRegistry {
@@ -104,6 +144,9 @@ interface CachedRegistry {
 function readCache(): CachedRegistry | null {
   if (typeof window === 'undefined') return null;
   try {
+    // Discard the v1 cache (full Supabase URLs) if it lingers from before the proxy rewrite.
+    localStorage.removeItem('character_registry_cache_v1');
+
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CachedRegistry;
@@ -148,7 +191,7 @@ export const useCharacterRegistry = create<RegistryStore>((set, get) => ({
         .eq('key', 'character_registry')
         .maybeSingle();
       if (data?.value) {
-        const reg = data.value as CharacterRegistry;
+        const reg = rewriteRegistryUrls(data.value as CharacterRegistry);
         set({ characters: reg.characters, outfits: reg.outfits, loaded: true });
         writeCache(reg);
         return;
@@ -159,7 +202,7 @@ export const useCharacterRegistry = create<RegistryStore>((set, get) => ({
     try {
       const res = await fetch(`/characters/registry.json?t=${Date.now()}`);
       if (res.ok) {
-        const data: CharacterRegistry = await res.json();
+        const data = rewriteRegistryUrls(await res.json() as CharacterRegistry);
         set({ characters: data.characters, outfits: data.outfits, loaded: true });
         writeCache(data);
         return;
@@ -170,8 +213,12 @@ export const useCharacterRegistry = create<RegistryStore>((set, get) => ({
   },
 
   async save(registry) {
-    set({ characters: registry.characters, outfits: registry.outfits });
-    writeCache(registry);   // update cache so next reader doesn't re-fetch
+    // Admin saves the raw registry (Supabase URLs) — Supabase is the source of truth.
+    // After persisting, store the rewritten form in cache + memory so the
+    // admin (and everyone else who reads the cache) goes through the proxy.
+    const rewritten = rewriteRegistryUrls(registry);
+    set({ characters: rewritten.characters, outfits: rewritten.outfits });
+    writeCache(rewritten);
     await supabase
       .from('global_config')
       .upsert({ key: 'character_registry', value: registry }, { onConflict: 'key' });
