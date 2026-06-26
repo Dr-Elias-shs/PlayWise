@@ -371,14 +371,31 @@ function WorldComingSoon({ onBack, onUnlock }: { onBack: () => void; onUnlock: (
   const [saving,    setSaving]    = useState(false);
   const [synced,    setSynced]    = useState(false);
 
-  // ── Hidden tester gate: long-press the SHS badge → password → preview ──────
+  // ── Hidden tester gate: long-press OR tap the SHS badge 5× → password ──────
   const [showPwd, setShowPwd] = useState(false);
   const [pwd,     setPwd]     = useState('');
   const [pwdErr,  setPwdErr]  = useState(false);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longFired  = useRef(false);
+  const tapCount   = useRef(0);
+  const tapTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const startPress = () => { pressTimer.current = setTimeout(() => setShowPwd(true), 600); };
+  const startPress = () => {
+    longFired.current = false;
+    pressTimer.current = setTimeout(() => { longFired.current = true; setShowPwd(true); }, 600);
+  };
   const cancelPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+
+  // Fallback for touch devices where long-press is hijacked by the OS:
+  // 5 quick taps on the badge opens the gate.
+  const registerTap = () => {
+    cancelPress();
+    if (longFired.current) return; // long-press already handled it
+    tapCount.current += 1;
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 1200);
+    if (tapCount.current >= 5) { tapCount.current = 0; setShowPwd(true); }
+  };
 
   // On mount: restore from localStorage, try to sync if pending, check Supabase as fallback
   useEffect(() => {
@@ -498,10 +515,10 @@ function WorldComingSoon({ onBack, onUnlock }: { onBack: () => void; onUnlock: (
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.55 }}
           onPointerDown={startPress}
-          onPointerUp={cancelPress}
+          onPointerUp={registerTap}
           onPointerLeave={cancelPress}
-          onPointerCancel={cancelPress}
-          style={{ userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
+          onContextMenu={e => e.preventDefault()}
+          style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'manipulation' }}
           className="flex items-center gap-2 bg-white/8 border border-white/15 px-4 py-2 rounded-full cursor-default"
         >
           <span className="text-lg">🏫</span>
