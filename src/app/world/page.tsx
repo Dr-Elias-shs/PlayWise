@@ -1,7 +1,7 @@
 "use client";
 import { useGameStore } from '@/store/useGameStore';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -361,7 +361,7 @@ function WorldLobby({ onEnter, onMultiplayer }: { onEnter: (mapId: string) => vo
 
 const STARS = [1, 2, 3, 4, 5];
 
-function WorldComingSoon({ onBack }: { onBack: () => void }) {
+function WorldComingSoon({ onBack, onUnlock }: { onBack: () => void; onUnlock: () => void }) {
   const { playerName, playerEmail } = useGameStore();
   const studentKey = playerEmail?.trim().toLowerCase() || playerName || '';
 
@@ -370,6 +370,15 @@ function WorldComingSoon({ onBack }: { onBack: () => void }) {
   const [submitted, setSubmitted] = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [synced,    setSynced]    = useState(false);
+
+  // ── Hidden tester gate: long-press the SHS badge → password → preview ──────
+  const [showPwd, setShowPwd] = useState(false);
+  const [pwd,     setPwd]     = useState('');
+  const [pwdErr,  setPwdErr]  = useState(false);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startPress = () => { pressTimer.current = setTimeout(() => setShowPwd(true), 600); };
+  const cancelPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
   // On mount: restore from localStorage, try to sync if pending, check Supabase as fallback
   useEffect(() => {
@@ -488,7 +497,12 @@ function WorldComingSoon({ onBack }: { onBack: () => void }) {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.55 }}
-          className="flex items-center gap-2 bg-white/8 border border-white/15 px-4 py-2 rounded-full"
+          onPointerDown={startPress}
+          onPointerUp={cancelPress}
+          onPointerLeave={cancelPress}
+          onPointerCancel={cancelPress}
+          style={{ userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
+          className="flex items-center gap-2 bg-white/8 border border-white/15 px-4 py-2 rounded-full cursor-default"
         >
           <span className="text-lg">🏫</span>
           <span className="text-white/80 text-xs font-bold tracking-wide uppercase">SHS Leads Innovation</span>
@@ -552,6 +566,48 @@ function WorldComingSoon({ onBack }: { onBack: () => void }) {
         </motion.button>
 
       </div>
+
+      {/* Hidden tester password modal */}
+      <AnimatePresence>
+        {showPwd && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-6"
+            onClick={() => { setShowPwd(false); setPwd(''); setPwdErr(false); }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-slate-900 border border-white/15 rounded-3xl p-6 w-full max-w-xs space-y-4"
+            >
+              <div className="text-center">
+                <div className="text-3xl mb-1">🔐</div>
+                <h3 className="text-white font-black text-lg">Tester Access</h3>
+                <p className="text-white/40 text-xs">Enter the password to preview the World.</p>
+              </div>
+              <form onSubmit={e => {
+                e.preventDefault();
+                if (pwd.trim().toLowerCase() === 'astalabista') { setShowPwd(false); onUnlock(); }
+                else { setPwdErr(true); }
+              }}>
+                <input
+                  type="password"
+                  autoFocus
+                  value={pwd}
+                  onChange={e => { setPwd(e.target.value); setPwdErr(false); }}
+                  placeholder="Password"
+                  className="w-full px-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/30 outline-none focus:border-emerald-400/60"
+                />
+                {pwdErr && <p className="text-red-400 text-xs font-bold mt-2">Wrong password</p>}
+                <button type="submit"
+                  className="w-full mt-4 py-3 rounded-2xl font-black text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:scale-[1.02] transition-transform">
+                  Unlock 🚀
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -564,6 +620,7 @@ export default function WorldPage() {
   const [multiMode,     setMultiMode]     = useState(false);
   const [multiRoomCode, setMultiRoomCode] = useState<string | null>(null);
   const [allowed,       setAllowed]       = useState<boolean | null>(null);
+  const [testBypass,    setTestBypass]    = useState(false); // hidden tester unlock
   const [showWorldIntro, setShowWorldIntro] = useState(false);
 
   // ── Time-management guard ──────────────────────────────────────────────────
@@ -605,13 +662,13 @@ export default function WorldPage() {
     );
   }
 
-  if (!allowed) {
-    return <WorldComingSoon onBack={() => router.push('/')} />;
+  if (!allowed && !testBypass) {
+    return <WorldComingSoon onBack={() => router.push('/')} onUnlock={() => setTestBypass(true)} />;
   }
 
-  // ── Time-management gate (skipped on localhost) ───────────────────────────
+  // ── Time-management gate (skipped on localhost + tester bypass) ────────────
   const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  if (!isLocal && !access.allowed) {
+  if (!isLocal && !testBypass && !access.allowed) {
     return <TimeGate access={access} loading={false} grade={playerGrade} onRetry={tmRefresh} />;
   }
 
