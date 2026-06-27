@@ -413,12 +413,14 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
 
       positionChar(posRef.current.x, posRef.current.y, frameIdx.current, dirRef.current, s);
 
-      // Broadcast position
+      // Broadcast position. Coords rounded to whole pixels (interpolation
+      // smooths the rest) to trim bytes; `moving` lets the transport drop to a
+      // slow keepalive while idle — the bulk of the egress saving.
       broadcastPosition(roomCode, {
         player_name: playerName, color_id: colorId, equipped_id: equippedId,
-        x: posRef.current.x, y: posRef.current.y,
+        x: Math.round(posRef.current.x), y: Math.round(posRef.current.y),
         dir: dirRef.current, frame: frameIdx.current,
-      });
+      }, moving);
 
       // Interpolate remote players + stale cleanup
       useWorldMultiStore.setState(state => {

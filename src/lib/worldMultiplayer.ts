@@ -16,7 +16,14 @@ import { supabase } from './supabase';
 export const WORLD_ROOM_CAPACITY = 8;
 export const LOBBY_COUNTDOWN_SEC = 10;
 export const ROUND_DURATION_SEC  = 300; // 5-minute game round
-export const POSITION_THROTTLE_MS = 80;
+// While moving, emit at most once per 150ms (~6.7 fps over the network).
+// Remote positions are interpolated, so this still looks smooth — and it
+// halves egress vs the old 80ms rate.
+export const POSITION_THROTTLE_MS = 150;
+// While standing still, only send a keepalive every 4s (instead of a full
+// stream of identical ticks). Must stay below the 8s stale-cleanup window in
+// WorldMultiMap so idle players don't disappear from teammates' screens.
+export const IDLE_KEEPALIVE_MS = 4000;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -239,6 +246,7 @@ export type GameEvent = RoomTriggerEvent | VoteEvent | RoomResolvedEvent;
 
 let gameChannel: ReturnType<typeof supabase.channel> | null = null;
 let lastPosSent = 0;
+let wasMoving   = false;
 
 export function subscribeToRoom(
   roomCode: string,
@@ -283,9 +291,14 @@ export function subscribeToRoom(
   };
 }
 
-export function broadcastPosition(roomCode: string, tick: PositionTick): void {
+export function broadcastPosition(roomCode: string, tick: PositionTick, moving = true): void {
   const now = Date.now();
-  if (now - lastPosSent < POSITION_THROTTLE_MS) return;
+  // Always emit one final tick the instant a player stops, so teammates see
+  // the stop immediately instead of waiting for the next keepalive.
+  const justStopped = wasMoving && !moving;
+  wasMoving = moving;
+  const interval = moving ? POSITION_THROTTLE_MS : IDLE_KEEPALIVE_MS;
+  if (!justStopped && now - lastPosSent < interval) return;
   lastPosSent = now;
   gameChannel?.send({ type: 'broadcast', event: 'pos', payload: tick });
 }
