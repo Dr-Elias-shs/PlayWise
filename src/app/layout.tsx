@@ -32,6 +32,7 @@ export const viewport: Viewport = {
 };
 
 import { MsalProvider } from "@/components/MsalProvider";
+import { SWUpdater } from "@/components/SWUpdater";
 
 export default function RootLayout({
   children,
@@ -41,6 +42,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        <SWUpdater />
         <MsalProvider>
           {children}
         </MsalProvider>
