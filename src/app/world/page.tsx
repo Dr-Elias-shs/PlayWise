@@ -387,14 +387,14 @@ function WorldComingSoon({ onBack, onUnlock }: { onBack: () => void; onUnlock: (
   const cancelPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
   // Fallback for touch devices where long-press is hijacked by the OS:
-  // 5 quick taps on the badge opens the gate.
+  // 3 quick taps on the badge opens the gate.
   const registerTap = () => {
     cancelPress();
     if (longFired.current) return; // long-press already handled it
     tapCount.current += 1;
     if (tapTimer.current) clearTimeout(tapTimer.current);
-    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 1200);
-    if (tapCount.current >= 5) { tapCount.current = 0; setShowPwd(true); }
+    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 2000);
+    if (tapCount.current >= 3) { tapCount.current = 0; setShowPwd(true); }
   };
 
   // On mount: restore from localStorage, try to sync if pending, check Supabase as fallback
@@ -651,6 +651,13 @@ export default function WorldPage() {
   useAccessoryPositions();
 
   useEffect(() => {
+    // Tester URL unlock: open /world?unlock=astalabista to preview without
+    // any gesture or enabling for students. Works on any device/browser.
+    if (typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('unlock') === 'astalabista') {
+      setTestBypass(true);
+    }
+
     // Hard-disabled until Supabase quota resets — remove this line to re-enable
     setAllowed(false);
     return;
