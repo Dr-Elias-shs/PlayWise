@@ -328,7 +328,67 @@ Return ONLY a JSON array like:
 [{"question":"...","choices":["A","B","C","D"],"answer":0}]`;
 }
 
-// One generation pass → validated, answer-verified, whole-number-preferred questions.
+// Pull the JSON array out of a model response (robust to the junk small models
+// add), validate it, then verify/correct numeric answers.
+function extractQuestions(fullText: string): ParsedQuestion[] {
+  const start = fullText.indexOf('[');
+  const end   = fullText.lastIndexOf(']');
+  if (start === -1 || end === -1 || start >= end)
+    throw new Error('Model did not return a JSON array');
+
+  const candidate = fullText.slice(start, end + 1);
+  let parsed: ParsedQuestion[] | null = null;
+  try {
+    parsed = JSON.parse(candidate);
+  } catch {
+    const cleaned = candidate
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      .replace(/([^\\])\n/g, '$1 ')
+      .replace(/([^\\])\t/g, '$1 ')
+      .replace(/,(\s*[\]}])/g, '$1');
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      const objects: ParsedQuestion[] = [];
+      const objRegex = /\{[^{}]*"question"[^{}]*"choices"[^{}]*"answer"[^{}]*\}/g;
+      for (const m of Array.from(fullText.matchAll(objRegex))) {
+        try { objects.push(JSON.parse(m[0])); } catch {}
+      }
+      if (objects.length === 0) throw new Error('Could not parse model response as JSON');
+      parsed = objects;
+    }
+  }
+
+  const valid = (parsed as ParsedQuestion[]).filter(q =>
+    typeof q.question === 'string' &&
+    Array.isArray(q.choices) && q.choices.length === 4 &&
+    typeof q.answer === 'number' && q.answer >= 0 && q.answer <= 3
+  );
+  const checked = valid.map(verifyNumericAnswer);
+  const whole = checked.filter(c => c.whole).map(c => c.q);
+  return whole.length > 0 ? whole : checked.map(c => c.q);
+}
+
+// Cloud generation via Gemini (preferred — far better at math). Throws on any
+// failure (no key, network, parse) so the caller can fall back to local Ollama.
+async function runGeminiOnce(
+  prompt: string,
+  temperature: number,
+  onChunk?: (partial: string) => void,
+): Promise<ParsedQuestion[]> {
+  const res = await fetch('/api/gemini/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, temperature }),
+  });
+  if (!res.ok) throw new Error(`Gemini unavailable (${res.status})`);
+  const { text } = await res.json();
+  if (!text) throw new Error('Gemini returned empty');
+  onChunk?.(text);
+  return extractQuestions(text);
+}
+
+// Local generation via Ollama (fallback — reached through the ngrok tunnel).
 async function runOllamaOnce(
   model: string,
   prompt: string,
@@ -360,83 +420,70 @@ async function runOllamaOnce(
       } catch {}
     }
   }
-
-  const start = fullText.indexOf('[');
-  const end   = fullText.lastIndexOf(']');
-  if (start === -1 || end === -1 || start >= end)
-    throw new Error('Ollama did not return a JSON array — try again or simplify the input text');
-
-  const candidate = fullText.slice(start, end + 1);
-  let parsed: ParsedQuestion[] | null = null;
-  try {
-    parsed = JSON.parse(candidate);
-  } catch {
-    const cleaned = candidate
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-      .replace(/([^\\])\n/g, '$1 ')
-      .replace(/([^\\])\t/g, '$1 ')
-      .replace(/,(\s*[\]}])/g, '$1');
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      const objects: ParsedQuestion[] = [];
-      const objRegex = /\{[^{}]*"question"[^{}]*"choices"[^{}]*"answer"[^{}]*\}/g;
-      for (const m of Array.from(fullText.matchAll(objRegex))) {
-        try { objects.push(JSON.parse(m[0])); } catch {}
-      }
-      if (objects.length === 0)
-        throw new Error('Could not parse Ollama response as JSON — try again');
-      parsed = objects;
-    }
-  }
-
-  const valid = (parsed as ParsedQuestion[]).filter(q =>
-    typeof q.question === 'string' &&
-    Array.isArray(q.choices) && q.choices.length === 4 &&
-    typeof q.answer === 'number' && q.answer >= 0 && q.answer <= 3
-  );
-  const checked = valid.map(verifyNumericAnswer);
-  const whole = checked.filter(c => c.whole).map(c => c.q);
-  return whole.length > 0 ? whole : checked.map(c => c.q);
+  return extractQuestions(fullText);
 }
 
-export async function parseQuestionsWithOllama(
-  rawText: string,
-  subject: string,
+// Run a generator repeatedly until it reaches the requested count, deduping by
+// question text. Temperature rises after the first pass so retries yield NEW
+// questions. Returns whatever was collected (caller handles shortfall).
+async function collectToCount(
+  runner: (prompt: string, temperature: number, onChunk?: (p: string) => void) => Promise<ParsedQuestion[]>,
+  prompt: string,
+  target: number | null,
   onChunk?: (partial: string) => void,
 ): Promise<ParsedQuestion[]> {
-  const model  = await getOllamaModel();
-  const isMath = /math|arithmetic|algebra|numera/i.test(subject);
-  const target = parseRequestedCount(rawText);
-  const prompt = buildPrompt(rawText, subject, isMath, target);
-
   const collected: ParsedQuestion[] = [];
   const seen = new Set<string>();
-  const addUnique = (qs: ParsedQuestion[]) => {
+  const add = (qs: ParsedQuestion[]) => {
     for (const q of qs) {
       const key = q.question.trim().toLowerCase().replace(/\s+/g, ' ');
       if (!seen.has(key)) { seen.add(key); collected.push(q); }
     }
   };
 
-  // When a count is requested, retry a few times to reach it. Temperature 0 on
-  // the first pass (best quality); higher after so retries yield NEW questions.
-  const maxAttempts = target ? 4 : 1;
+  const maxAttempts = target ? 3 : 1;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (target && collected.length >= target) break;
+    const temp = !target ? 0 : attempt === 0 ? 0.3 : 0.8;
     try {
-      const temp = !target ? 0 : attempt === 0 ? 0.3 : 0.8;
-      addUnique(await runOllamaOnce(model, prompt, temp, onChunk));
+      add(await runner(prompt, temp, onChunk));
     } catch (e) {
-      if (attempt === 0 && collected.length === 0) throw e;  // hard failure (e.g. Ollama down)
-      break;                                                 // transient retry failure → stop with what we have
+      if (attempt === 0 && collected.length === 0) throw e;  // first pass hard-failed
+      break;                                                  // transient retry failure → stop
     }
     if (!target) break;
   }
+  return collected;
+}
 
-  // Math safety net: guarantee the requested count with valid generated questions.
+// Main entry: Gemini (cloud) first, local Ollama as fallback, then a
+// deterministic math fill so the requested count is always met.
+export async function parseQuestionsWithOllama(
+  rawText: string,
+  subject: string,
+  onChunk?: (partial: string) => void,
+): Promise<ParsedQuestion[]> {
+  const isMath = /math|arithmetic|algebra|numera/i.test(subject);
+  const target = parseRequestedCount(rawText);
+  const prompt = buildPrompt(rawText, subject, isMath, target);
+
+  // 1. Try Gemini.
+  let collected: ParsedQuestion[] = [];
+  try {
+    collected = await collectToCount(runGeminiOnce, prompt, target, onChunk);
+  } catch { /* fall through to Ollama */ }
+
+  // 2. Fall back to the local Ollama model if Gemini produced nothing.
+  if (collected.length === 0) {
+    const model = await getOllamaModel();
+    const ollamaRunner = (p: string, t: number, oc?: (s: string) => void) => runOllamaOnce(model, p, t, oc);
+    collected = await collectToCount(ollamaRunner, prompt, target, onChunk);
+  }
+
+  // 3. Math safety net: guarantee the requested count with valid questions.
   if (isMath && target && collected.length < target) {
-    addUnique(generateMathFill(target - collected.length, seen));
+    const seen = new Set(collected.map(q => q.question.trim().toLowerCase().replace(/\s+/g, ' ')));
+    collected = collected.concat(generateMathFill(target - collected.length, seen));
   }
 
   return target ? collected.slice(0, target) : collected;
