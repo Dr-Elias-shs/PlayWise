@@ -1,6 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 export const runtime = 'nodejs';
+
+// Helper — use a plain Response (NextResponse.json breaks under this project's
+// custom-server transpile: "Class constructor _Response cannot be invoked…").
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
 
 // POST /api/gemini/generate  { prompt: string, temperature?: number }
 //   → { text: string }   (the model's raw response, expected to be a JSON array)
@@ -11,12 +20,12 @@ export const runtime = 'nodejs';
 export async function POST(req: NextRequest) {
   const { prompt, temperature = 0.3 } = await req.json().catch(() => ({}));
   if (!prompt || typeof prompt !== 'string') {
-    return NextResponse.json({ error: 'missing_prompt' }, { status: 400 });
+    return json({ error: 'missing_prompt' }, 400);
   }
 
   const key   = process.env.GEMINI_API_KEY?.trim();
   const model = (process.env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
-  if (!key) return NextResponse.json({ error: 'no_gemini_key' }, { status: 503 });
+  if (!key) return json({ error: 'no_gemini_key' }, 503);
 
   try {
     const upstream = await fetch(
@@ -28,7 +37,6 @@ export async function POST(req: NextRequest) {
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature,
-            // Force a pure-JSON response so the array parses cleanly.
             responseMimeType: 'application/json',
             maxOutputTokens: 8192,
           },
@@ -38,19 +46,16 @@ export async function POST(req: NextRequest) {
 
     if (!upstream.ok) {
       const detail = (await upstream.text().catch(() => '')).slice(0, 300);
-      return NextResponse.json({ error: `gemini_${upstream.status}`, detail }, { status: 502 });
+      return json({ error: `gemini_${upstream.status}`, detail }, 502);
     }
 
     const data = await upstream.json();
     const text: string =
       data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
-    if (!text) return NextResponse.json({ error: 'gemini_empty' }, { status: 502 });
+    if (!text) return json({ error: 'gemini_empty' }, 502);
 
-    return NextResponse.json({ text });
+    return json({ text });
   } catch (e) {
-    return NextResponse.json(
-      { error: 'gemini_unreachable', detail: e instanceof Error ? e.message : String(e) },
-      { status: 502 },
-    );
+    return json({ error: 'gemini_unreachable', detail: e instanceof Error ? e.message : String(e) }, 502);
   }
 }
