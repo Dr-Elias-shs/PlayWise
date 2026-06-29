@@ -167,6 +167,66 @@ export interface ParsedQuestion {
 
 const OLLAMA_MODELS_PREFERENCE = ['mistral:latest', 'gemma3:4b', 'phi:latest', 'deepseek-r1:7b'];
 
+// ── Numeric answer verification ───────────────────────────────────────────────
+// Small local models routinely mark the wrong choice on arithmetic questions
+// (e.g. "(7+3)/2" tagged as 3 instead of 5). When a question's choices are all
+// numeric and its text holds a clean arithmetic expression, we recompute the
+// answer and trust the math over the model.
+
+function toNum(s: string): number | null {
+  const m = String(s).replace(/[, ]/g, '').match(/-?\d+(?:\.\d+)?/);
+  return m ? parseFloat(m[0]) : null;
+}
+
+function fmtNum(v: number): string {
+  const r = Math.round(v);
+  return Math.abs(v - r) < 1e-9 ? String(r) : String(Math.round(v * 100) / 100);
+}
+
+function safeEval(raw: string): number | null {
+  const e = raw.replace(/[×✕·]/g, '*').replace(/[÷]/g, '/').replace(/[−–—]/g, '-');
+  if (!/\d/.test(e) || !/[+\-*/]/.test(e)) return null;     // need a digit and an operator
+  if (!/^[0-9.+\-*/()\s]+$/.test(e)) return null;            // whitelist only — safe to evaluate
+  let depth = 0;
+  for (const c of e) { if (c === '(') depth++; else if (c === ')' && --depth < 0) return null; }
+  if (depth !== 0) return null;
+  try {
+    const v = Function(`"use strict";return (${e});`)();
+    return typeof v === 'number' && isFinite(v) ? v : null;
+  } catch { return null; }
+}
+
+function extractExpression(text: string): string | null {
+  const norm = text.replace(/[×✕·]/g, '*').replace(/[÷]/g, '/').replace(/[−–—]/g, '-');
+  const matches = norm.match(/[0-9.()\s]*[+\-*/][0-9.+\-*/()\s]*/g);
+  if (!matches) return null;
+  const cands = matches.map(m => m.trim()).filter(Boolean).sort((a, b) => b.length - a.length);
+  for (const c of cands) if (safeEval(c) !== null) return c;
+  return null;
+}
+
+// Fix the marked answer for numeric/arithmetic questions. Returns the question
+// unchanged when it isn't a verifiable numeric question.
+function verifyNumericAnswer(q: ParsedQuestion): ParsedQuestion {
+  const nums = q.choices.map(toNum);
+  if (nums.some(n => n === null)) return q;        // non-numeric choices → can't verify, trust model
+  const expr = extractExpression(q.question);
+  if (!expr) return q;                              // word problem / no clean expression → trust model
+  const value = safeEval(expr);
+  if (value === null) return q;
+
+  const EPS = 1e-6;
+  const idx = nums.findIndex(n => Math.abs((n as number) - value) < EPS);
+  if (idx !== -1) return { ...q, answer: idx };     // a choice matches → mark the right one
+
+  // None of the choices is correct → put the true value into the marked slot so
+  // the question at least has a correct answer.
+  const slot = q.answer >= 0 && q.answer <= 3 ? q.answer : 0;
+  const choices = [...q.choices];
+  choices[slot] = fmtNum(value);
+  return { ...q, choices, answer: slot };
+}
+
 async function getOllamaModel(): Promise<string> {
   try {
     const r = await fetch('/api/ollama/tags');
@@ -186,13 +246,25 @@ export async function parseQuestionsWithOllama(
 ): Promise<ParsedQuestion[]> {
   const model = await getOllamaModel();
 
+  // Local models are weak at arithmetic and frequently mark the wrong choice.
+  // For math, push them to compute carefully + keep results whole — and we also
+  // verify every numeric answer programmatically after generation (below).
+  const isMath = /math|arithmetic|algebra|numera/i.test(subject);
+  const mathRules = isMath ? `
+
+MATH RULES (wrong answers are NOT acceptable):
+- Work out every calculation step by step and double-check it before choosing the answer.
+- Exactly ONE choice must equal the correct computed value, and "answer" MUST be the 0-based index of that exact choice.
+- Pick numbers so the result is a whole number (no decimals or fractions) unless the lesson is specifically about decimals/fractions.
+- The 3 wrong choices must be plausible (common student mistakes) and never equal the correct value.` : '';
+
   const prompt = `You are an educational content assistant for grade school students. Your job is to produce multiple choice questions (MCQs) from the text below.
 
 RULES:
 1. If the text already contains MCQ questions with answer choices, extract ALL of them exactly as written.
 2. If the text is explanatory or contains no MCQ questions (e.g. a lesson, notes, or a document), GENERATE appropriate MCQ questions that test understanding of the key concepts covered in the text. Generate as many as the content supports (aim for at least 10).
 3. Every question must have exactly 4 answer choices and one correct answer.
-4. Return ONLY a valid JSON array — no explanation, no markdown, no extra text.
+4. Return ONLY a valid JSON array — no explanation, no markdown, no extra text.${mathRules}
 
 Subject: ${subject}
 
@@ -276,10 +348,12 @@ Return ONLY a JSON array like:
     }
   }
 
-  // Validate each question
-  return (parsed as ParsedQuestion[]).filter(q =>
-    typeof q.question === 'string' &&
-    Array.isArray(q.choices) && q.choices.length === 4 &&
-    typeof q.answer === 'number' && q.answer >= 0 && q.answer <= 3
-  );
+  // Validate each question, then deterministically correct numeric answers.
+  return (parsed as ParsedQuestion[])
+    .filter(q =>
+      typeof q.question === 'string' &&
+      Array.isArray(q.choices) && q.choices.length === 4 &&
+      typeof q.answer === 'number' && q.answer >= 0 && q.answer <= 3
+    )
+    .map(verifyNumericAnswer);
 }
