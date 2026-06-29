@@ -259,33 +259,63 @@ async function getOllamaModel(): Promise<string> {
   }
 }
 
-export async function parseQuestionsWithOllama(
-  rawText: string,
-  subject: string,
-  onChunk?: (partial: string) => void,
-): Promise<ParsedQuestion[]> {
-  const model = await getOllamaModel();
+// How many questions did the request ask for? (e.g. "generate 4 mcq …")
+function parseRequestedCount(text: string): number | null {
+  const m = text.match(/generate\s+(\d{1,2})/i) ||
+            text.match(/\b(\d{1,2})\s*(?:mcq|multiple[-\s]?choice|questions?|q)\b/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return n >= 1 && n <= 25 ? n : null;
+}
 
-  // Local models are weak at arithmetic and frequently mark the wrong choice.
-  // For math, push them to compute carefully + keep results whole — and we also
-  // verify every numeric answer programmatically after generation (below).
-  const isMath = /math|arithmetic|algebra|numera/i.test(subject);
+// Deterministic addition+division questions with guaranteed whole-number
+// answers — used to fill any shortfall when the local model can't produce
+// enough valid questions.
+function generateMathFill(n: number, seen: Set<string>): ParsedQuestion[] {
+  const out: ParsedQuestion[] = [];
+  let guard = 0;
+  while (out.length < n && guard++ < 500) {
+    const c   = 2 + Math.floor(Math.random() * 4);          // divisor 2..5
+    const r   = 2 + Math.floor(Math.random() * 8);          // quotient 2..9 (the answer)
+    const sum = r * c;
+    const a   = 1 + Math.floor(Math.random() * (sum - 1));
+    const b   = sum - a;
+    const question = `What is the result of adding ${a} and ${b}, then dividing the sum by ${c}?`;
+    const key = question.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const opts = Array.from(new Set([r, r + 1, r - 1, r + 2, r + c].filter(v => v > 0))).slice(0, 4);
+    let pad = r + 5;
+    while (opts.length < 4) { if (!opts.includes(pad)) opts.push(pad); pad++; }
+    for (let i = opts.length - 1; i > 0; i--) {            // shuffle
+      const j = Math.floor(Math.random() * (i + 1));
+      [opts[i], opts[j]] = [opts[j], opts[i]];
+    }
+    out.push({ question, choices: opts.map(String), answer: opts.indexOf(r), expr: `(${a}+${b})/${c}` });
+  }
+  return out;
+}
+
+function buildPrompt(rawText: string, subject: string, isMath: boolean, target: number | null): string {
   const mathRules = isMath ? `
 
 MATH RULES (wrong answers are NOT acceptable):
 - For EVERY question add a field "expr": the exact arithmetic that solves it, using only numbers and + - * / and parentheses. Example: a question about "adding 3 and 5 then dividing by 2" has "expr":"(3+5)/2".
-- The "expr" must match the question wording exactly. CRITICAL: any division must divide evenly into a whole number — pick the numbers so there is NO remainder and NO decimal (good: (6+4)/2=5, (8+4)/3=4, 20/4=5; bad: (3+5)/2=4 is fine but 7/2 or (8-1)/3 are NOT allowed). Work the division out before writing the question.
+- The "expr" must match the question wording exactly. CRITICAL: any division must divide evenly into a whole number — pick the numbers so there is NO remainder and NO decimal (good: (6+4)/2=5, (8+4)/3=4, 20/4=5; bad: 7/2 or (8-1)/3 are NOT allowed). Work the division out before writing the question.
 - Exactly ONE choice must equal the result of "expr"; the other 3 choices are plausible wrong answers (common mistakes), never equal to the correct value.
-- If the request asks for a specific number of questions, return EXACTLY that many. Otherwise return at least 4.
 - Math example: {"question":"What is (3 + 5) ÷ 2?","choices":["2","4","8","16"],"answer":1,"expr":"(3+5)/2"}` : '';
 
-  const prompt = `You are an educational content assistant for grade school students. Your job is to produce multiple choice questions (MCQs) from the text below.
+  const countRule = target
+    ? `\n\nCRITICAL: Return EXACTLY ${target} questions — no more, no fewer.`
+    : '';
+
+  return `You are an educational content assistant for grade school students. Your job is to produce multiple choice questions (MCQs) from the text below.
 
 RULES:
 1. If the text already contains MCQ questions with answer choices, extract ALL of them exactly as written.
-2. If the text is explanatory or contains no MCQ questions (e.g. a lesson, notes, or a document), GENERATE appropriate MCQ questions that test understanding of the key concepts covered in the text. Generate as many as the content supports (aim for at least 10).
+2. If the text is explanatory or is a request to generate questions, GENERATE appropriate MCQ questions that test understanding. ${target ? `Generate exactly ${target}.` : 'Generate as many as the content supports (aim for at least 10).'}
 3. Every question must have exactly 4 answer choices and one correct answer.
-4. Return ONLY a valid JSON array — no explanation, no markdown, no extra text.${mathRules}
+4. Return ONLY a valid JSON array — no explanation, no markdown, no extra text.${mathRules}${countRule}
 
 Subject: ${subject}
 
@@ -296,34 +326,33 @@ ${rawText}
 
 Return ONLY a JSON array like:
 [{"question":"...","choices":["A","B","C","D"],"answer":0}]`;
+}
 
+// One generation pass → validated, answer-verified, whole-number-preferred questions.
+async function runOllamaOnce(
+  model: string,
+  prompt: string,
+  temperature: number,
+  onChunk?: (partial: string) => void,
+): Promise<ParsedQuestion[]> {
   const response = await fetch('/api/ollama/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model,
-      prompt,
-      stream: true,
-      options: {
-        num_predict: -1,  // no token cap — generate until the JSON array is complete
-        num_ctx: 8192,    // large context window to fit the full exam text
-        temperature: 0,   // deterministic output
-      },
+      model, prompt, stream: true,
+      options: { num_predict: -1, num_ctx: 8192, temperature },
     }),
   });
-
   if (!response.ok || !response.body) throw new Error('Ollama not reachable');
 
   let fullText = '';
   let streamFinished = false;
   const reader  = response.body.getReader();
   const decoder = new TextDecoder();
-
   while (!streamFinished) {
     const { done, value } = await reader.read();
     if (done) break;
-    const chunk = decoder.decode(value);
-    for (const line of chunk.split('\n').filter(Boolean)) {
+    for (const line of decoder.decode(value).split('\n').filter(Boolean)) {
       try {
         const { response: token, done: streamDone } = JSON.parse(line);
         if (token) { fullText += token; onChunk?.(fullText); }
@@ -332,32 +361,24 @@ Return ONLY a JSON array like:
     }
   }
 
-  // Extract the JSON array from Ollama's response robustly
   const start = fullText.indexOf('[');
   const end   = fullText.lastIndexOf(']');
   if (start === -1 || end === -1 || start >= end)
     throw new Error('Ollama did not return a JSON array — try again or simplify the input text');
 
-  let candidate = fullText.slice(start, end + 1);
-
-  // Attempt 1: parse as-is
+  const candidate = fullText.slice(start, end + 1);
   let parsed: ParsedQuestion[] | null = null;
   try {
     parsed = JSON.parse(candidate);
   } catch {
-    // Attempt 2: sanitise common issues Ollama introduces
-    //  - unescaped newlines / tabs inside string values
-    //  - trailing commas before ] or }
-    //  - control characters
     const cleaned = candidate
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')   // strip control chars (keep \t \n \r)
-      .replace(/([^\\])\n/g, '$1 ')                          // collapse unescaped newlines to spaces
-      .replace(/([^\\])\t/g, '$1 ')                          // same for tabs
-      .replace(/,(\s*[\]}])/g, '$1');                        // trailing commas
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      .replace(/([^\\])\n/g, '$1 ')
+      .replace(/([^\\])\t/g, '$1 ')
+      .replace(/,(\s*[\]}])/g, '$1');
     try {
       parsed = JSON.parse(cleaned);
     } catch {
-      // Attempt 3: extract individual objects and reassemble
       const objects: ParsedQuestion[] = [];
       const objRegex = /\{[^{}]*"question"[^{}]*"choices"[^{}]*"answer"[^{}]*\}/g;
       for (const m of Array.from(fullText.matchAll(objRegex))) {
@@ -369,9 +390,6 @@ Return ONLY a JSON array like:
     }
   }
 
-  // Validate, then verify/correct numeric answers. Prefer whole-number-answer
-  // questions, but never return an empty list (fall back to all if every
-  // generated question happened to be a decimal).
   const valid = (parsed as ParsedQuestion[]).filter(q =>
     typeof q.question === 'string' &&
     Array.isArray(q.choices) && q.choices.length === 4 &&
@@ -380,4 +398,46 @@ Return ONLY a JSON array like:
   const checked = valid.map(verifyNumericAnswer);
   const whole = checked.filter(c => c.whole).map(c => c.q);
   return whole.length > 0 ? whole : checked.map(c => c.q);
+}
+
+export async function parseQuestionsWithOllama(
+  rawText: string,
+  subject: string,
+  onChunk?: (partial: string) => void,
+): Promise<ParsedQuestion[]> {
+  const model  = await getOllamaModel();
+  const isMath = /math|arithmetic|algebra|numera/i.test(subject);
+  const target = parseRequestedCount(rawText);
+  const prompt = buildPrompt(rawText, subject, isMath, target);
+
+  const collected: ParsedQuestion[] = [];
+  const seen = new Set<string>();
+  const addUnique = (qs: ParsedQuestion[]) => {
+    for (const q of qs) {
+      const key = q.question.trim().toLowerCase().replace(/\s+/g, ' ');
+      if (!seen.has(key)) { seen.add(key); collected.push(q); }
+    }
+  };
+
+  // When a count is requested, retry a few times to reach it. Temperature 0 on
+  // the first pass (best quality); higher after so retries yield NEW questions.
+  const maxAttempts = target ? 4 : 1;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (target && collected.length >= target) break;
+    try {
+      const temp = !target ? 0 : attempt === 0 ? 0.3 : 0.8;
+      addUnique(await runOllamaOnce(model, prompt, temp, onChunk));
+    } catch (e) {
+      if (attempt === 0 && collected.length === 0) throw e;  // hard failure (e.g. Ollama down)
+      break;                                                 // transient retry failure → stop with what we have
+    }
+    if (!target) break;
+  }
+
+  // Math safety net: guarantee the requested count with valid generated questions.
+  if (isMath && target && collected.length < target) {
+    addUnique(generateMathFill(target - collected.length, seen));
+  }
+
+  return target ? collected.slice(0, target) : collected;
 }
