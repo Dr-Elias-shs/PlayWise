@@ -163,6 +163,7 @@ export interface ParsedQuestion {
   question: string;
   choices:  string[];
   answer:   number;
+  expr?:    string;   // math only: the arithmetic that solves it, e.g. "(3+5)/2"
 }
 
 const OLLAMA_MODELS_PREFERENCE = ['mistral:latest', 'gemma3:4b', 'phi:latest', 'deepseek-r1:7b'];
@@ -205,22 +206,40 @@ function extractExpression(text: string): string | null {
   return null;
 }
 
-// Fix the marked answer for numeric/arithmetic questions. Returns the question
-// unchanged when it isn't a verifiable numeric question.
-function verifyNumericAnswer(q: ParsedQuestion): ParsedQuestion {
-  const nums = q.choices.map(toNum);
-  if (nums.some(n => n === null)) return q;        // non-numeric choices → can't verify, trust model
-  const expr = extractExpression(q.question);
-  if (!expr) return q;                              // word problem / no clean expression → trust model
-  const value = safeEval(expr);
-  if (value === null) return q;
+// Fix the marked answer for numeric/arithmetic questions using the model's own
+// formula (preferred) or an expression embedded in the question text.
+// Returns null to DROP a generated math question whose answer isn't a whole
+// number (word problems like "8 candies among 3 friends" → 2.33…).
+function verifyNumericAnswer(q: ParsedQuestion): ParsedQuestion | null {
+  // 1. Establish the true value. Trust the model's formula first (covers
+  //    word problems where the text has no symbols), then any expression in
+  //    the question text.
+  let value: number | null = null;
+  let fromFormula = false;
+  if (typeof q.expr === 'string') {
+    const v = safeEval(q.expr);
+    if (v !== null) { value = v; fromFormula = true; }
+  }
+  if (value === null) {
+    const e = extractExpression(q.question);
+    if (e) value = safeEval(e);
+  }
+  if (value === null) return q;                     // nothing to verify → trust model
+
+  // 2. Generated math must come out whole — drop decimal-answer questions.
+  if (fromFormula && Math.abs(value - Math.round(value)) > 1e-9) return null;
 
   const EPS = 1e-6;
-  const idx = nums.findIndex(n => Math.abs((n as number) - value) < EPS);
-  if (idx !== -1) return { ...q, answer: idx };     // a choice matches → mark the right one
+  const nums = q.choices.map(toNum);
 
-  // None of the choices is correct → put the true value into the marked slot so
-  // the question at least has a correct answer.
+  // 3. If all choices are numbers, mark the one that equals the true value…
+  if (nums.every(n => n !== null)) {
+    const idx = nums.findIndex(n => Math.abs((n as number) - value!) < EPS);
+    if (idx !== -1) return { ...q, answer: idx };
+  }
+
+  // 4. …otherwise inject the true value into the marked slot so the question
+  //    always has a correct answer.
   const slot = q.answer >= 0 && q.answer <= 3 ? q.answer : 0;
   const choices = [...q.choices];
   choices[slot] = fmtNum(value);
@@ -253,10 +272,11 @@ export async function parseQuestionsWithOllama(
   const mathRules = isMath ? `
 
 MATH RULES (wrong answers are NOT acceptable):
-- Work out every calculation step by step and double-check it before choosing the answer.
-- Exactly ONE choice must equal the correct computed value, and "answer" MUST be the 0-based index of that exact choice.
-- Pick numbers so the result is a whole number (no decimals or fractions) unless the lesson is specifically about decimals/fractions.
-- The 3 wrong choices must be plausible (common student mistakes) and never equal the correct value.` : '';
+- For EVERY question add a field "expr": the exact arithmetic that solves it, using only numbers and + - * / and parentheses. Example: a question about "adding 3 and 5 then dividing by 2" has "expr":"(3+5)/2".
+- The "expr" must match the question wording exactly, and any division MUST come out to a whole number with no remainder (choose numbers so the result has no decimals/fractions).
+- Exactly ONE choice must equal the result of "expr"; the other 3 choices are plausible wrong answers (common mistakes), never equal to the correct value.
+- If the request asks for a specific number of questions, return EXACTLY that many. Otherwise return at least 4.
+- Math example: {"question":"What is (3 + 5) ÷ 2?","choices":["2","4","8","16"],"answer":1,"expr":"(3+5)/2"}` : '';
 
   const prompt = `You are an educational content assistant for grade school students. Your job is to produce multiple choice questions (MCQs) from the text below.
 
@@ -348,12 +368,14 @@ Return ONLY a JSON array like:
     }
   }
 
-  // Validate each question, then deterministically correct numeric answers.
+  // Validate each question, then deterministically correct/verify numeric
+  // answers (dropping decimal-answer math questions).
   return (parsed as ParsedQuestion[])
     .filter(q =>
       typeof q.question === 'string' &&
       Array.isArray(q.choices) && q.choices.length === 4 &&
       typeof q.answer === 'number' && q.answer >= 0 && q.answer <= 3
     )
-    .map(verifyNumericAnswer);
+    .map(verifyNumericAnswer)
+    .filter((q): q is ParsedQuestion => q !== null);
 }
