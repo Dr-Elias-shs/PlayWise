@@ -206,14 +206,13 @@ function extractExpression(text: string): string | null {
   return null;
 }
 
-// Fix the marked answer for numeric/arithmetic questions using the model's own
+// Verify/correct the marked answer for numeric questions using the model's own
 // formula (preferred) or an expression embedded in the question text.
-// Returns null to DROP a generated math question whose answer isn't a whole
-// number (word problems like "8 candies among 3 friends" → 2.33…).
-function verifyNumericAnswer(q: ParsedQuestion): ParsedQuestion | null {
-  // 1. Establish the true value. Trust the model's formula first (covers
-  //    word problems where the text has no symbols), then any expression in
-  //    the question text.
+// Returns { q: corrected question, whole: true if the answer is a whole number }.
+// `whole` lets the caller prefer integer-answer math but never end up with zero.
+function verifyNumericAnswer(q: ParsedQuestion): { q: ParsedQuestion; whole: boolean } {
+  // 1. Establish the true value. Trust the model's formula first (covers word
+  //    problems where the text has no symbols), then any expression in the text.
   let value: number | null = null;
   let fromFormula = false;
   if (typeof q.expr === 'string') {
@@ -224,26 +223,28 @@ function verifyNumericAnswer(q: ParsedQuestion): ParsedQuestion | null {
     const e = extractExpression(q.question);
     if (e) value = safeEval(e);
   }
-  if (value === null) return q;                     // nothing to verify → trust model
+  if (value === null) return { q, whole: true };    // nothing to verify → trust model, keep
 
-  // 2. Generated math must come out whole — drop decimal-answer questions.
-  if (fromFormula && Math.abs(value - Math.round(value)) > 1e-9) return null;
-
+  const isWhole = Math.abs(value - Math.round(value)) < 1e-9;
   const EPS = 1e-6;
   const nums = q.choices.map(toNum);
 
-  // 3. If all choices are numbers, mark the one that equals the true value…
+  // 2. If a numeric choice already equals the true value, mark it.
   if (nums.every(n => n !== null)) {
     const idx = nums.findIndex(n => Math.abs((n as number) - value!) < EPS);
-    if (idx !== -1) return { ...q, answer: idx };
+    if (idx !== -1) return { q: { ...q, answer: idx }, whole: isWhole || !fromFormula };
   }
 
-  // 4. …otherwise inject the true value into the marked slot so the question
-  //    always has a correct answer.
-  const slot = q.answer >= 0 && q.answer <= 3 ? q.answer : 0;
-  const choices = [...q.choices];
-  choices[slot] = fmtNum(value);
-  return { ...q, choices, answer: slot };
+  // 3. No matching choice. For whole-number answers, inject the true value so
+  //    there's a correct option. For decimals, leave choices alone (the
+  //    question is low-quality) but still report it as non-whole.
+  if (isWhole) {
+    const slot = q.answer >= 0 && q.answer <= 3 ? q.answer : 0;
+    const choices = [...q.choices];
+    choices[slot] = fmtNum(value);
+    return { q: { ...q, choices, answer: slot }, whole: true };
+  }
+  return { q, whole: !fromFormula };
 }
 
 async function getOllamaModel(): Promise<string> {
@@ -273,7 +274,7 @@ export async function parseQuestionsWithOllama(
 
 MATH RULES (wrong answers are NOT acceptable):
 - For EVERY question add a field "expr": the exact arithmetic that solves it, using only numbers and + - * / and parentheses. Example: a question about "adding 3 and 5 then dividing by 2" has "expr":"(3+5)/2".
-- The "expr" must match the question wording exactly, and any division MUST come out to a whole number with no remainder (choose numbers so the result has no decimals/fractions).
+- The "expr" must match the question wording exactly. CRITICAL: any division must divide evenly into a whole number — pick the numbers so there is NO remainder and NO decimal (good: (6+4)/2=5, (8+4)/3=4, 20/4=5; bad: (3+5)/2=4 is fine but 7/2 or (8-1)/3 are NOT allowed). Work the division out before writing the question.
 - Exactly ONE choice must equal the result of "expr"; the other 3 choices are plausible wrong answers (common mistakes), never equal to the correct value.
 - If the request asks for a specific number of questions, return EXACTLY that many. Otherwise return at least 4.
 - Math example: {"question":"What is (3 + 5) ÷ 2?","choices":["2","4","8","16"],"answer":1,"expr":"(3+5)/2"}` : '';
@@ -368,14 +369,15 @@ Return ONLY a JSON array like:
     }
   }
 
-  // Validate each question, then deterministically correct/verify numeric
-  // answers (dropping decimal-answer math questions).
-  return (parsed as ParsedQuestion[])
-    .filter(q =>
-      typeof q.question === 'string' &&
-      Array.isArray(q.choices) && q.choices.length === 4 &&
-      typeof q.answer === 'number' && q.answer >= 0 && q.answer <= 3
-    )
-    .map(verifyNumericAnswer)
-    .filter((q): q is ParsedQuestion => q !== null);
+  // Validate, then verify/correct numeric answers. Prefer whole-number-answer
+  // questions, but never return an empty list (fall back to all if every
+  // generated question happened to be a decimal).
+  const valid = (parsed as ParsedQuestion[]).filter(q =>
+    typeof q.question === 'string' &&
+    Array.isArray(q.choices) && q.choices.length === 4 &&
+    typeof q.answer === 'number' && q.answer >= 0 && q.answer <= 3
+  );
+  const checked = valid.map(verifyNumericAnswer);
+  const whole = checked.filter(c => c.whole).map(c => c.q);
+  return whole.length > 0 ? whole : checked.map(c => c.q);
 }
