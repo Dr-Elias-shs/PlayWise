@@ -383,8 +383,10 @@ export function PenaltyShootout({ onBack }: Props) {
       </button>
 
       {/* ── Goalkeeper ── */}
-      <div className="absolute left-0 right-0 flex justify-center"
-        style={{ top: "42%", zIndex: 10 }}>
+      {/* Anchored by the BOTTOM so his feet stay planted on the pitch no matter
+          the size (was top-anchored, which made the bigger sprite look floaty). */}
+      <div className="absolute left-0 right-0 flex justify-center items-end"
+        style={{ bottom: "33%", zIndex: 10 }}>
         <motion.img
           key={keeperPose}
           src={keeperSrc}
@@ -394,7 +396,7 @@ export function PenaltyShootout({ onBack }: Props) {
           transition={{ duration: 0.18 }}
           className="object-contain drop-shadow-2xl"
           style={{
-            height: "clamp(100px, 16vw, 155px)",
+            height: "clamp(190px, 30vw, 300px)",
             // multiply removes white/grass backgrounds on non-transparent images
             // miss poses are already transparent — use normal so yellow isn't darkened
             mixBlendMode: (keeperPose === "miss-left" || keeperPose === "miss-right") ? "normal" : "multiply",
