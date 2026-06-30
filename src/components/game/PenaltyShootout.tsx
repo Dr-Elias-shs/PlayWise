@@ -290,7 +290,7 @@ export function PenaltyShootout({ onBack }: Props) {
           setKickIndex(ki => ki + 1);
           startKick(diff);
         }
-      }, 1200);
+      }, 2200); // hold the goal/save result on screen ~1s longer before the next question
     }, 900);
   }, [kickState, question, diff, results, playerName, playerEmail, startKick]);
 
@@ -344,7 +344,7 @@ export function PenaltyShootout({ onBack }: Props) {
         {kickState === "result" && lastResult === "goal" && (
           <motion.div key="goal-flash" className="absolute inset-0 pointer-events-none z-20"
             initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 1, 0] }}
-            transition={{ duration: 1.4, times: [0, 0.15, 0.7, 1] }}>
+            transition={{ duration: 2.0, times: [0, 0.1, 0.85, 1] }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/games/penalty/goal-celebration.png" alt=""
               className="w-full h-full object-cover" style={{ opacity: 0.82 }} />
@@ -386,7 +386,7 @@ export function PenaltyShootout({ onBack }: Props) {
       {/* Anchored by the BOTTOM so his feet stay planted on the pitch no matter
           the size (was top-anchored, which made the bigger sprite look floaty). */}
       <div className="absolute left-0 right-0 flex justify-center items-end"
-        style={{ bottom: "33%", zIndex: 10 }}>
+        style={{ bottom: "37%", zIndex: 10 }}>
         <motion.img
           key={keeperPose}
           src={keeperSrc}
