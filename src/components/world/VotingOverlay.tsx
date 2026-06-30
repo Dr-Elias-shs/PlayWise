@@ -13,8 +13,8 @@ interface Props {
   isTriggerer:  boolean;
 }
 
-const VOTE_DURATION   = 15; // seconds voting window
-const REVEAL_DURATION = 6;  // seconds the explanation screen stays
+const VOTE_DURATION   = 20; // seconds voting window (must match VOTE_SECS in WorldMultiMap)
+const REVEAL_DURATION = 11; // seconds the explanation/answer screen stays so players can read it
 
 type Phase = 'voting' | 'revealing';
 

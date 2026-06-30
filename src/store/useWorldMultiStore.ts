@@ -98,8 +98,8 @@ export const useWorldMultiStore = create<WorldMultiState>((set, get) => ({
     const myVote   = s.myVote;
     set({ activeVote: null, myVote: null, lastResult: { ...result, question, votes, myVote } });
     if (result.correct) get().markRoomSolved(result.roomKey);
-    // Hold result long enough for the reveal panel to show (7 s)
-    setTimeout(() => set(st => st.lastResult?.roomKey === result.roomKey ? { lastResult: null } : st), 7000);
+    // Hold result long enough for the reveal panel to show (matches REVEAL_DURATION)
+    setTimeout(() => set(st => st.lastResult?.roomKey === result.roomKey ? { lastResult: null } : st), 11000);
   },
 
   upsertRemotePos(tick) {

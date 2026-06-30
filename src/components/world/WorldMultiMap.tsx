@@ -23,7 +23,7 @@ import { DEFAULT_MAP_ID } from '@/lib/map-registry';
 import { QUESTION_BANK } from '@/lib/questionBank';
 import {
   subscribeToRoom, broadcastPosition, broadcastGameEvent,
-  recordWorldAnswer, assignSpecialties,
+  recordWorldAnswer, assignSpecialties, getWorldPlayers,
   RoomTriggerEvent, VoteEvent, RoomResolvedEvent,
 } from '@/lib/worldMultiplayer';
 
@@ -36,7 +36,7 @@ const FRAME_MS     = 160;
 const SPAWN_X      = MAP_W * 0.50;
 const SPAWN_Y      = MAP_H * 0.54;
 const INTERP_SPEED = 0.18;
-const VOTE_SECS    = 15;
+const VOTE_SECS    = 20;
 
 type DoorOverrides = Record<string, { x: number; y: number }>;
 
@@ -214,7 +214,7 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
     roundTimeLeft, setRoundTimeLeft, room, setRoom,
     specialties, setSpecialties, solvedRooms,
     activeVote, openVote, addVote, closeVote, setMyVote, myVote,
-    players,
+    players, setPlayers,
   } = useWorldMultiStore();
 
   const MISSION_SEQUENCE: RoomKey[] = [
@@ -279,6 +279,12 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
     return () => gameAudio.stopMusic();
   }, []);
 
+  // When the round ends, pull the final player list so the contributions
+  // (rooms_solved) on the results screen are accurate, not stale zeros.
+  useEffect(() => {
+    if (showResults) getWorldPlayers(roomCode).then(setPlayers).catch(() => {});
+  }, [showResults]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Load map
   useEffect(() => {
     getGlobalConfig('game_settings').then(cfg => {
@@ -304,7 +310,7 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
         if (updatedRoom.team_score !== undefined) setTeamScore(updatedRoom.team_score);
         if (updatedRoom.status === 'finished') setShowResults(true);
       },
-      () => {},
+      setPlayers, // keep the player list (incl. rooms_solved) fresh for live + end-screen contributions
       tick => { if (tick.player_name !== playerName) upsertRemotePos(tick); },
       // Game events handler
       evt => {
