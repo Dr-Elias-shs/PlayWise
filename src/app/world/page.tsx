@@ -667,10 +667,6 @@ export default function WorldPage() {
       setTestBypass(true);
     }
 
-    // Hard-disabled until Supabase quota resets — remove this line to re-enable
-    setAllowed(false);
-    return;
-
     // Always allow on localhost so you can test without affecting students
     if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
       setAllowed(true);
