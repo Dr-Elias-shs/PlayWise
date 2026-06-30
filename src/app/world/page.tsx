@@ -379,10 +379,16 @@ function WorldComingSoon({ onBack, onUnlock }: { onBack: () => void; onUnlock: (
   const longFired  = useRef(false);
   const tapCount   = useRef(0);
   const tapTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openedAt   = useRef(0);
+
+  // Open the gate, recording when — so the backdrop click handler can ignore the
+  // follow-up `click` that the same tap/long-press fires (which would otherwise
+  // close the modal the instant it opens).
+  const openGate = () => { openedAt.current = Date.now(); setShowPwd(true); };
 
   const startPress = () => {
     longFired.current = false;
-    pressTimer.current = setTimeout(() => { longFired.current = true; setShowPwd(true); }, 600);
+    pressTimer.current = setTimeout(() => { longFired.current = true; openGate(); }, 600);
   };
   const cancelPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
@@ -394,7 +400,7 @@ function WorldComingSoon({ onBack, onUnlock }: { onBack: () => void; onUnlock: (
     tapCount.current += 1;
     if (tapTimer.current) clearTimeout(tapTimer.current);
     tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 2000);
-    if (tapCount.current >= 3) { tapCount.current = 0; setShowPwd(true); }
+    if (tapCount.current >= 3) { tapCount.current = 0; openGate(); }
   };
 
   // On mount: restore from localStorage, try to sync if pending, check Supabase as fallback
@@ -590,7 +596,10 @@ function WorldComingSoon({ onBack, onUnlock }: { onBack: () => void; onUnlock: (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-6"
-            onClick={() => { setShowPwd(false); setPwd(''); setPwdErr(false); }}
+            onClick={() => {
+              if (Date.now() - openedAt.current < 500) return; // ignore the tap that opened it
+              setShowPwd(false); setPwd(''); setPwdErr(false);
+            }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
