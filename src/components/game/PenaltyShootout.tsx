@@ -170,6 +170,19 @@ function EndScreen({ scored, total, coins, onAgain, onBack }:
 
 interface Props { onBack: () => void; }
 
+// Every sprite shown during a kick. Preloaded on mount so the keeper's
+// dive/catch pose swaps in instantly instead of fetching mid-shot.
+const PENALTY_IMAGES = [
+  "/games/penalty/keeper-stand.png",
+  "/games/penalty/keeper-dive-left.png",
+  "/games/penalty/keeper-dive-right.png",
+  "/games/penalty/keeper-miss-left.png",
+  "/games/penalty/keeper-miss-right.png",
+  "/games/penalty/ball.png",
+  "/games/penalty/stadium.png",
+  "/games/penalty/goal-celebration.png",
+];
+
 export function PenaltyShootout({ onBack }: Props) {
   const { playerName, playerEmail } = useGameStore();
 
@@ -189,6 +202,12 @@ export function PenaltyShootout({ onBack }: Props) {
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTime = useRef(0);
   const duration  = useRef(10);
+
+  // Warm the browser cache with every kick sprite on mount (difficulty screen),
+  // so pose swaps during the fast shot are instant — no mid-game image load.
+  useEffect(() => {
+    PENALTY_IMAGES.forEach(src => { const img = new Image(); img.src = src; });
+  }, []);
 
   const scored = results.filter(r => r === "goal").length;
 
