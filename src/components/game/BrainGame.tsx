@@ -171,6 +171,7 @@ function StepCard({
       playSound('wrong');
       speak(WRONG_PHRASES, ttsEnabled);
       onOwlMood('wrong');
+      onAnswer(false); // report the mistake so a heart is deducted (ends the game at 0)
 
       setTimeout(() => {
         setState('idle');
