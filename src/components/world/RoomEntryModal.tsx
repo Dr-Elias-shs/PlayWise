@@ -18,11 +18,32 @@ interface Props {
   multiplayer?: boolean;
 }
 
+// ── Penalty persistence ──────────────────────────────────────────────────────
+// Wrong-answer cooldowns (5s, then 15s) must survive leaving & re-entering a
+// room — otherwise a student can just walk out and back in to skip the wait.
+// Stored in localStorage per student + room.
+function readPenalty(key: string): { wrongCount: number; until: number } {
+  if (typeof window === 'undefined') return { wrongCount: 0, until: 0 };
+  try {
+    const p = JSON.parse(localStorage.getItem(key) || 'null');
+    return p && typeof p.until === 'number' ? p : { wrongCount: 0, until: 0 };
+  } catch { return { wrongCount: 0, until: 0 }; }
+}
+function writePenalty(key: string, wrongCount: number, until: number) {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(key, JSON.stringify({ wrongCount, until })); } catch {}
+}
+function clearPenalty(key: string) {
+  if (typeof window === 'undefined') return;
+  try { localStorage.removeItem(key); } catch {}
+}
+
 type Phase = 'enter' | 'question' | 'correct' | 'penalty';
 
 export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }: Props) {
   const { playerName, addPlayBits, markRoomComplete, completedRooms, currentMissionIndex, advanceMission } = useWorldStore();
   const { playerEmail, playerGrade } = useGameStore();
+  const pKey = `world_penalty_${(playerEmail || playerName || 'anon').toLowerCase()}_${room.key}`;
   const [phase, setPhase]           = useState<Phase>(multiplayer ? 'question' : 'enter');
   const [question, setQuestion]     = useState<LeveledQuestion | null>(null);
   const [selected, setSelected]     = useState<number | null>(null);
@@ -58,8 +79,13 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
   useEffect(() => {
     const cancelled = { value: false };
     loadQuestion(cancelled).then(() => {
-      if (!cancelled.value && !multiplayer && isCorrectRoom && !isAlreadyDone)
-        setPhase('question');
+      if (cancelled.value || multiplayer || !isCorrectRoom || isAlreadyDone) return;
+      // Resume any cooldown that's still running from a previous visit.
+      const p = readPenalty(pKey);
+      setWrongCount(p.wrongCount);
+      const remaining = p.until > Date.now() ? Math.ceil((p.until - Date.now()) / 1000) : 0;
+      if (remaining > 0) { setPenaltyLeft(remaining); setPhase('penalty'); }
+      else setPhase('question');
     });
     return () => { cancelled.value = true; };
   }, [room, isCorrectRoom, isAlreadyDone, multiplayer, playerGrade]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -95,6 +121,7 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
     if (idx === question.answer) {
       playSound('correct');
       advanceCurriculumQuestion(playerGrade, room.key);
+      if (!multiplayer) clearPenalty(pKey); // solved → reset cooldown/escalation
       const elapsed = Math.round((Date.now() - questionStartRef.current) / 1000);
       setTimeout(() => {
         // Update local state without triggering auto-sync to DB (we call addCoins manually below)
@@ -115,6 +142,7 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
       const newCount = wrongCount + 1;
       setWrongCount(newCount);
       const penalty = newCount === 1 ? 5 : 15;
+      if (!multiplayer) writePenalty(pKey, newCount, Date.now() + penalty * 1000); // persist so exit/re-enter can't skip it
       setTimeout(() => {
         setPenaltyLeft(penalty);
         setPhase('penalty');
@@ -177,7 +205,13 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
                         className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors">
                         Not now
                       </button>
-                      <button onClick={() => setPhase('question')}
+                      <button onClick={() => {
+                          // Respect an active cooldown even if they re-entered the room.
+                          const p = readPenalty(pKey);
+                          const remaining = p.until > Date.now() ? Math.ceil((p.until - Date.now()) / 1000) : 0;
+                          if (remaining > 0) { setWrongCount(p.wrongCount); setPenaltyLeft(remaining); setPhase('penalty'); }
+                          else setPhase('question');
+                        }}
                         className={`flex-1 py-3 rounded-2xl bg-gradient-to-r ${room.color} text-white font-black hover:opacity-90 transition-opacity`}>
                         Enter! 🚀
                       </button>

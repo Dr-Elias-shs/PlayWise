@@ -731,6 +731,32 @@ export default function Home() {
               </div>
             </motion.section>
 
+            {/* PlayWise World shortcut */}
+            {gameSettings['world'] !== false && (
+              <motion.section
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+                onClick={() => router.push('/world')}
+                className="relative overflow-hidden rounded-3xl cursor-pointer group"
+                style={{ background: 'linear-gradient(135deg, #064e3b, #047857, #10b981)' }}
+              >
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.08), transparent)' }} />
+                <div className="relative z-10 p-6 flex items-center gap-5">
+                  <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 border border-white/20 flex-shrink-0 text-3xl leading-none">
+                    🗺️
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-xl font-black text-white">PlayWise World 🌍</h2>
+                    <p className="text-white/60 text-sm mt-0.5">Explore the school, enter rooms, answer to earn PlayBits</p>
+                  </div>
+                  <motion.div whileHover={{ x: 4 }}
+                    className="bg-white text-emerald-700 font-black text-sm px-5 py-2.5 rounded-2xl shadow-lg flex-shrink-0 hidden sm:block">
+                    Enter →
+                  </motion.div>
+                </div>
+              </motion.section>
+            )}
+
           </div>
 
           {/* Leaderboard */}
