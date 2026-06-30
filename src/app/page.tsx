@@ -1,7 +1,7 @@
 "use client";
 import { useGameStore } from "@/store/useGameStore";
 import { Users, Trophy, LogIn, LogOut, Settings, Maximize, Minimize } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { motion } from "framer-motion";
@@ -14,6 +14,7 @@ import { TriviaGame } from "@/components/game/TriviaGame";
 import { ChessGame } from "@/components/game/ChessGame";
 import { SpellingBeeGame } from "@/components/game/SpellingBeeGame";
 import { GameIntro } from "@/components/game/GameIntro";
+import { GameLoader } from "@/components/game/GameLoader";
 import { PenaltyShootout } from "@/components/game/PenaltyShootout";
 import { MultiplayerHub } from "@/components/multiplayer/MultiplayerHub";
 import { ProfileSetup } from "@/components/profile/ProfileSetup";
@@ -40,7 +41,7 @@ import { supabase } from "@/lib/supabase";
 
 const RATING_LABELS: Record<number, string> = { 1: 'Needs work 🤔', 2: 'It was okay 😐', 3: 'Pretty good! 🙂', 4: 'Really fun! 😄', 5: 'AMAZING! 🤩' };
 
-function MaintenanceScreen({ playerName, onLogout }: { playerName: string; onLogout: () => void }) {
+function MaintenanceScreen({ playerName, onLogout, onUnlock }: { playerName: string; onLogout: () => void; onUnlock: () => void }) {
   const { playerEmail } = useGameStore();
   const studentKey = playerEmail?.trim().toLowerCase() || playerName || '';
 
@@ -49,6 +50,28 @@ function MaintenanceScreen({ playerName, onLogout }: { playerName: string; onLog
   const [submitted, setSubmitted] = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [synced,    setSynced]    = useState(false);
+
+  // ── Hidden tester gate: long-press OR 3 quick taps the SHS badge → password ──
+  const [showPwd, setShowPwd] = useState(false);
+  const [pwd,     setPwd]     = useState('');
+  const [pwdErr,  setPwdErr]  = useState(false);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longFired  = useRef(false);
+  const tapCount   = useRef(0);
+  const tapTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openedAt   = useRef(0);
+
+  const openGate    = () => { openedAt.current = Date.now(); setShowPwd(true); };
+  const startPress  = () => { longFired.current = false; pressTimer.current = setTimeout(() => { longFired.current = true; openGate(); }, 600); };
+  const cancelPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+  const registerTap = () => {
+    cancelPress();
+    if (longFired.current) return;
+    tapCount.current += 1;
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 2000);
+    if (tapCount.current >= 3) { tapCount.current = 0; openGate(); }
+  };
 
   useEffect(() => {
     if (!studentKey) return;
@@ -105,7 +128,12 @@ function MaintenanceScreen({ playerName, onLogout }: { playerName: string; onLog
         </motion.div>
 
         <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.45 }}
-          className="flex items-center gap-2 bg-white/8 border border-white/15 px-4 py-2 rounded-full">
+          onPointerDown={startPress}
+          onPointerUp={registerTap}
+          onPointerLeave={cancelPress}
+          onContextMenu={e => e.preventDefault()}
+          style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'manipulation' }}
+          className="flex items-center gap-2 bg-white/8 border border-white/15 px-4 py-2 rounded-full cursor-default">
           <span className="text-base">🏫</span>
           <span className="text-white/80 text-xs font-bold tracking-wide uppercase">SHS Leads Innovation</span>
         </motion.div>
@@ -145,6 +173,41 @@ function MaintenanceScreen({ playerName, onLogout }: { playerName: string; onLog
           Sign out
         </motion.button>
       </div>
+
+      {/* Hidden tester password modal */}
+      {showPwd && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-6"
+          onClick={() => {
+            if (Date.now() - openedAt.current < 500) return; // ignore the tap that opened it
+            setShowPwd(false); setPwd(''); setPwdErr(false);
+          }}
+        >
+          <div onClick={e => e.stopPropagation()}
+            className="bg-slate-900 border border-white/15 rounded-3xl p-6 w-full max-w-xs space-y-4">
+            <div className="text-center">
+              <div className="text-3xl mb-1">🔐</div>
+              <h3 className="text-white font-black text-lg">Tester Access</h3>
+              <p className="text-white/40 text-xs">Enter the password to preview PlayWise.</p>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              if (pwd.trim().toLowerCase() === 'astalabista') { setShowPwd(false); onUnlock(); }
+              else { setPwdErr(true); }
+            }}>
+              <input type="password" autoFocus value={pwd}
+                onChange={e => { setPwd(e.target.value); setPwdErr(false); }}
+                placeholder="Password"
+                className="w-full px-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/30 outline-none focus:border-emerald-400/60" />
+              {pwdErr && <p className="text-red-400 text-xs font-bold mt-2">Wrong password</p>}
+              <button type="submit"
+                className="w-full mt-4 py-3 rounded-2xl font-black text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:scale-[1.02] transition-transform">
+                Unlock 🚀
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -194,7 +257,7 @@ function HubGameCard({ config, onClick, multiplayerBadge, index = 0 }: {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 
-type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game-intro' | 'game' | 'multiplayer' | 'redeem' | 'shop';
+type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game-intro' | 'game-loading' | 'game' | 'multiplayer' | 'redeem' | 'shop';
 
 export default function Home() {
   const { playerName, playerEmail, playerGrade, colorId, characterId, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
@@ -223,6 +286,15 @@ export default function Home() {
   const [emailInput, setEmailInput] = useState('');
   const [showStats, setShowStats] = useState(false);
   const [bannedInfo, setBannedInfo] = useState<{ banned: boolean; reason: string } | null>(null);
+  const [testBypass, setTestBypass] = useState(false); // hidden tester unlock (skips maintenance + time gate)
+
+  // Tester URL unlock: open /?unlock=astalabista to preview without the gesture.
+  useEffect(() => {
+    if (typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('unlock') === 'astalabista') {
+      setTestBypass(true);
+    }
+  }, []);
   const { isFullscreen, toggle: toggleFullscreen, enter: enterFullscreen } = useFullscreen();
   const msalConfigured = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID !== '00000000-0000-0000-0000-000000000000';
   const { instance, accounts } = useMsal();
@@ -382,14 +454,14 @@ export default function Home() {
   }
 
   // ── Time-management gate (hub + game only, not login/profile-setup) ──
-  if (!isLocal && (screen === 'hub' || screen === 'game') && !access.allowed) {
+  if (!isLocal && !testBypass && (screen === 'hub' || screen === 'game') && !access.allowed) {
     return <TimeGate access={access} loading={false} grade={playerGrade ?? ''} onRetry={tmRefresh} />;
   }
 
   // ── Maintenance gate — shown to all logged-in students ──────────────────────
   // Remove this block when Supabase quota resets and service is ready
-  if (!isLocal && playerName && screen !== 'login' && screen !== 'profile-setup') {
-    return <MaintenanceScreen playerName={playerName} onLogout={handleLogout} />;
+  if (!isLocal && !testBypass && playerName && screen !== 'login' && screen !== 'profile-setup') {
+    return <MaintenanceScreen playerName={playerName} onLogout={handleLogout} onUnlock={() => setTestBypass(true)} />;
   }
 
   // ── Login ──
@@ -477,10 +549,15 @@ export default function Home() {
     return (
       <GameIntro
         config={activeGame}
-        onPlay={() => { enterFullscreen(); setScreen('game'); }}
+        onPlay={() => { enterFullscreen(); setScreen('game-loading'); }}
         onBack={() => { resetGame(); setScreen('hub'); }}
       />
     );
+  }
+
+  // ── Game loader (football keepie-uppies while the game boots) ──
+  if (screen === 'game-loading' && activeGame) {
+    return <GameLoader config={activeGame} onDone={() => setScreen('game')} />;
   }
 
   // ── Active solo game ──
