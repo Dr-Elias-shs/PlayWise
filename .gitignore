@@ -11,3 +11,8 @@ yarn-error.log*
 .idea
 .vscode
 .gemini
+# Render API key (local only, never commit)
+.render-key
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo

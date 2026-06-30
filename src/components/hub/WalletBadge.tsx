@@ -16,7 +16,7 @@ export function WalletBadge({ studentName, playerEmail, onClick, refreshKey }: P
   const [pop, setPop] = useState(false);
   const prevRef = useRef<number | null>(null);
 
-  const dbKey = (playerEmail || studentName || '').toLowerCase().trim();
+  const dbKey = playerEmail?.trim().toLowerCase() || studentName || '';
 
   const fetch = () => {
     if (!dbKey) return;

@@ -23,7 +23,7 @@ export function RedeemPage({ studentName, playerEmail, onBack, onCoinsChanged }:
   const [redeeming, setRedeeming] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
-  const dbKey = (playerEmail || studentName || '').toLowerCase().trim();
+  const dbKey = playerEmail?.trim().toLowerCase() || studentName || '';
 
   const load = async () => {
     if (!dbKey) return;
