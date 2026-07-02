@@ -98,7 +98,7 @@ function LobbyScene() {
 import {
   createWorldRoom, getOpenWorldRooms, getOrCreateAutoRoom,
   joinWorldRoom, leaveWorldRoom, startWorldRoom,
-  subscribeToRoom, getWorldPlayers,
+  subscribeToRoom, getWorldPlayers, getWorldRoom,
   LOBBY_COUNTDOWN_SEC, WORLD_ROOM_CAPACITY,
   WorldRoom, WorldPlayer,
 } from '@/lib/worldMultiplayer';
@@ -220,7 +220,12 @@ export function WorldMultiLobby({ mapId, onStart, onBack }: Props) {
       const ps = await getWorldPlayers(code);
       setMyRoomCode(code);
       setPlayers(ps);
-      setPhase('lobby');
+      // If the room is already running, jump straight into the game instead of
+      // getting stuck in the lobby (no status-change event will arrive).
+      const roomRow = await getWorldRoom(code);
+      if (roomRow) setRoom(roomRow);
+      if (roomRow?.status === 'playing') onStart(code);
+      else setPhase('lobby');
     } catch (e: any) {
       setJoinError(e.message ?? 'Could not join room');
     }
@@ -277,10 +282,17 @@ export function WorldMultiLobby({ mapId, onStart, onBack }: Props) {
     setTimeout(() => startWorldRoom(room), LOBBY_COUNTDOWN_SEC * 1000);
   }
 
-  // Auto-start countdown — begins as soon as player enters lobby
+  // Auto-start countdown. Only runs once there are 2+ players, and RESTARTS
+  // every time the player count changes — so as long as new players keep
+  // joining, everyone gets a fresh window and the host is never launched alone.
+  // The host can still tap "Start Game Now" at any time.
   useEffect(() => {
     if (phase !== 'lobby') return;
-    const AUTO_SECS = 30;
+    if (autoTimerRef.current) clearInterval(autoTimerRef.current);
+
+    if (players.length < 2) { setAutoStart(0); return; } // wait for others
+
+    const AUTO_SECS = 40;
     setAutoStart(AUTO_SECS);
     let remaining = AUTO_SECS;
     autoTimerRef.current = setInterval(() => {
@@ -292,7 +304,7 @@ export function WorldMultiLobby({ mapId, onStart, onBack }: Props) {
       }
     }, 1000);
     return () => { if (autoTimerRef.current) clearInterval(autoTimerRef.current); };
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, players.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleLeave() {
     clearTimers();
@@ -461,11 +473,15 @@ export function WorldMultiLobby({ mapId, onStart, onBack }: Props) {
             style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}>
             🚀 Start Game Now
           </button>
-          {autoStart > 0 && (
+          {autoStart > 0 ? (
             <p className="text-white/40 text-[11px] text-center">
               Auto-starts in {autoStart}s — or tap Start to begin immediately
             </p>
-          )}
+          ) : players.length < 2 ? (
+            <p className="text-white/40 text-[11px] text-center">
+              Waiting for more players to join… or tap Start to play solo
+            </p>
+          ) : null}
         </div>
       )}
     </div>

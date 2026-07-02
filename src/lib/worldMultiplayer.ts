@@ -90,6 +90,12 @@ export async function createWorldRoom(
   return data;
 }
 
+export async function getWorldRoom(roomCode: string): Promise<WorldRoom | null> {
+  const { data } = await supabase
+    .from('world_rooms').select('*').eq('room_code', roomCode).maybeSingle();
+  return data ?? null;
+}
+
 export async function getOpenWorldRooms(mapId: string): Promise<WorldRoom[]> {
   const { data } = await supabase
     .from('world_rooms')
