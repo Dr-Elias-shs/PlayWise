@@ -192,7 +192,7 @@ function MaintenanceScreen({ playerName, onLogout, onUnlock }: { playerName: str
             </div>
             <form onSubmit={e => {
               e.preventDefault();
-              if (pwd.trim().toLowerCase() === 'astalabista') { setShowPwd(false); onUnlock(); }
+              if (pwd.trim().toLowerCase() === '676767') { setShowPwd(false); onUnlock(); }
               else { setPwdErr(true); }
             }}>
               <input type="password" autoFocus value={pwd}
@@ -288,10 +288,10 @@ export default function Home() {
   const [bannedInfo, setBannedInfo] = useState<{ banned: boolean; reason: string } | null>(null);
   const [testBypass, setTestBypass] = useState(false); // hidden tester unlock (skips maintenance + time gate)
 
-  // Tester URL unlock: open /?unlock=astalabista to preview without the gesture.
+  // Tester URL unlock: open /?unlock=676767 to preview without the gesture.
   useEffect(() => {
     if (typeof window !== 'undefined' &&
-        new URLSearchParams(window.location.search).get('unlock') === 'astalabista') {
+        new URLSearchParams(window.location.search).get('unlock') === '676767') {
       setTestBypass(true);
     }
   }, []);

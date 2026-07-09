@@ -613,7 +613,7 @@ function WorldComingSoon({ onBack, onUnlock }: { onBack: () => void; onUnlock: (
               </div>
               <form onSubmit={e => {
                 e.preventDefault();
-                if (pwd.trim().toLowerCase() === 'astalabista') { setShowPwd(false); onUnlock(); }
+                if (pwd.trim().toLowerCase() === '676767') { setShowPwd(false); onUnlock(); }
                 else { setPwdErr(true); }
               }}>
                 <input
@@ -660,10 +660,10 @@ export default function WorldPage() {
   useAccessoryPositions();
 
   useEffect(() => {
-    // Tester URL unlock: open /world?unlock=astalabista to preview without
+    // Tester URL unlock: open /world?unlock=676767 to preview without
     // any gesture or enabling for students. Works on any device/browser.
     if (typeof window !== 'undefined' &&
-        new URLSearchParams(window.location.search).get('unlock') === 'astalabista') {
+        new URLSearchParams(window.location.search).get('unlock') === '676767') {
       setTestBypass(true);
     }
 
