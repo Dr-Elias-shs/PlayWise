@@ -110,6 +110,18 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
     }
   }, [playerName]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Current-mission banner: flash it, then hide so it doesn't cover the
+  //    character. Tap the "Find the …" pill (or advance a mission) to re-show it.
+  const revealMission = useCallback(() => {
+    setShowMissionCard(true);
+    if (missionHideTimer.current) clearTimeout(missionHideTimer.current);
+    missionHideTimer.current = setTimeout(() => setShowMissionCard(false), 6000);
+  }, []);
+  useEffect(() => {
+    if (currentMissionKey) revealMission();
+    return () => { if (missionHideTimer.current) clearTimeout(missionHideTimer.current); };
+  }, [currentMissionKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // DOM refs
   const outerRef = useRef<HTMLDivElement>(null);  // clipping viewport
   const mapContainerRef = useRef<HTMLDivElement>(null); // panned by camera
@@ -136,6 +148,8 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
   const [showCompletion, setShowCompletion] = useState(false);
   const [activeSecret, setActiveSecret] = useState<HiddenSpotDef | null>(null);
   const [nearbySecretId, setNearbySecretId] = useState<string>('');
+  const [showMissionCard, setShowMissionCard] = useState(true); // auto-hides so it doesn't sit over the character
+  const missionHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hiddenSpotsRef = useRef<HiddenSpotDef[]>(DEFAULT_HIDDEN_SPOTS);
   const nearbySecretRef = useRef<string>(''); // id of spot currently in range
   const allMissionsComplete = currentMissionIndex >= MISSION_SEQUENCE.length;
@@ -464,29 +478,35 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
 
         {/* Mission Control (Center Top) */}
         <div className="self-center flex flex-col items-center gap-1 max-w-md w-full">
-          <motion.div
-            initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-            className="bg-white/90 backdrop-blur-md border-b-4 border-violet-500 rounded-2xl px-6 py-3 shadow-2xl w-full text-center pointer-events-auto"
-          >
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <span className="text-[10px] font-black uppercase text-violet-500 tracking-[0.2em]">Current Mission</span>
-              <span className="h-1 w-1 rounded-full bg-violet-300" />
-              <span className="text-[10px] font-black text-slate-400">{currentMissionIndex + 1} / {MISSION_SEQUENCE.length}</span>
-            </div>
-            {currentRoom ? (
-              <h3 className="text-slate-800 font-black text-sm sm:text-base leading-tight">
-                {currentRoom.mission}
-              </h3>
-            ) : (
-              <h3 className="text-emerald-600 font-black text-base">
-                🎉 All Missions Complete!
-              </h3>
+          <AnimatePresence>
+            {showMissionCard && (
+              <motion.div
+                key="mission-card"
+                initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }}
+                className="bg-white/90 backdrop-blur-md border-b-4 border-violet-500 rounded-2xl px-6 py-3 shadow-2xl w-full text-center pointer-events-auto"
+              >
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <span className="text-[10px] font-black uppercase text-violet-500 tracking-[0.2em]">Current Mission</span>
+                  <span className="h-1 w-1 rounded-full bg-violet-300" />
+                  <span className="text-[10px] font-black text-slate-400">{currentMissionIndex + 1} / {MISSION_SEQUENCE.length}</span>
+                </div>
+                {currentRoom ? (
+                  <h3 className="text-slate-800 font-black text-sm sm:text-base leading-tight">
+                    {currentRoom.mission}
+                  </h3>
+                ) : (
+                  <h3 className="text-emerald-600 font-black text-base">
+                    🎉 All Missions Complete!
+                  </h3>
+                )}
+              </motion.div>
             )}
-          </motion.div>
+          </AnimatePresence>
           {currentRoom && (
-            <div className="text-[10px] font-black text-white bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm">
-              Find the {currentRoom.label} {currentRoom.emoji}
-            </div>
+            <button onClick={revealMission}
+              className="text-[10px] font-black text-white bg-black/50 hover:bg-black/70 px-3 py-1.5 rounded-full backdrop-blur-sm pointer-events-auto transition-colors">
+              🔍 Find the {currentRoom.label} {currentRoom.emoji}
+            </button>
           )}
           {/* Secret spots hint bar */}
           {allMissionsComplete && (
