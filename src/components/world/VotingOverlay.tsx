@@ -139,7 +139,7 @@ export function VotingOverlay({ myName, totalPlayers, onVote, onResolve, isTrigg
       >
         <motion.div
           initial={{ scale: 0.92, y: 30 }} animate={{ scale: 1, y: 0 }}
-          className="w-full max-w-md rounded-3xl overflow-hidden shadow-2xl"
+          className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl"
         >
           {/* Result header */}
           <div className={`p-5 text-center ${correct ? 'bg-gradient-to-r from-emerald-500 to-teal-600' : 'bg-gradient-to-r from-red-500 to-rose-600'}`}>
@@ -423,7 +423,7 @@ export function ResultFlash() {
       >
         <motion.div
           initial={{ scale: 0.92, y: 30 }} animate={{ scale: 1, y: 0 }}
-          className="w-full max-w-md rounded-3xl overflow-hidden shadow-2xl"
+          className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl"
         >
           {/* Header */}
           <div className={`p-5 text-center ${correct ? 'bg-gradient-to-r from-emerald-500 to-teal-600' : 'bg-gradient-to-r from-red-500 to-rose-600'}`}>

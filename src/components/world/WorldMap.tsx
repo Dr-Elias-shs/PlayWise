@@ -123,6 +123,7 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
   const dirRef = useRef(1);
   const nearbyKey = useRef('');
   const scaleRef = useRef(1);
+  const charScaleRef = useRef(1);   // shrinks the character on small (phone) screens
   const viewportRef = useRef({ w: 800, h: 600 });
   const wallsRef = useRef<WallDef[]>(DEFAULT_WALLS);
   const doorsRef = useRef<DoorOverrides>({});
@@ -209,6 +210,9 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
       viewportRef.current = { w: vw, h: vh };
       const s = Math.min(vw / MAP_W, vh / MAP_H);
       scaleRef.current = s;
+      // Full-size character on tablets/desktop, scaled down on small phones so
+      // it doesn't dominate the screen.
+      charScaleRef.current = Math.max(0.5, Math.min(1, Math.min(vw, vh) / 760));
       setScale(s);
     }
     update();
@@ -231,7 +235,7 @@ export function WorldMap({ onBack, mapId: mapIdProp }: { onBack: () => void; map
     if (charEl) {
       charEl.style.left = `${charPx - CHAR_HW}px`;
       charEl.style.top = `${charPy - CHAR_H}px`;
-      charEl.style.transform = `scaleX(${dir})`;
+      charEl.style.transform = `scaleX(${dir}) scale(${charScaleRef.current})`;
       const imgs = charEl.querySelectorAll<HTMLImageElement>('img');
       imgs.forEach((img, i) => { img.style.display = i === frame ? 'block' : 'none'; });
     }

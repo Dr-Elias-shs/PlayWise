@@ -123,7 +123,7 @@ function TeammateArrow({ rp, viewport, myX, myY, scale }: {
 
 // ── Remote player sprite ──────────────────────────────────────────────────────
 
-function RemoteSprite({ p, scale, isSpecialist }: { p: RemotePlayer; scale: number; isSpecialist: boolean }) {
+function RemoteSprite({ p, scale, charScale, isSpecialist }: { p: RemotePlayer; scale: number; charScale: number; isSpecialist: boolean }) {
   const color = COLORS.find(c => c.id === p.color_id);
   const acc   = resolveAccessory(p.equipped_id);
   const px = p.renderX * scale * ZOOM;
@@ -133,7 +133,8 @@ function RemoteSprite({ p, scale, isSpecialist }: { p: RemotePlayer; scale: numb
   return (
     <div style={{
       position: 'absolute', left: px - CHAR_HW, top: py - CHAR_H,
-      transform: `scaleX(${p.dir})`, pointerEvents: 'none', zIndex: 4,
+      transform: `scaleX(${p.dir}) scale(${charScale})`, transformOrigin: 'center bottom',
+      pointerEvents: 'none', zIndex: 4,
     }}>
       {/* Name tag */}
       <div style={{
@@ -235,6 +236,7 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
   const dirRef           = useRef(1);
   const nearbyKey        = useRef('');
   const scaleRef         = useRef(1);
+  const charScaleRef     = useRef(1);   // shrinks characters on small (phone) screens
   const viewportRef      = useRef({ w: 800, h: 600 });
   const wallsRef         = useRef<WallDef[]>(DEFAULT_WALLS);
   const doorsRef         = useRef<DoorOverrides>({});
@@ -245,6 +247,7 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
 
   // React state
   const [scale,          setScale]          = useState(1);
+  const [charScale,      setCharScale]      = useState(1);
   const [activeWalls,    setActiveWalls]     = useState<WallDef[]>(DEFAULT_WALLS);
   const [nearbyRoom,     setNearbyRoom]      = useState<RoomDef | null>(null);
   const [activeSecret,   setActiveSecret]    = useState<HiddenSpotDef | null>(null);
@@ -352,6 +355,8 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
       viewportRef.current = { w: vw, h: vh };
       const s = Math.min(vw / MAP_W, vh / MAP_H);
       scaleRef.current = s; setScale(s);
+      const cs = Math.max(0.5, Math.min(1, Math.min(vw, vh) / 760));
+      charScaleRef.current = cs; setCharScale(cs);
     }
     update();
     const ro = new ResizeObserver(update);
@@ -366,7 +371,7 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
     if (charEl) {
       charEl.style.left = `${charPx - CHAR_HW}px`;
       charEl.style.top  = `${charPy - CHAR_H}px`;
-      charEl.style.transform = `scaleX(${dir})`;
+      charEl.style.transform = `scaleX(${dir}) scale(${charScaleRef.current})`;
       charEl.querySelectorAll<HTMLImageElement>('img').forEach((img, i) => {
         img.style.display = i === frame ? 'block' : 'none';
       });
@@ -601,7 +606,7 @@ export function WorldMultiMap({ roomCode, mapId: mapIdProp, onBack }: Props) {
 
         {/* Remote players */}
         {remoteList.map(rp => (
-          <RemoteSprite key={rp.player_name} p={rp} scale={scale}
+          <RemoteSprite key={rp.player_name} p={rp} scale={scale} charScale={charScale}
             isSpecialist={specialties.includes(activeVote?.trigger.room_key ?? '')} />
         ))}
 

@@ -103,7 +103,7 @@ export function HiddenSpotModal({ spot, onClose }: Props) {
         initial={{ scale: 0.8, opacity: 0, y: 30 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 340, damping: 24 }}
-        className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
+        className="w-full max-w-sm max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl"
       >
         {/* Header */}
         <div className="p-5 text-center"

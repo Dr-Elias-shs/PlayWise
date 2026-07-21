@@ -151,14 +151,14 @@ export function RoomEntryModal({ room, onClose, onCorrect, multiplayer = false }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3"
       style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)' }}>
 
       <motion.div
         initial={{ scale: 0.85, opacity: 0, y: 30 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 340, damping: 24 }}
-        className="w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl"
+        className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl"
       >
         {/* Header */}
         <div className={`bg-gradient-to-r ${room.color} p-5 text-center`}>
