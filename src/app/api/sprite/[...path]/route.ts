@@ -1,4 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+
+// Plain Response, never NextResponse: under PlayWise's custom server NextResponse
+// throws "Class constructor _Response cannot be invoked without 'new'", which made
+// every sprite request crash (about 60 a day in Sept 2026).
+const json = (body: unknown, status: number) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 export const runtime = 'nodejs';
 
@@ -22,12 +28,12 @@ const memCache = new Map<string, CachedSprite>();
 // upstream CDN cache the image essentially forever.
 export async function GET(_req: NextRequest, { params }: { params: { path: string[] } }) {
   const relPath = params.path.join('/');
-  if (!relPath) return NextResponse.json({ error: 'No path' }, { status: 400 });
+  if (!relPath) return json({ error: 'No path' }, 400);
 
   // ── Serve from memory if fresh ────────────────────────────────────────────
   const cached = memCache.get(relPath);
   if (cached && (Date.now() - cached.cachedAt) < MEM_TTL_MS) {
-    return new NextResponse(cached.buffer, {
+    return new Response(cached.buffer, {
       headers: {
         'Content-Type':  cached.contentType,
         'Cache-Control': 'public, max-age=31536000, immutable',
@@ -38,12 +44,12 @@ export async function GET(_req: NextRequest, { params }: { params: { path: strin
 
   // ── Cache miss → fetch from Supabase Storage ──────────────────────────────
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) return NextResponse.json({ error: 'Missing SUPABASE_URL' }, { status: 500 });
+  if (!supabaseUrl) return json({ error: 'Missing SUPABASE_URL' }, 500);
 
   const upstreamUrl = `${supabaseUrl}/storage/v1/object/public/characters/${relPath}`;
   const upstream    = await fetch(upstreamUrl);
   if (!upstream.ok) {
-    return NextResponse.json({ error: `Upstream ${upstream.status}` }, { status: upstream.status });
+    return json({ error: `Upstream ${upstream.status}` }, upstream.status);
   }
 
   const buffer      = await upstream.arrayBuffer();
@@ -51,7 +57,7 @@ export async function GET(_req: NextRequest, { params }: { params: { path: strin
 
   memCache.set(relPath, { buffer, contentType, cachedAt: Date.now() });
 
-  return new NextResponse(buffer, {
+  return new Response(buffer, {
     headers: {
       'Content-Type':  contentType,
       'Cache-Control': 'public, max-age=31536000, immutable',
