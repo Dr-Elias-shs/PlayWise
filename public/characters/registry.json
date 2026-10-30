@@ -1,4 +1,179 @@
 {
+  "outfits": [
+    {
+      "id": "f-jacket",
+      "name": "Varsity Jacket",
+      "emoji": "🧥",
+      "price": 800,
+      "sprites": {
+        "male": [
+          "/characters/outfits/f-jacket/male-walk1.png",
+          "/characters/outfits/f-jacket/male-walk2.png",
+          "/characters/outfits/f-jacket/male-walk3.png"
+        ],
+        "female": [
+          "/characters/outfits/f-jacket/female-walk1.png",
+          "/characters/outfits/f-jacket/female-walk2.png",
+          "/characters/outfits/f-jacket/female-walk3.png"
+        ]
+      },
+      "category": "clothing",
+      "thumbnail": "/characters/outfits/f-jacket/thumbnail.png",
+      "yFraction": 0.42
+    },
+    {
+      "id": "sako",
+      "name": "School Blazer",
+      "emoji": "🥼",
+      "price": 12000,
+      "sprites": {
+        "male": [
+          "/characters/outfits/sako/male-walk1.png",
+          "/characters/outfits/sako/male-walk2.png",
+          "/characters/outfits/sako/male-walk3.png"
+        ],
+        "female": [
+          "/characters/outfits/sako/female-walk1.png",
+          "/characters/outfits/sako/female-walk2.png"
+        ]
+      },
+      "category": "clothing",
+      "yFraction": 0.44
+    },
+    {
+      "id": "all-stars",
+      "name": "ALL STARS",
+      "emoji": "🎽",
+      "price": 50000,
+      "sprites": {
+        "male": [
+          "/characters/outfits/all-stars/male-walk1.png",
+          "/characters/outfits/all-stars/male-walk2.png",
+          "/characters/outfits/all-stars/male-walk3.png"
+        ],
+        "pinky": [
+          "/characters/outfits/all-stars/pinky-walk1.png",
+          "/characters/outfits/all-stars/pinky-walk2.png",
+          "/characters/outfits/all-stars/pinky-walk3.png"
+        ],
+        "female": [
+          "/characters/outfits/all-stars/female-walk1.png",
+          "/characters/outfits/all-stars/female-walk2.png",
+          "/characters/outfits/all-stars/female-walk3.png"
+        ]
+      },
+      "category": "clothing",
+      "thumbnail": "/characters/outfits/all-stars/thumbnail.png",
+      "yFraction": 0.44
+    },
+    {
+      "id": "blaze-unlock",
+      "name": "BLAZE",
+      "emoji": "⭐",
+      "price": 50000,
+      "sprites": {},
+      "category": "characters",
+      "thumbnail": "https://exehbsgplaotkohufxoj.supabase.co/storage/v1/object/public/characters/blaze/thumbnail.png",
+      "yFraction": 0.44,
+      "characterId": "blaze"
+    },
+    {
+      "id": "winter",
+      "name": "Winter Scarf & Beanie",
+      "emoji": "🧣",
+      "price": 500,
+      "category": "clothing",
+      "yFraction": 0.42,
+      "sprites": {
+        "male": "/characters/outfits/winter/male.webp",
+        "female": "/characters/outfits/winter/female.webp"
+      }
+    },
+    {
+      "id": "football",
+      "name": "Football Kit",
+      "emoji": "⚽",
+      "price": 800,
+      "category": "clothing",
+      "yFraction": 0.42,
+      "sprites": {
+        "male": "/characters/outfits/football/male.webp",
+        "female": "/characters/outfits/football/female.webp"
+      }
+    },
+    {
+      "id": "chef",
+      "name": "Chef Outfit",
+      "emoji": "👨‍🍳",
+      "price": 800,
+      "category": "clothing",
+      "yFraction": 0.42,
+      "sprites": {
+        "male": "/characters/outfits/chef/male.webp",
+        "female": "/characters/outfits/chef/female.webp"
+      }
+    },
+    {
+      "id": "scientist",
+      "name": "Lab Coat & Goggles",
+      "emoji": "🥽",
+      "price": 1000,
+      "category": "clothing",
+      "yFraction": 0.42,
+      "sprites": {
+        "male": "/characters/outfits/scientist/male.webp",
+        "female": "/characters/outfits/scientist/female.webp"
+      }
+    },
+    {
+      "id": "superhero",
+      "name": "Superhero Cape",
+      "emoji": "🦸",
+      "price": 1500,
+      "category": "clothing",
+      "yFraction": 0.42,
+      "sprites": {
+        "male": "/characters/outfits/superhero/male.webp",
+        "female": "/characters/outfits/superhero/female.webp"
+      }
+    },
+    {
+      "id": "pirate",
+      "name": "Pirate Captain",
+      "emoji": "🏴‍☠️",
+      "price": 1500,
+      "category": "clothing",
+      "yFraction": 0.42,
+      "sprites": {
+        "male": "/characters/outfits/pirate/male.webp",
+        "female": "/characters/outfits/pirate/female.webp"
+      }
+    },
+    {
+      "id": "graduate",
+      "name": "Graduation Gown",
+      "emoji": "🎓",
+      "price": 2000,
+      "category": "clothing",
+      "yFraction": 0.42,
+      "sprites": {
+        "male": "/characters/outfits/graduate/male.webp",
+        "female": "/characters/outfits/graduate/female.webp"
+      }
+    },
+    {
+      "id": "wizard",
+      "name": "Wizard Robe",
+      "emoji": "🧙",
+      "price": 3000,
+      "category": "clothing",
+      "yFraction": 0.42,
+      "sprites": {
+        "male": "/characters/outfits/wizard/male.webp",
+        "female": "/characters/outfits/wizard/female.webp"
+      }
+    }
+  ],
   "characters": [
     {
       "id": "male",
@@ -35,138 +210,14 @@
     },
     {
       "id": "blaze",
-      "name": "Blaze",
+      "name": "BLAZE",
       "frames": [
-        "/characters/blaze/blaze-walk1.png",
-        "/characters/blaze/blaze-walk2.png",
-        "/characters/blaze/blaze-walk3.png"
+        "https://exehbsgplaotkohufxoj.supabase.co/storage/v1/object/public/characters/blaze/walk1.png",
+        "https://exehbsgplaotkohufxoj.supabase.co/storage/v1/object/public/characters/blaze/walk2.png",
+        "https://exehbsgplaotkohufxoj.supabase.co/storage/v1/object/public/characters/blaze/walk3.png"
       ],
-      "standFrame": "/characters/blaze/blaze.png",
+      "standFrame": "https://exehbsgplaotkohufxoj.supabase.co/storage/v1/object/public/characters/blaze/walk2.png",
       "hasBuiltInLogo": false
-    }
-  ],
-  "outfits": [
-    {
-      "id": "f-jacket",
-      "name": "Varsity Jacket",
-      "emoji": "🧥",
-      "price": 800,
-      "sprites": {
-        "male": [
-          "/characters/outfits/f-jacket/male-walk1.png",
-          "/characters/outfits/f-jacket/male-walk2.png",
-          "/characters/outfits/f-jacket/male-walk3.png"
-        ],
-        "female": [
-          "/characters/outfits/f-jacket/female-walk1.png",
-          "/characters/outfits/f-jacket/female-walk2.png",
-          "/characters/outfits/f-jacket/female-walk3.png"
-        ]
-      },
-      "category": "clothing",
-      "thumbnail": "/characters/outfits/f-jacket/thumbnail.png",
-      "yFraction": 0.42
-    },
-    {
-      "id": "f-jeans",
-      "name": "Jeans",
-      "emoji": "👖",
-      "price": 600,
-      "sprites": {
-        "female": "/character/female-outfit-jeans.png"
-      },
-      "category": "clothing",
-      "yFraction": 0.44
-    },
-    {
-      "id": "f-jacket-jeans",
-      "name": "Jacket + Jeans",
-      "emoji": "✨",
-      "price": 1200,
-      "sprites": {
-        "female": "/character/female-outfit-jacket-jeans.png"
-      },
-      "category": "clothing",
-      "yFraction": 0.42
-    },
-    {
-      "id": "jacketv",
-      "name": "Varsity Jacket V2",
-      "emoji": "🧥",
-      "price": 500,
-      "sprites": {
-        "male": "/characters/outfits/jacketv/male.png",
-        "female": "/characters/outfits/jacketv/female.png"
-      },
-      "category": "clothing",
-      "yFraction": 0.44
-    },
-    {
-      "id": "sako",
-      "name": "School Blazer",
-      "emoji": "🥼",
-      "price": 500,
-      "sprites": {
-        "male": [
-          "/characters/outfits/sako/male-walk1.png",
-          "/characters/outfits/sako/male-walk2.png",
-          "/characters/outfits/sako/male-walk3.png"
-        ],
-        "female": [
-          "/characters/outfits/sako/female-walk1.png",
-          "/characters/outfits/sako/female-walk2.png"
-        ]
-      },
-      "category": "clothing",
-      "yFraction": 0.44
-    },
-    {
-      "id": "space-suite",
-      "name": "Space Suit",
-      "emoji": "🚀",
-      "price": 1500,
-      "sprites": {
-        "male": "/characters/outfits/space-suite/male.png"
-      },
-      "category": "clothing",
-      "yFraction": 0.44
-    },
-    {
-      "id": "blaze-transform",
-      "name": "Blaze",
-      "emoji": "🔥",
-      "thumbnail": "/characters/blaze/blaze.png",
-      "price": 40000,
-      "category": "characters",
-      "characterId": "blaze",
-      "yFraction": 0.44,
-      "sprites": {}
-    },
-    {
-      "id": "all-stars",
-      "name": "ALL STARS",
-      "emoji": "🎽",
-      "thumbnail": "/characters/outfits/all-stars/thumbnail.png",
-      "price": 50000,
-      "category": "clothing",
-      "yFraction": 0.44,
-      "sprites": {
-        "male": [
-          "/characters/outfits/all-stars/male-walk1.png",
-          "/characters/outfits/all-stars/male-walk2.png",
-          "/characters/outfits/all-stars/male-walk3.png"
-        ],
-        "female": [
-          "/characters/outfits/all-stars/female-walk1.png",
-          "/characters/outfits/all-stars/female-walk2.png",
-          "/characters/outfits/all-stars/female-walk3.png"
-        ],
-        "pinky": [
-          "/characters/outfits/all-stars/pinky-walk1.png",
-          "/characters/outfits/all-stars/pinky-walk2.png",
-          "/characters/outfits/all-stars/pinky-walk3.png"
-        ]
-      }
     }
   ]
 }
