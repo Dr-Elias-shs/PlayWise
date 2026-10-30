@@ -17,6 +17,7 @@ import { GradeControlTab } from './GradeControlTab';
 import { LiveNowTab } from './LiveNowTab';
 import { SpellingBeeWordBankTab } from './SpellingBeeWordBankTab';
 import { SpinWheelTab } from './SpinWheelTab';
+import { PrizeIcon } from '@/components/redeem/PrizeIcon';
 import {
   CURRICULUM_SUBJECTS, CurriculumQuestion, ParsedQuestion,
   getTermsForGrade, setTermEnabled, getQuestions,
@@ -527,7 +528,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                           <td className="px-4 py-3 font-bold text-slate-800">{r.student_name}</td>
                           <td className="px-4 py-3">
                             <span className="flex items-center gap-2">
-                              <span>{r.item_emoji}</span>
+                              <PrizeIcon name={r.item_name} emoji={r.item_emoji} size={24} />
                               <span className="text-slate-700">{r.item_name}</span>
                             </span>
                           </td>
@@ -606,7 +607,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                         <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3">
                             <span className="flex items-center gap-2 font-bold text-slate-800">
-                              <span className="text-xl">{item.emoji}</span> {item.name}
+                              <PrizeIcon name={item.name} emoji={item.emoji} size={32} /> {item.name}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-slate-500">{item.description || '—'}</td>

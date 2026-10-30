@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getShopItems, getMyRedemptions, redeemItem, getWallet } from '@/lib/wallet';
+import { PrizeIcon } from './PrizeIcon';
 
 interface ShopItem { id: string; name: string; description: string; cost: number; emoji: string; }
 interface Redemption { id: string; item_name: string; item_emoji: string; cost: number; status: string; redeemed_at: string; }
@@ -122,7 +123,7 @@ export function RedeemPage({ studentName, playerEmail, onBack, onCoinsChanged }:
                           className={`bg-white rounded-3xl p-6 shadow-md border-2 transition-all ${
                             canAfford ? 'border-amber-200 hover:border-amber-400 hover:shadow-lg' : 'border-slate-100 opacity-60'
                           }`}>
-                          <div className="text-5xl mb-3 text-center">{item.emoji}</div>
+                          <div className="mb-3 flex justify-center"><PrizeIcon name={item.name} emoji={item.emoji} size={112} /></div>
                           <h3 className="font-black text-slate-800 text-lg text-center">{item.name}</h3>
                           {item.description && (
                             <p className="text-slate-500 text-sm text-center mt-1">{item.description}</p>
@@ -167,7 +168,7 @@ export function RedeemPage({ studentName, playerEmail, onBack, onCoinsChanged }:
                         initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: i * 0.05 }}
                         className="bg-white rounded-2xl p-4 flex items-center gap-4 shadow-sm border border-slate-100">
-                        <div className="text-3xl">{r.item_emoji}</div>
+                        <PrizeIcon name={r.item_name} emoji={r.item_emoji} size={48} />
                         <div className="flex-1">
                           <div className="font-bold text-slate-800">{r.item_name}</div>
                           <div className="text-slate-400 text-xs mt-0.5">
