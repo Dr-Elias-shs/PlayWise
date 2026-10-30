@@ -2,7 +2,7 @@
 // Priority: OLLAMA_BASE_URL env var → Supabase system_config → localhost fallback
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY!;
+const SUPABASE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY)!;
 
 let _cached: string | null = null;
 let _expiry = 0;
