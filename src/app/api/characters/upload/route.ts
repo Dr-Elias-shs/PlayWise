@@ -1,15 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
+
+// Plain Response, never NextResponse: NextResponse throws under PlayWise's custom server.
+const json = (body: unknown, init: ResponseInit = {}) =>
+  new Response(JSON.stringify(body), { ...init, headers: { 'Content-Type': 'application/json' } });
 
 // POST /api/characters/upload?p=relPath
 // Body: raw file bytes, Content-Type header set to the file's MIME type
 export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const relPath = searchParams.get('p');
-  if (!relPath) return NextResponse.json({ error: 'Missing ?p= path param' }, { status: 400 });
+  if (!relPath) return json({ error: 'Missing ?p= path param' }, { status: 400 });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -17,7 +21,7 @@ export async function POST(req: NextRequest) {
                    ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !serviceKey) {
-    return NextResponse.json({ error: 'Missing env vars' }, { status: 500 });
+    return json({ error: 'Missing env vars' }, { status: 500 });
   }
 
   try {
@@ -25,13 +29,13 @@ export async function POST(req: NextRequest) {
     const form     = await req.formData();
     const fileData = form.get('file');
     if (!fileData || typeof fileData === 'string') {
-      return NextResponse.json({ error: 'No file field in form data' }, { status: 400 });
+      return json({ error: 'No file field in form data' }, { status: 400 });
     }
     const contentType = (fileData as File).type || 'image/png';
     const buffer      = Buffer.from(await (fileData as File).arrayBuffer());
 
     if (buffer.byteLength === 0) {
-      return NextResponse.json({ error: 'Received 0 bytes' }, { status: 400 });
+      return json({ error: 'Received 0 bytes' }, { status: 400 });
     }
 
     const uploadUrl = `${supabaseUrl}/storage/v1/object/characters/${relPath}`;
@@ -47,17 +51,17 @@ export async function POST(req: NextRequest) {
 
     if (!uploadRes.ok) {
       const errText = await uploadRes.text().catch(() => '(no body)');
-      return NextResponse.json(
+      return json(
         { error: `Supabase ${uploadRes.status}: ${errText} [bytes=${buffer.byteLength}]` },
         { status: 500 },
       );
     }
 
     const publicUrl = `${supabaseUrl}/storage/v1/object/public/characters/${relPath}`;
-    return NextResponse.json({ publicUrl, path: relPath });
+    return json({ publicUrl, path: relPath });
   } catch (e) {
     console.error('[upload POST]', e);
-    return NextResponse.json({ error: `exception: ${String(e)}` }, { status: 500 });
+    return json({ error: `exception: ${String(e)}` }, { status: 500 });
   }
 }
 

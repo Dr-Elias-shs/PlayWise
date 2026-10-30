@@ -19,9 +19,9 @@ import { PenaltyShootout } from "@/components/game/PenaltyShootout";
 import { MultiplayerHub } from "@/components/multiplayer/MultiplayerHub";
 import { ProfileSetup } from "@/components/profile/ProfileSetup";
 import { RedeemPage } from "@/components/redeem/RedeemPage";
-import { Shop } from "@/components/world/Shop";
+import { Shop } from "@/components/shop/Shop";
 import { WalletBadge } from "@/components/hub/WalletBadge";
-import { useWorldStore } from "@/store/useWorldStore";
+import { useWalletStore } from "@/store/useWalletStore";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { loginRequest } from "@/lib/msal";
 import { Leaderboard } from "@/components/hub/Leaderboard";
@@ -36,181 +36,6 @@ import { useTimeGuard } from "@/hooks/useTimeGuard";
 import { TimeGate } from "@/components/TimeGate";
 import { useHeartbeat } from "@/hooks/useHeartbeat";
 import { supabase } from "@/lib/supabase";
-
-// ─── Maintenance screen ───────────────────────────────────────────────────────
-
-const RATING_LABELS: Record<number, string> = { 1: 'Needs work 🤔', 2: 'It was okay 😐', 3: 'Pretty good! 🙂', 4: 'Really fun! 😄', 5: 'AMAZING! 🤩' };
-
-function MaintenanceScreen({ playerName, onLogout, onUnlock }: { playerName: string; onLogout: () => void; onUnlock: () => void }) {
-  const { playerEmail } = useGameStore();
-  const studentKey = playerEmail?.trim().toLowerCase() || playerName || '';
-
-  const [hovered,   setHovered]   = useState(0);
-  const [selected,  setSelected]  = useState(0);
-  const [submitted, setSubmitted] = useState(false);
-  const [saving,    setSaving]    = useState(false);
-  const [synced,    setSynced]    = useState(false);
-
-  // ── Hidden tester gate: long-press OR 3 quick taps the SHS badge → password ──
-  const [showPwd, setShowPwd] = useState(false);
-  const [pwd,     setPwd]     = useState('');
-  const [pwdErr,  setPwdErr]  = useState(false);
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longFired  = useRef(false);
-  const tapCount   = useRef(0);
-  const tapTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const openedAt   = useRef(0);
-
-  const openGate    = () => { openedAt.current = Date.now(); setShowPwd(true); };
-  const startPress  = () => { longFired.current = false; pressTimer.current = setTimeout(() => { longFired.current = true; openGate(); }, 600); };
-  const cancelPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
-  const registerTap = () => {
-    cancelPress();
-    if (longFired.current) return;
-    tapCount.current += 1;
-    if (tapTimer.current) clearTimeout(tapTimer.current);
-    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 2000);
-    if (tapCount.current >= 3) { tapCount.current = 0; openGate(); }
-  };
-
-  useEffect(() => {
-    if (!studentKey) return;
-    const localStars  = localStorage.getItem('world_rating_v1');
-    const localSynced = localStorage.getItem('world_rating_synced') === 'true';
-    if (localStars) {
-      setSelected(parseInt(localStars, 10) || 0);
-      setSubmitted(true);
-      setSynced(localSynced);
-      if (!localSynced) {
-        supabase.from('world_ratings').upsert({ student_name: studentKey, stars: parseInt(localStars, 10), created_at: new Date().toISOString() }, { onConflict: 'student_name' })
-          .then(({ error }) => { if (!error) { localStorage.setItem('world_rating_synced', 'true'); setSynced(true); } });
-      }
-    } else {
-      supabase.from('world_ratings').select('stars').eq('student_name', studentKey).maybeSingle()
-        .then(({ data }) => { if (data) { setSelected(data.stars); setSubmitted(true); setSynced(true); localStorage.setItem('world_rating_v1', String(data.stars)); localStorage.setItem('world_rating_synced', 'true'); } });
-    }
-  }, [studentKey]);
-
-  const submitRating = async (stars: number) => {
-    if (saving || submitted) return;
-    setSaving(true);
-    localStorage.setItem('world_rating_v1', String(stars));
-    const { error } = await supabase.from('world_ratings').upsert({ student_name: studentKey, stars, created_at: new Date().toISOString() }, { onConflict: 'student_name' });
-    if (!error) { localStorage.setItem('world_rating_synced', 'true'); setSynced(true); }
-    setSelected(stars); setSubmitted(true); setSaving(false);
-  };
-
-  const displayStars = hovered || selected;
-
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden"
-      style={{ background: 'linear-gradient(160deg, #060d1a 0%, #0d1f3c 50%, #0a2e1a 100%)' }}>
-
-      {[...Array(20)].map((_, i) => (
-        <motion.div key={i} className="absolute rounded-full bg-white pointer-events-none"
-          style={{ width: Math.random() * 3 + 1, height: Math.random() * 3 + 1, left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%` }}
-          animate={{ opacity: [0.1, 0.5, 0.1] }}
-          transition={{ duration: 2 + Math.random() * 3, repeat: Infinity, delay: Math.random() * 3 }} />
-      ))}
-
-      <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-5 text-center">
-
-        <motion.div initial={{ scale: 0, rotate: -15 }} animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 14 }} className="text-6xl">🛠️</motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="space-y-2">
-          <h1 className="text-3xl font-black text-white leading-tight">
-            PlayWise is getting<br /><span className="text-emerald-400">a big upgrade</span> 🚀
-          </h1>
-          <p className="text-white/55 text-sm leading-relaxed">
-            We'll be right back — bigger, better, and with your <span className="text-white font-bold">full curriculum</span> built into the game.
-          </p>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.45 }}
-          onPointerDown={startPress}
-          onPointerUp={registerTap}
-          onPointerLeave={cancelPress}
-          onContextMenu={e => e.preventDefault()}
-          style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'manipulation' }}
-          className="flex items-center gap-2 bg-white/8 border border-white/15 px-4 py-2 rounded-full cursor-default">
-          <span className="text-base">🏫</span>
-          <span className="text-white/80 text-xs font-bold tracking-wide uppercase">SHS Leads Innovation</span>
-        </motion.div>
-
-        {/* World rating card */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }}
-          className="w-full bg-white/8 backdrop-blur-sm border border-white/12 rounded-3xl p-6 space-y-3">
-          {!submitted ? (
-            <>
-              <p className="text-white font-black text-base">Did you play PlayWise World? ⭐</p>
-              <p className="text-white/45 text-xs">Rate your experience — it shapes what we build next!</p>
-              <div className="flex justify-center gap-2">
-                {[1,2,3,4,5].map(s => (
-                  <motion.button key={s} whileHover={{ scale: 1.25 }} whileTap={{ scale: 0.9 }}
-                    onMouseEnter={() => setHovered(s)} onMouseLeave={() => setHovered(0)}
-                    onClick={() => submitRating(s)} disabled={saving}
-                    className="text-4xl transition-all" style={{ filter: s <= displayStars ? 'none' : 'grayscale(1) opacity(0.3)' }}>⭐</motion.button>
-                ))}
-              </div>
-              <p className="text-white/35 text-xs h-4">{displayStars ? RATING_LABELS[displayStars] : 'Tap a star to rate'}</p>
-            </>
-          ) : (
-            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 12 }} className="space-y-1.5">
-              <div className="text-3xl">{'⭐'.repeat(selected)}</div>
-              <p className="text-white font-black">Thanks for rating! 🎉</p>
-              <p className="text-white/45 text-xs">Your feedback helps us build something incredible.</p>
-              <p className={`text-xs font-semibold ${synced ? 'text-emerald-400' : 'text-yellow-400/70'}`}>
-                {synced ? '✓ Saved' : '⏳ Will sync when connection is back'}
-              </p>
-            </motion.div>
-          )}
-        </motion.div>
-
-        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
-          onClick={onLogout}
-          className="text-white/30 hover:text-white/60 text-xs font-semibold transition-colors py-2">
-          Sign out
-        </motion.button>
-      </div>
-
-      {/* Hidden tester password modal */}
-      {showPwd && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-6"
-          onClick={() => {
-            if (Date.now() - openedAt.current < 500) return; // ignore the tap that opened it
-            setShowPwd(false); setPwd(''); setPwdErr(false);
-          }}
-        >
-          <div onClick={e => e.stopPropagation()}
-            className="bg-slate-900 border border-white/15 rounded-3xl p-6 w-full max-w-xs space-y-4">
-            <div className="text-center">
-              <div className="text-3xl mb-1">🔐</div>
-              <h3 className="text-white font-black text-lg">Tester Access</h3>
-              <p className="text-white/40 text-xs">Enter the password to preview PlayWise.</p>
-            </div>
-            <form onSubmit={e => {
-              e.preventDefault();
-              if (pwd.trim().toLowerCase() === '676767') { setShowPwd(false); onUnlock(); }
-              else { setPwdErr(true); }
-            }}>
-              <input type="password" autoFocus value={pwd}
-                onChange={e => { setPwd(e.target.value); setPwdErr(false); }}
-                placeholder="Password"
-                className="w-full px-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/30 outline-none focus:border-emerald-400/60" />
-              {pwdErr && <p className="text-red-400 text-xs font-bold mt-2">Wrong password</p>}
-              <button type="submit"
-                className="w-full mt-4 py-3 rounded-2xl font-black text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:scale-[1.02] transition-transform">
-                Unlock 🚀
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── Hub game card ────────────────────────────────────────────────────────────
 
@@ -261,19 +86,19 @@ type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game-intro' 
 
 export default function Home() {
   const { playerName, playerEmail, playerGrade, colorId, characterId, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
-  const { playerName: worldName, playerEmail: worldEmail, setPlayerName: setWorldName, syncWithDatabase: syncWorld } = useWorldStore();
+  const { playerName: walletName, playerEmail: walletEmail, setPlayerName: setWalletName, syncWithDatabase: syncWallet } = useWalletStore();
   const [screen, setScreen] = useState<Screen>('login');
   const [showIntro, setShowIntro] = useState(() => {
     try { return typeof window !== 'undefined' ? !localStorage.getItem(INTRO_SEEN_KEY) : false; }
     catch { return false; } // storage blocked on MDM tablets — skip intro entirely
   });
 
-  // Sync Hub player name and email into World store (for Shop/World currency sync)
+  // Sync Hub player name and email into the wallet store (for Shop currency sync)
   useEffect(() => {
-    if (playerName && (playerName !== worldName || playerEmail !== worldEmail)) {
-      setWorldName(playerName, playerEmail);
+    if (playerName && (playerName !== walletName || playerEmail !== walletEmail)) {
+      setWalletName(playerName, playerEmail);
     }
-  }, [playerName, playerEmail, worldName, worldEmail, setWorldName]);
+  }, [playerName, playerEmail, walletName, walletEmail, setWalletName]);
   // Time-management guard — only active after login, skipped on localhost
   const isLocal = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
   const { loading: tmLoading, access, refresh: tmRefresh } = useTimeGuard(isLocal ? '' : (playerGrade ?? ''), screen === 'hub' || screen === 'game');
@@ -286,7 +111,7 @@ export default function Home() {
   const [emailInput, setEmailInput] = useState('');
   const [showStats, setShowStats] = useState(false);
   const [bannedInfo, setBannedInfo] = useState<{ banned: boolean; reason: string } | null>(null);
-  const [testBypass, setTestBypass] = useState(false); // hidden tester unlock (skips maintenance + time gate)
+  const [testBypass, setTestBypass] = useState(false); // hidden tester unlock (skips time gate)
 
   // Tester URL unlock: open /?unlock=676767 to preview without the gesture.
   useEffect(() => {
@@ -456,12 +281,6 @@ export default function Home() {
   // ── Time-management gate (hub + game only, not login/profile-setup) ──
   if (!isLocal && !testBypass && (screen === 'hub' || screen === 'game') && !access.allowed) {
     return <TimeGate access={access} loading={false} grade={playerGrade ?? ''} onRetry={tmRefresh} />;
-  }
-
-  // ── Maintenance gate — shown to all logged-in students ──────────────────────
-  // Remove this block when Supabase quota resets and service is ready
-  if (!isLocal && !testBypass && playerName && screen !== 'login' && screen !== 'profile-setup') {
-    return <MaintenanceScreen playerName={playerName} onLogout={handleLogout} onUnlock={() => setTestBypass(true)} />;
   }
 
   // ── Login ──
@@ -657,7 +476,7 @@ export default function Home() {
           >
             <WalletBadge
               studentName={playerName} playerEmail={playerEmail} refreshKey={walletRefresh}
-              onClick={() => { if (playerName) syncWorld(playerName, playerEmail); setScreen('shop'); }}
+              onClick={() => { if (playerName) syncWallet(playerName, playerEmail); setScreen('shop'); }}
             />
             <SpinWheel onWin={() => setWalletRefresh(r => r + 1)} />
             <button onClick={toggleFullscreen}
@@ -730,32 +549,6 @@ export default function Home() {
                 </motion.div>
               </div>
             </motion.section>
-
-            {/* PlayWise World shortcut */}
-            {gameSettings['world'] !== false && (
-              <motion.section
-                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-                onClick={() => router.push('/world')}
-                className="relative overflow-hidden rounded-3xl cursor-pointer group"
-                style={{ background: 'linear-gradient(135deg, #064e3b, #047857, #10b981)' }}
-              >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.08), transparent)' }} />
-                <div className="relative z-10 p-6 flex items-center gap-5">
-                  <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 border border-white/20 flex-shrink-0 text-3xl leading-none">
-                    🗺️
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-xl font-black text-white">PlayWise World 🌍</h2>
-                    <p className="text-white/60 text-sm mt-0.5">Explore the school, enter rooms, answer to earn PlayBits</p>
-                  </div>
-                  <motion.div whileHover={{ x: 4 }}
-                    className="bg-white text-emerald-700 font-black text-sm px-5 py-2.5 rounded-2xl shadow-lg flex-shrink-0 hidden sm:block">
-                    Enter →
-                  </motion.div>
-                </div>
-              </motion.section>
-            )}
 
           </div>
 

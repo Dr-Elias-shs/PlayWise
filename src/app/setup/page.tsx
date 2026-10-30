@@ -196,81 +196,6 @@ CREATE POLICY "all" ON public.learning_scores FOR ALL USING (true) WITH CHECK (t
 ALTER PUBLICATION supabase_realtime ADD TABLE public.learning_scores;`,
   },
   {
-    name: "world_rooms",
-    sql: `CREATE TABLE IF NOT EXISTS public.world_rooms (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  room_code TEXT UNIQUE NOT NULL,
-  host_name TEXT NOT NULL,
-  map_id TEXT NOT NULL DEFAULT 'school',
-  status TEXT DEFAULT 'waiting',
-  player_count INT DEFAULT 0,
-  max_players INT DEFAULT 8,
-  team_score INT DEFAULT 0,
-  start_time TIMESTAMPTZ DEFAULT NULL,
-  end_time TIMESTAMPTZ DEFAULT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-ALTER TABLE public.world_rooms ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "all" ON public.world_rooms FOR ALL USING (true) WITH CHECK (true);
-ALTER PUBLICATION supabase_realtime ADD TABLE public.world_rooms;
-
--- Helper RPCs
-CREATE OR REPLACE FUNCTION increment_world_room_players(p_room_code TEXT)
-RETURNS void LANGUAGE sql AS $$
-  UPDATE world_rooms SET player_count = player_count + 1 WHERE room_code = p_room_code;
-$$;
-
-CREATE OR REPLACE FUNCTION decrement_world_room_players(p_room_code TEXT)
-RETURNS void LANGUAGE sql AS $$
-  UPDATE world_rooms SET player_count = GREATEST(0, player_count - 1) WHERE room_code = p_room_code;
-$$;
-
-CREATE OR REPLACE FUNCTION increment_world_team_score(p_room_code TEXT)
-RETURNS void LANGUAGE sql AS $$
-  UPDATE world_rooms SET team_score = team_score + 10 WHERE room_code = p_room_code;
-$$;`,
-  },
-  {
-    name: "world_players",
-    sql: `CREATE TABLE IF NOT EXISTS public.world_players (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  room_code TEXT NOT NULL,
-  player_name TEXT NOT NULL,
-  color_id TEXT DEFAULT 'green',
-  equipped_id TEXT DEFAULT NULL,
-  x DECIMAL(8,2) DEFAULT 450,
-  y DECIMAL(8,2) DEFAULT 324,
-  last_seen TIMESTAMPTZ DEFAULT NOW(),
-  rooms_solved INT DEFAULT 0,
-  coins_earned INT DEFAULT 0,
-  is_host BOOLEAN DEFAULT false,
-  UNIQUE(room_code, player_name)
-);
-ALTER TABLE public.world_players ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "all" ON public.world_players FOR ALL USING (true) WITH CHECK (true);
-ALTER PUBLICATION supabase_realtime ADD TABLE public.world_players;
-
-CREATE OR REPLACE FUNCTION increment_world_player_rooms(p_room_code TEXT, p_player_name TEXT)
-RETURNS void LANGUAGE sql AS $$
-  UPDATE world_players SET rooms_solved = rooms_solved + 1
-  WHERE room_code = p_room_code AND player_name = p_player_name;
-$$;`,
-  },
-  {
-    name: "world_answers",
-    sql: `CREATE TABLE IF NOT EXISTS public.world_answers (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  room_code TEXT NOT NULL,
-  player_name TEXT NOT NULL,
-  room_key TEXT NOT NULL,
-  correct BOOLEAN DEFAULT false,
-  answered_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(room_code, player_name, room_key)
-);
-ALTER TABLE public.world_answers ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "all" ON public.world_answers FOR ALL USING (true) WITH CHECK (true);`,
-  },
-  {
     name: "curriculum_questions",
     sql: `CREATE TABLE IF NOT EXISTS public.curriculum_questions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -344,18 +269,6 @@ CREATE POLICY "all" ON public.curriculum_terms FOR ALL USING (true) WITH CHECK (
 CREATE INDEX IF NOT EXISTS idx_sbw_grade ON public.spelling_bee_words(grade);
 ALTER TABLE public.spelling_bee_words ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "all" ON public.spelling_bee_words FOR ALL USING (true) WITH CHECK (true);`,
-  },
-  {
-    name: "world_ratings",
-    sql: `CREATE TABLE IF NOT EXISTS public.world_ratings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_name TEXT NOT NULL,
-  stars INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_world_ratings_student ON public.world_ratings(student_name);
-ALTER TABLE public.world_ratings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "all" ON public.world_ratings FOR ALL USING (true) WITH CHECK (true);`,
   },
 ];
 

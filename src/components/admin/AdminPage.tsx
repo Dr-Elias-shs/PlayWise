@@ -17,9 +17,6 @@ import { GradeControlTab } from './GradeControlTab';
 import { LiveNowTab } from './LiveNowTab';
 import { SpellingBeeWordBankTab } from './SpellingBeeWordBankTab';
 import { SpinWheelTab } from './SpinWheelTab';
-import { WorldRatingsTab } from './WorldRatingsTab';
-import { MAP_REGISTRY } from '@/lib/map-registry';
-import { ROOMS } from '@/lib/rooms';
 import {
   CURRICULUM_SUBJECTS, CurriculumQuestion, ParsedQuestion,
   getTermsForGrade, setTermEnabled, getQuestions,
@@ -40,12 +37,10 @@ function resolveGameName(id: string | null | undefined, focusTable?: number): st
   if (!id) return 'Unknown';
   const hub  = ALL_GAMES.find(g => g.id === id);
   if (hub)  return `${hub.emoji} ${hub.title}`;
-  const room = ROOMS.find(r => r.key === id);
-  if (room) return `${room.emoji} ${room.label}`;
   return id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'grades' | 'live' | 'grade-requests' | 'settings' | 'spelling-bee' | 'spin-wheel' | 'world-ratings';
+type Tab = 'students' | 'redemptions' | 'shop' | 'analytics' | 'games' | 'curriculum' | 'timemgmt' | 'grades' | 'live' | 'grade-requests' | 'spelling-bee' | 'spin-wheel';
 
 interface Wallet {
   student_name: string;  // email (DB key)
@@ -125,7 +120,6 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   const [scores, setScores] = useState<Score[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [wallEditorConfigs, setWallEditorConfigs] = useState<Record<string, boolean>>({});
   const [gameSettings, setGameSettings] = useState<Record<string, boolean>>({});
 
   // Curriculum state
@@ -204,20 +198,18 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   const load = async () => {
     setLoading(true);
     try {
-      const [w, r, s, sc, tr, se, cfg, gs, gr] = await Promise.all([
+      const [w, r, s, sc, tr, se, gs, gr] = await Promise.all([
         getAllWallets().catch(() => []),
         getAllRedemptions().catch(() => []),
         getAllShopItems().catch(() => []),
         getAllScores().catch(() => []),
         getAllTransactions().catch(() => []),
         getAllSessions().catch(() => []),
-        getGlobalConfig('wall_editor_enabled').catch(() => ({})),
         getGlobalConfig('game_settings').catch(() => ({})),
         getAllGradeRequests().catch(() => []),
       ]);
       setWallets(w); setRedemptions(r); setShopItems(s);
       setScores(sc); setTransactions(tr); setSessions(se);
-      setWallEditorConfigs(cfg || {});
       setGameSettings(gs || {});
       setGradeRequests(gr);
     } catch (err) {
@@ -283,12 +275,10 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
           { id: 'curriculum',  label: '📚 Curriculum' },
           { id: 'spelling-bee', label: '🐝 Spelling Bee' },
           { id: 'spin-wheel',   label: '🎡 Spin Wheel' },
-          { id: 'world-ratings', label: '🌍 World Ratings' },
           { id: 'timemgmt',   label: '⏰ Time' },
           { id: 'grades',     label: '📚 Grades' },
           { id: 'live',            label: '🟢 Live' },
           { id: 'grade-requests',  label: '🎓 Grade Requests', badge: gradeRequests.filter(r => r.status === 'pending').length || undefined },
-          { id: 'settings',        label: '⚙️ Settings' },
         ] as { id: Tab; label: string; badge?: number }[]).map(t => (
           <button key={t.id} onClick={() => { setTab(t.id); if (t.id === 'curriculum') loadCurriculum(); }}
             className={`px-4 py-2 font-bold text-sm rounded-t-xl transition-all relative ${
@@ -654,18 +644,13 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                 <div className="flex flex-wrap items-center gap-3 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                   <span className="text-sm font-black text-slate-400 uppercase tracking-wider">🎯 Filter:</span>
 
-                  {/* Game filter — hub games + world rooms */}
+                  {/* Game filter */}
                   <select value={analyticsGameId} onChange={e => setAnalyticsGameId(e.target.value)}
                     className="px-3 py-2 border-2 border-slate-200 focus:border-violet-400 rounded-xl text-sm font-bold outline-none bg-white cursor-pointer">
                     <option value="all">All Games</option>
                     <optgroup label="── Hub Games">
                       {ALL_GAMES.map(g => (
                         <option key={g.id} value={g.id}>{g.emoji} {g.title}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="── World Rooms">
-                      {ROOMS.map(r => (
-                        <option key={r.key} value={r.key}>{r.emoji} {r.label}</option>
                       ))}
                     </optgroup>
                   </select>
@@ -940,42 +925,6 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
 
                   return (
                     <>
-                      {/* PlayWise World */}
-                      <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8">
-                        <h3 className="text-xl font-black text-slate-800 mb-2 flex items-center gap-2">
-                          🗺️ PlayWise World
-                        </h3>
-                        <p className="text-slate-500 text-sm mb-6">
-                          Enable or disable the entire world exploration section for all students.
-                        </p>
-                        {(() => {
-                          const isEnabled = gameSettings['world'] !== false;
-                          return (
-                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                              <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-sm border border-slate-200 bg-white">
-                                  🌍
-                                </div>
-                                <div>
-                                  <div className="font-black text-slate-800">World Exploration</div>
-                                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Walk the school, enter rooms, earn PlayBits</div>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => toggleGame('world', isEnabled)}
-                                className={`px-6 py-2 rounded-xl font-black text-sm transition-all shadow-sm ${
-                                  isEnabled
-                                    ? 'bg-emerald-500 text-white hover:bg-emerald-600'
-                                    : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
-                                }`}
-                              >
-                                {isEnabled ? '✅ Enabled' : '❌ Disabled'}
-                              </button>
-                            </div>
-                          );
-                        })()}
-                      </div>
-
                       {/* Hub Games */}
                       <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8">
                         <h3 className="text-xl font-black text-slate-800 mb-2 flex items-center gap-2">
@@ -1014,43 +963,6 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                         </div>
                       </div>
 
-                      {/* World Rooms */}
-                      <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8">
-                        <h3 className="text-xl font-black text-slate-800 mb-2 flex items-center gap-2">
-                          🗺️ World Rooms
-                        </h3>
-                        <p className="text-slate-500 text-sm mb-6">
-                          Toggle which rooms students can enter in the PlayWise World.
-                        </p>
-                        <div className="space-y-3">
-                          {ROOMS.map(room => {
-                            const isEnabled = gameSettings[room.key] !== false;
-                            return (
-                              <div key={room.key} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                <div className="flex items-center gap-4">
-                                  <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-sm border border-slate-200 bg-white">
-                                    {room.emoji}
-                                  </div>
-                                  <div>
-                                    <div className="font-black text-slate-800">{room.label}</div>
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Key: {room.key}</div>
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => toggleGame(room.key, isEnabled)}
-                                  className={`px-6 py-2 rounded-xl font-black text-sm transition-all shadow-sm ${
-                                    isEnabled
-                                      ? 'bg-emerald-500 text-white hover:bg-emerald-600'
-                                      : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
-                                  }`}
-                                >
-                                  {isEnabled ? '✅ Enabled' : '❌ Disabled'}
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
                     </>
                   );
                 })()}
@@ -1498,88 +1410,6 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
             {tab === 'spin-wheel' && (
               <motion.div key="spin-wheel" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <SpinWheelTab />
-              </motion.div>
-            )}
-
-            {tab === 'world-ratings' && (
-              <motion.div key="world-ratings" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <WorldRatingsTab />
-              </motion.div>
-            )}
-
-            {/* ── Settings ── */}
-            {tab === 'settings' && (
-              <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8">
-                  <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
-                    🧱 Wall Editor Controls
-                  </h3>
-                  <p className="text-slate-500 text-sm mb-8">
-                    Enable or disable the wall editor button on the World Map for specific plans.
-                  </p>
-
-                  <div className="space-y-4">
-                    {MAP_REGISTRY.map(map => {
-                      const isEnabled = wallEditorConfigs[map.id] || false;
-                      return (
-                        <div key={map.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-2xl shadow-sm">
-                              🗺️
-                            </div>
-                            <div>
-                              <div className="font-black text-slate-800">{map.name}</div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Map ID: {map.id}</div>
-                            </div>
-                          </div>
-
-                          <button
-                            disabled={loading}
-                            onClick={async () => {
-                              const next = { ...wallEditorConfigs, [map.id]: !isEnabled };
-                              // Update local UI immediately for responsiveness
-                              setWallEditorConfigs(next);
-                              
-                              // Save to DB
-                              const { error } = await setGlobalConfig('wall_editor_enabled', next);
-                              
-                              if (error) {
-                                alert('Failed to save setting. Make sure you ran the SQL setup!');
-                                // Revert local state on error
-                                const cfg = await getGlobalConfig('wall_editor_enabled');
-                                if (cfg) setWallEditorConfigs(cfg);
-                              } else {
-                                // Final sync from DB to be absolutely sure
-                                const cfg = await getGlobalConfig('wall_editor_enabled');
-                                if (cfg) setWallEditorConfigs(cfg);
-                              }
-                            }}
-                            className={`px-6 py-2 rounded-xl font-black text-sm transition-all shadow-sm ${
-                              isEnabled 
-                                ? 'bg-emerald-500 text-white hover:bg-emerald-600' 
-                                : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
-                            }`}
-                          >
-                            {isEnabled ? '✅ Enabled' : '❌ Disabled'}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="bg-amber-50 border-2 border-amber-100 rounded-3xl p-6">
-                  <div className="flex gap-4">
-                    <div className="text-3xl">💡</div>
-                    <div>
-                      <h4 className="font-black text-amber-900 mb-1">Admin Tip</h4>
-                      <p className="text-amber-800/70 text-sm leading-relaxed font-medium">
-                        When enabled, players will see a "✏️ Walls" button in their HUD. 
-                        This is useful for quick fixes, but should usually be disabled during normal gameplay.
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </motion.div>
             )}
           </AnimatePresence>

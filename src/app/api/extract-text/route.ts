@@ -1,4 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+
+// Plain Response, never NextResponse: NextResponse throws under PlayWise's custom server.
+const json = (body: unknown, init: ResponseInit = {}) =>
+  new Response(JSON.stringify(body), { ...init, headers: { 'Content-Type': 'application/json' } });
 
 // Extract text nodes from PPTX/PPT slide XML (<a:t> tags)
 async function extractPptxText(buffer: Buffer): Promise<string> {
@@ -29,10 +33,10 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     file = formData.get('file') as File | null;
   } catch (e: any) {
-    return NextResponse.json({ error: 'Failed to read upload: ' + (e.message ?? e) }, { status: 400 });
+    return json({ error: 'Failed to read upload: ' + (e.message ?? e) }, { status: 400 });
   }
 
-  if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+  if (!file) return json({ error: 'No file provided' }, { status: 400 });
 
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -55,11 +59,11 @@ export async function POST(req: NextRequest) {
       text = await extractPptxText(buffer);
 
     } else {
-      return NextResponse.json({ error: `Unsupported file type: .${ext}` }, { status: 400 });
+      return json({ error: `Unsupported file type: .${ext}` }, { status: 400 });
     }
 
-    return NextResponse.json({ text: text.trim() });
+    return json({ text: text.trim() });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message ?? 'Failed to extract text' }, { status: 500 });
+    return json({ error: e.message ?? 'Failed to extract text' }, { status: 500 });
   }
 }

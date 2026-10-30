@@ -1,7 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import fs from 'fs/promises';
+
+// Plain Response, never NextResponse: NextResponse throws under PlayWise's custom server.
+const json = (body: unknown, init: ResponseInit = {}) =>
+  new Response(JSON.stringify(body), { ...init, headers: { 'Content-Type': 'application/json' } });
 
 const LOCAL_PATH = path.join(process.cwd(), 'public', 'characters', 'registry.json');
 
@@ -21,15 +25,15 @@ export async function GET() {
         .select('value')
         .eq('key', 'character_registry')
         .maybeSingle();
-      if (data?.value) return NextResponse.json(data.value);
+      if (data?.value) return json(data.value);
     }
   } catch { /* fall through to static file */ }
 
   try {
     const raw = await fs.readFile(LOCAL_PATH, 'utf-8');
-    return NextResponse.json(JSON.parse(raw));
+    return json(JSON.parse(raw));
   } catch {
-    return NextResponse.json({ characters: [], outfits: [] });
+    return json({ characters: [], outfits: [] });
   }
 }
 
@@ -50,9 +54,9 @@ export async function POST(req: NextRequest) {
       await fs.writeFile(LOCAL_PATH, JSON.stringify(body, null, 2));
     } catch { /* read-only fs in prod */ }
 
-    return NextResponse.json({ ok: true });
+    return json({ ok: true });
   } catch (e) {
     console.error('POST /api/characters error:', e);
-    return NextResponse.json({ error: 'Failed to save registry' }, { status: 500 });
+    return json({ error: 'Failed to save registry' }, { status: 500 });
   }
 }

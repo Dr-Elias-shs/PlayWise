@@ -4,7 +4,7 @@ import { useGameStore } from '@/store/useGameStore';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 
-import { useWorldStore }  from '@/store/useWorldStore';
+import { useWalletStore } from '@/store/useWalletStore';
 import { COLORS, ACCESSORIES, AccessoryItem, itemTopFraction, resolveAccessory } from '@/lib/avatar-items';
 import { useCharacterRegistry, resolveOutfitStand, type RegistryOutfit } from '@/lib/characterRegistry';
 import { useAccessoryPositions } from '@/hooks/useAccessoryPositions';
@@ -60,7 +60,7 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
   useAccessoryPositions();
   const registry    = useCharacterRegistry();
   const charDef     = registry.character(characterId) ?? registry.characters[0];
-  const { playBits, addPlayBits } = useWorldStore();
+  const { playBits, addPlayBits } = useWalletStore();
 
   const activeColor      = COLORS.find(c => c.id === (previewColor ?? colorId));
   const hatsAndExtras    = ACCESSORIES.filter(a => a.category !== 'clothing');
