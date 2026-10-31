@@ -14,7 +14,7 @@
  */
 
 import { supabase } from './supabase';
-import { addCoins } from './wallet';
+import { awardCoins } from './coinsClient';
 import { recordGameResult } from './learningScore';
 
 // ── Difficulty weights (0.5 = easy pattern, 1.3 = genuinely hard) ─────────────
@@ -217,10 +217,13 @@ export async function awardTableCoins(
   }
 
   // ── 7. Award coins + update learning score ───────────────────────────────
-  await Promise.all([
-    addCoins(studentName, result.total, playTimeSeconds, true, playerGrade, `multiplication-${tableNumber}`, studentEmail),
+  // The server applies the anti-farming rules and the daily ceiling; show what it credited.
+  const [award] = await Promise.all([
+    correctCount > 0
+      ? awardCoins({ game: `multiplication-${tableNumber}`, coins: result.total, correct: correctCount, total: totalQuestions, playSeconds: playTimeSeconds })
+      : Promise.resolve({ credited: 0 }),
     recordGameResult(dbKey, 'multiplication', correctCount, totalQuestions, playerGrade),
   ]);
 
-  return result;
+  return { ...result, total: award.credited };
 }

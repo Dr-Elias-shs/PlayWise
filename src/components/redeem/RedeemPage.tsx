@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getShopItems, getMyRedemptions, redeemItem, getWallet } from '@/lib/wallet';
+import { getShopItems, getMyRedemptions, getWallet } from '@/lib/wallet';
+import { redeemPrize } from '@/lib/coinsClient';
 import { PrizeIcon } from './PrizeIcon';
 
 interface ShopItem { id: string; name: string; description: string; cost: number; emoji: string; }
@@ -50,8 +51,9 @@ export function RedeemPage({ studentName, playerEmail, onBack, onCoinsChanged }:
     if (coins < item.cost) return;
     setRedeeming(item.id);
     try {
-      await redeemItem(dbKey, item.id, item.name, item.emoji, item.cost);
-      setCoins(c => c - item.cost);
+      // The server checks the price and the balance in one step.
+      const r = await redeemPrize(item.id);
+      if (!r.ok) throw new Error(r.error || 'Something went wrong');
       await load();
       onCoinsChanged();
       showToast(`Redeemed ${item.name}! Waiting for approval.`, true);

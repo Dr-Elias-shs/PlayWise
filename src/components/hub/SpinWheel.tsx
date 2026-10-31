@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/lib/supabase';
+import { spin, spinStatus } from '@/lib/coinsClient';
 import { useGameStore } from '@/store/useGameStore';
 
 // ── Prize config ─────────────────────────────────────────────────────────────
@@ -31,16 +31,6 @@ const CY    = SZ / 2;
 const R     = SZ / 2 - 8;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function pickWinner(): Prize {
-  const pool  = PRIZES.filter(p => p.weight > 0);
-  const total = pool.reduce((s, p) => s + p.weight, 0);
-  let r = Math.random() * total;
-  for (const p of pool) { r -= p.weight; if (r <= 0) return p; }
-  return pool[0];
-}
-
-function todayUTC() { return new Date().toISOString().split('T')[0]; }
-
 function polar(deg: number, r = R): [number, number] {
   const a = ((deg - 90) * Math.PI) / 180;
   return [CX + r * Math.cos(a), CY + r * Math.sin(a)];
@@ -70,14 +60,7 @@ export function SpinWheel({ onWin }: { onWin?: () => void }) {
   // Refresh eligibility on mount and whenever the modal opens
   useEffect(() => {
     if (!dbKey) return;
-    const d = todayUTC();
-    supabase.from('game_sessions').select('*', { count: 'exact', head: true })
-      .eq('student_name', dbKey).gte('created_at', `${d}T00:00:00Z`)
-      .then(({ count }) => setGames(count ?? 0));
-    supabase.from('coin_transactions').select('*', { count: 'exact', head: true })
-      .eq('student_name', dbKey).eq('source', 'spin_wheel')
-      .gte('created_at', `${d}T00:00:00Z`)
-      .then(({ count }) => setSpun((count ?? 0) > 0));
+    spinStatus().then(st => { if (st) { setGames(st.games); setSpun(st.spun); } });
   }, [dbKey, open]);
 
   const doSpin = async () => {
@@ -85,7 +68,10 @@ export function SpinWheel({ onWin }: { onWin?: () => void }) {
     setSpinning(true);
     setPrize(null);
 
-    const winner  = pickWinner();
+    // The server draws the prize and credits it; the wheel then turns to it.
+    const res = await spin();
+    const winner = res ? PRIZES.find(p => p.id === res.prizeId) : undefined;
+    if (!winner) { setSpinning(false); setSpun(true); return; }
     const wi      = PRIZES.indexOf(winner);
     // Center of the winning sector in SVG coords (0° = top, clockwise)
     const center  = wi * SLICE + SLICE / 2;
@@ -93,27 +79,11 @@ export function SpinWheel({ onWin }: { onWin?: () => void }) {
     const offset  = ((360 - center) - (deg % 360) + 360) % 360;
     setDeg(d => d + offset + 360 * 8);
 
-    setTimeout(async () => {
+    setTimeout(() => {
       setSpinning(false);
       setPrize(winner);
-      setSpun(true); // optimistic — prevent double-spin
-
-      if (winner.coins > 0) {
-        const { data: w } = await supabase.from('player_wallets')
-          .select('coins, total_earned').eq('student_name', dbKey).maybeSingle();
-        if (w) {
-          await supabase.from('player_wallets').update({
-            coins:        (w as any).coins        + winner.coins,
-            total_earned: (w as any).total_earned + winner.coins,
-          }).eq('student_name', dbKey);
-          onWin?.();
-        }
-      }
-      // Record spin (used for daily-once check)
-      await supabase.from('coin_transactions').insert({
-        student_name: dbKey, amount: winner.coins,
-        source: 'spin_wheel', game_id: winner.id,
-      });
+      setSpun(true);
+      if (winner.coins > 0) onWin?.();
     }, 3900);
   };
 

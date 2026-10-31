@@ -6,7 +6,7 @@ import { Chessboard } from 'react-chessboard';
 import type { PieceDropHandlerArgs, SquareHandlerArgs, PieceHandlerArgs } from 'react-chessboard/dist/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/useGameStore';
-import { addCoins } from '@/lib/wallet';
+import { awardCoins } from '@/lib/coinsClient';
 import { getBestMove, AIDifficulty } from '@/lib/chess-ai';
 import { updateChessScore, getChessLeaderboard, ChessScoreRow } from '@/lib/chess-scores';
 import { supabase } from '@/lib/supabase';
@@ -515,7 +515,7 @@ interface BoardProps {
   roomCode?: string;
   playerName: string;
   playerEmail: string;
-  onDone: (winner: Winner, moves: number) => void;
+  onDone: (winner: Winner, moves: number, opponent?: string) => void;
 }
 
 function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, playerName, playerEmail, onDone }: BoardProps) {
@@ -595,7 +595,7 @@ function GameBoard({ mode, difficulty = 'medium', playerColor = 'w', roomCode, p
     }
 
     setEndBanner({ title, sub });
-    setTimeout(() => onDone(w, moveCountRef.current), 2600);
+    setTimeout(() => onDone(w, moveCountRef.current, opponentName), 2600);
   }, [onDone]);
 
   const syncStatus = useCallback((g: Chess) => {
@@ -1082,14 +1082,17 @@ export function ChessGame({ onBack }: { onBack: () => void }) {
 
   const MIN_MOVES_MP = 6;
 
-  const handleWin = useCallback(async (w: Winner, moves: number) => {
+  const handleWin = useCallback(async (w: Winner, moves: number, opponent?: string) => {
     setWinner(w);
     setMode('done');
     const qualified = gameMode !== 'mp' || moves >= MIN_MOVES_MP;
     const coins = qualified ? (w === 'player' ? COINS_WIN : w === 'draw' ? COINS_DRAW : 0) : 0;
-    setCoinsEarned(coins);
+    setCoinsEarned(0);
     if (coins > 0 && playerName) {
-      await addCoins(playerName, coins, 0, true, '', 'chess', playerEmail ?? '').catch(() => {});
+      // The server sets the chess reward (easy computer 0, medium 20, hard 40, 10 moves minimum).
+      const result = w === 'player' ? 'win' : w === 'draw' ? 'draw' : 'loss';
+      const r = await awardCoins({ game: 'chess', coins, chess: { mode: gameMode, difficulty, moves, result, opponent } });
+      setCoinsEarned(r.credited);
     }
     if (playerName && qualified) {
       const result = w === 'player' ? 'win' : w === 'draw' ? 'draw' : 'loss';

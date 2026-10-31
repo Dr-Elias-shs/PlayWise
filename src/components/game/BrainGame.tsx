@@ -6,9 +6,8 @@ import { ArrowLeft, RotateCcw, Flame, Volume2, VolumeX } from 'lucide-react';
 import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 import { OwlCharacter, OwlMood } from './OwlCharacter';
 import { playSound } from '@/lib/sounds';
-import { addCoins } from '@/lib/wallet';
+import { awardCoins } from '@/lib/coinsClient';
 import { recordGameResult } from '@/lib/learningScore';
-import { applyDailyFreshness } from '@/lib/gameRewards';
 import { useGameStore } from '@/store/useGameStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -571,12 +570,9 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
         const totalSteps   = problem.steps.length;
         const correctSteps = totalSteps - mistakes;
         if (playerName) {
-          const dbKey = playerEmail || playerName;
-          applyDailyFreshness(dbKey, 'brain', total).then(capped => {
-            setCoinsEarned(capped);
-            addCoins(playerName, capped, elapsed, true, '', 'brain', playerEmail).catch(() => {});
-            recordGameResult(playerName, 'brain', correctSteps, totalSteps, playerGrade ?? '').catch(() => {});
-          });
+          awardCoins({ game: 'brain', coins: total, correct: correctSteps, total: totalSteps, level, playSeconds: elapsed })
+            .then(r => setCoinsEarned(r.credited));
+          recordGameResult(playerName, 'brain', correctSteps, totalSteps, playerGrade ?? '').catch(() => {});
         }
         setOwlMood('celebrate');
         setDone(true);

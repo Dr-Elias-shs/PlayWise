@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/useGameStore";
-import { addCoins } from "@/lib/wallet";
+import { awardCoins } from '@/lib/coinsClient';
 import { recordGameResult } from "@/lib/learningScore";
 
 // ─── Question generator ───────────────────────────────────────────────────────
@@ -276,10 +276,10 @@ export function PenaltyShootout({ onBack }: Props) {
           // Game over
           const goals  = newResults.filter(r => r === "goal").length;
           const coins  = goals * 2 + (goals === 5 ? 5 : 0);
-          setCoinsEarned(coins);
+          setCoinsEarned(0);
           if (coins > 0 && (playerName || playerEmail)) {
-            const key = playerEmail?.trim().toLowerCase() || playerName;
-            await addCoins(playerName, coins, 0, true, '', 'penalty', playerEmail?.trim().toLowerCase() || '');
+            const r = await awardCoins({ game: 'penalty', coins, correct: goals, total: KICKS });
+            setCoinsEarned(r.credited);
           }
           if (playerName || playerEmail) {
             const key = playerEmail?.trim().toLowerCase() || playerName;

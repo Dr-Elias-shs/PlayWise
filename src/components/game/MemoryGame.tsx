@@ -3,9 +3,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX } from 'lucide-react';
 import { useGameStore } from '@/store/useGameStore';
-import { addCoins } from '@/lib/wallet';
+import { awardCoins } from '@/lib/coinsClient';
 import { recordGameResult } from '@/lib/learningScore';
-import { applyDailyFreshness } from '@/lib/gameRewards';
 import { playSound } from '@/lib/sounds';
 import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 
@@ -348,11 +347,8 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
     const minFlips = totalPairs * 2;
     const bonus = Math.max(0, minFlips + 4 - flips);
     const rawEarned = Math.round((totalPairs * 3 + bonus) * mult);
-    const dbKey = playerEmail || playerName;
-    applyDailyFreshness(dbKey, 'memory', rawEarned).then(earned => {
-      setCoins(earned);
-      addCoins(playerName, earned, elapsed, true, playerGrade, 'memory', playerEmail).catch(() => {});
-    });
+    awardCoins({ game: 'memory', coins: rawEarned, correct: matches, total: totalPairs, level, playSeconds: elapsed })
+      .then(r => setCoins(r.credited));
     // Accuracy = pairs found on first try / total pairs  (mismatches = flips/2 - matches)
     const mismatches = Math.max(0, Math.floor(flips / 2) - matches);
     recordGameResult(playerName, 'memory', matches, matches + mismatches, playerGrade).catch(() => {});

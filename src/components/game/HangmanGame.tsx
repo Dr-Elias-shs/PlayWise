@@ -5,9 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, RotateCcw } from 'lucide-react';
 import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 import { playSound } from '@/lib/sounds';
-import { addCoins } from '@/lib/wallet';
+import { awardCoins } from '@/lib/coinsClient';
 import { recordGameResult } from '@/lib/learningScore';
-import { applyDailyFreshness } from '@/lib/gameRewards';
 import { useGameStore } from '@/store/useGameStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -301,12 +300,9 @@ export function HangmanGame({ onBack }: { onBack: () => void }) {
       const lettersGuessedCorrect = wordLen;
       const totalLetters = wordLen + wrongCount;
       if (playerName) {
-        const dbKey = playerEmail || playerName;
-        applyDailyFreshness(dbKey, 'hangman', rawCoins).then(coins => {
-          setCoinsEarned(coins);
-          addCoins(playerName, coins, elapsed, true, '', 'hangman', playerEmail).catch(() => {});
-          recordGameResult(playerName, 'hangman', lettersGuessedCorrect, totalLetters, playerGrade ?? '').catch(() => {});
-        });
+        awardCoins({ game: 'hangman', coins: rawCoins, correct: 1, level: level ?? undefined, playSeconds: elapsed })
+          .then(r => setCoinsEarned(r.credited));
+        recordGameResult(playerName, 'hangman', lettersGuessedCorrect, totalLetters, playerGrade ?? '').catch(() => {});
       }
       setGameStatus('won');
     } else if (isLost) {
@@ -315,7 +311,6 @@ export function HangmanGame({ onBack }: { onBack: () => void }) {
       const guessedRight = word.split('').filter(l => guessed.has(l)).length;
       const totalAttempts = guessedRight + wrongCount;
       if (playerName) {
-        addCoins(playerName, 0, elapsed, false, '', 'hangman', playerEmail).catch(() => {});
         recordGameResult(playerName, 'hangman', guessedRight, totalAttempts, playerGrade ?? '').catch(() => {});
       }
       setGameStatus('lost');

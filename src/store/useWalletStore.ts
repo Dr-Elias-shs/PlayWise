@@ -11,7 +11,8 @@ interface WalletData {
 
 interface WalletState extends WalletData {
   setPlayerName:    (name: string, email?: string) => void;
-  addPlayBits:      (amount: number, syncToDB?: boolean) => void;
+  // The server's balance after an award, a purchase or a spin.
+  setBalance:       (playBits: number) => void;
   syncWithDatabase: (studentName: string, email?: string) => Promise<void>;
 }
 
@@ -64,25 +65,9 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     get().syncWithDatabase(playerName, playerEmail);
   },
 
-  async addPlayBits(amount, syncToDB = true) {
-    const playBits = Math.max(0, get().playBits + amount);
+  setBalance(playBits) {
     set({ playBits });
     const { playerName, playerEmail } = get();
     persist({ playerName, playerEmail, playBits });
-
-    // Sync change to Supabase if player is identified and requested
-    if (syncToDB && (playerEmail || (playerName && playerName !== 'Player'))) {
-      try {
-        const { addCoins, spendCoins } = await import('@/lib/wallet');
-        if (amount > 0) {
-          await addCoins(playerName, amount, 0, false, '', 'shop', playerEmail);
-        } else if (amount < 0) {
-          // Spending (shop)
-          await spendCoins(playerEmail || playerName, Math.abs(amount));
-        }
-      } catch (err) {
-        console.error('Failed to sync bits to Supabase:', err);
-      }
-    }
   },
 }));

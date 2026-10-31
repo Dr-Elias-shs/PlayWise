@@ -5,9 +5,9 @@ import { Volume2, VolumeX } from 'lucide-react';
 import { useGameStore } from '@/store/useGameStore';
 import { playSound, speak } from '@/lib/sounds';
 import { saveScore } from '@/lib/supabase';
-import { addCoins, calcCoins } from '@/lib/wallet';
+import { calcCoins } from '@/lib/wallet';
+import { awardCoins } from '@/lib/coinsClient';
 import { recordGameResult } from '@/lib/learningScore';
-import { applyDailyFreshness } from '@/lib/gameRewards';
 import { GameConfig, Question } from '@/lib/gameConfigs';
 import { StreakOverlay } from './StreakOverlay';
 import { CoinReward } from './CoinReward';
@@ -194,17 +194,12 @@ export function GameEngine({ config, onBack }: { config: GameConfig; onBack: () 
 
       // No coins if all lives were lost or minimum threshold not met on Easy
       const rawCoins = (lostAllLives || tooFew) ? 0 : calcCoins(cc, ms, false, false);
-      const dbKey    = playerEmail || playerName;
-      applyDailyFreshness(dbKey, config.id, rawCoins).then(coins => {
-        setCoinsEarned(lostAllLives ? 0 : coins);
-        if (!lostAllLives && coins > 0) {
-          addCoins(playerName, coins, elapsed, true, playerGrade, config.id, playerEmail)
-            .then(({ error }: any) => {
-              if (error) console.error('Coin save failed:', error.message);
-            });
-        }
-        recordGameResult(playerName, config.id, cc, cc + wc, playerGrade).catch(() => {});
-      });
+      setCoinsEarned(0);
+      if (rawCoins > 0) {
+        awardCoins({ game: config.id, coins: rawCoins, correct: cc, total: cc + wc, level: level ?? undefined, playSeconds: elapsed })
+          .then(r => setCoinsEarned(r.credited));
+      }
+      recordGameResult(playerName, config.id, cc, cc + wc, playerGrade).catch(() => {});
     }
   }, [isGameOver]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -146,94 +146,7 @@ export async function getWallet(studentName: string) {
   return data;
 }
 
-// Diminishing returns thresholds per game per day (multiplication has its own system)
-const DAILY_FULL_PLAYS  = 3; // plays 1–3: 100%
-const DAILY_HALF_PLAYS  = 6; // plays 4–6: 50%
-                              // plays 7+:   0%
-
-export async function addCoins(
-  studentName: string,   // display name (UI only)
-  amount: number,
-  playTimeSeconds = 0,
-  incrementGames = true,
-  grade = '',
-  gameId = 'unknown',
-  studentEmail = '',     // stable DB key — falls back to studentName if not set
-) {
-  // Use email as DB identifier when available, otherwise fall back to name
-  const dbKey      = studentEmail.trim().toLowerCase() || studentName;
-  const displayName = studentName;
-
-  // Daily per-game diminishing returns — skip for multiplication (has its own system)
-  if (amount > 0 && gameId !== 'unknown' && !gameId.startsWith('multiplication-')) {
-    const todayUTC = new Date().toISOString().split('T')[0];
-    const { count } = await supabase
-      .from('game_sessions')
-      .select('*', { count: 'exact', head: true })
-      .eq('student_name', dbKey)
-      .eq('game_id', gameId)
-      .gte('created_at', `${todayUTC}T00:00:00.000Z`);
-
-    const playsToday = count ?? 0;
-    if (playsToday >= DAILY_HALF_PLAYS) {
-      amount = 1;
-    } else if (playsToday >= DAILY_FULL_PLAYS) {
-      amount = Math.floor(amount * 0.5);
-    }
-  }
-
-  if (amount > 0) {
-    supabase.from('coin_transactions').insert({
-      student_name: dbKey,
-      amount, source: 'game_play', game_id: gameId,
-    }).then();
-  }
-
-  if (incrementGames) {
-    supabase.from('game_sessions').insert({
-      student_name: dbKey,
-      game_id: gameId, coins_earned: amount, play_time_seconds: playTimeSeconds,
-    }).then();
-  }
-
-  const { data: existing } = await supabase
-    .from('player_wallets').select('*').eq('student_name', dbKey).maybeSingle();
-
-  if (existing) {
-    return supabase.from('player_wallets').update({
-      display_name:      displayName,
-      coins:             existing.coins + amount,
-      total_earned:      existing.total_earned + amount,
-      play_time_seconds: existing.play_time_seconds + playTimeSeconds,
-      games_played:      existing.games_played + (incrementGames ? 1 : 0),
-      ...(grade ? { grade } : {}),
-      updated_at:        new Date().toISOString(),
-    }).eq('student_name', dbKey);
-  }
-
-  return supabase.from('player_wallets').insert({
-    student_name:      dbKey,
-    display_name:      displayName,
-    coins:             amount,
-    total_earned:      amount,
-    total_redeemed:    0,
-    play_time_seconds: playTimeSeconds,
-    games_played:      incrementGames ? 1 : 0,
-    grade,
-  });
-}
-
-export async function spendCoins(studentName: string, amount: number) {
-  if (!studentName || amount <= 0) return;
-  const wallet = await getWallet(studentName);
-  if (!wallet || wallet.coins < amount) return { error: 'Not enough coins' };
-
-  return supabase.from('player_wallets').update({
-    coins:          Math.max(0, wallet.coins - amount),
-    total_redeemed: (wallet.total_redeemed ?? 0) + amount,
-    updated_at:     new Date().toISOString(),
-  }).eq('student_name', studentName);
-}
+// PlayBits are earned and spent only through the server (/api/coins, src/lib/coinsClient.ts).
 
 // ─── Shop ─────────────────────────────────────────────────────────────────────
 
@@ -268,28 +181,6 @@ export async function deleteShopItem(id: string) {
 
 // ─── Redemptions ──────────────────────────────────────────────────────────────
 
-export async function redeemItem(studentName: string, itemId: string, itemName: string, itemEmoji: string, cost: number) {
-  const wallet = await getWallet(studentName);
-  if (!wallet || wallet.coins < cost) throw new Error('Not enough coins');
-
-  // Deduct coins
-  await supabase.from('player_wallets').update({
-    coins: wallet.coins - cost,
-    total_redeemed: wallet.total_redeemed + cost,
-    updated_at: new Date().toISOString(),
-  }).eq('student_name', studentName);
-
-  // Record redemption
-  return supabase.from('redemptions').insert({
-    student_name: studentName,
-    item_id: itemId,
-    item_name: itemName,
-    item_emoji: itemEmoji,
-    cost,
-    status: 'pending',
-  });
-}
-
 export async function getMyRedemptions(studentName: string) {
   const { data } = await supabase
     .from('redemptions')
@@ -307,26 +198,6 @@ export async function getAllWallets() {
     .select('*')
     .order('coins', { ascending: false });
   return data ?? [];
-}
-
-export async function mergeWallets(keepEmail: string, deleteEmail: string): Promise<void> {
-  const [{ data: keep }, { data: drop }] = await Promise.all([
-    supabase.from('player_wallets').select('*').eq('student_name', keepEmail).maybeSingle(),
-    supabase.from('player_wallets').select('*').eq('student_name', deleteEmail).maybeSingle(),
-  ]);
-  if (!keep || !drop) return;
-
-  await supabase.from('player_wallets').update({
-    coins:             keep.coins + drop.coins,
-    total_earned:      keep.total_earned + drop.total_earned,
-    total_redeemed:    keep.total_redeemed + drop.total_redeemed,
-    play_time_seconds: keep.play_time_seconds + drop.play_time_seconds,
-    games_played:      keep.games_played + drop.games_played,
-    grade:             keep.grade || drop.grade,
-    updated_at:        new Date().toISOString(),
-  }).eq('student_name', keepEmail);
-
-  await supabase.from('player_wallets').delete().eq('student_name', deleteEmail);
 }
 
 export async function getAllRedemptions() {
@@ -387,10 +258,6 @@ export async function setGlobalConfig(key: string, value: any) {
     console.log('Global config saved successfully:', data);
   }
   return { error };
-}
-
-export async function updateRedemptionStatus(id: string, status: 'approved' | 'rejected') {
-  return supabase.from('redemptions').update({ status }).eq('id', id);
 }
 
 export async function syncGradesToLearningScores(): Promise<number> {

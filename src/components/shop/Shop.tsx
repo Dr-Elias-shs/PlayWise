@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 import { useWalletStore } from '@/store/useWalletStore';
+import { buyItem } from '@/lib/coinsClient';
 import { COLORS, ACCESSORIES, AccessoryItem, itemTopFraction, resolveAccessory } from '@/lib/avatar-items';
 import { useCharacterRegistry, resolveOutfitStand, type RegistryOutfit } from '@/lib/characterRegistry';
 import { useAccessoryPositions } from '@/hooks/useAccessoryPositions';
@@ -60,7 +61,19 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
   useAccessoryPositions();
   const registry    = useCharacterRegistry();
   const charDef     = registry.character(characterId) ?? registry.characters[0];
-  const { playBits, addPlayBits } = useWalletStore();
+  const { playBits } = useWalletStore();
+  const [buyError, setBuyError] = useState('');
+
+  // Every purchase goes through the server; the item unlocks only when it succeeds.
+  async function purchase(kind: 'accessory' | 'outfit' | 'character', id: string, unlock: () => void) {
+    if (!isLocal) {
+      const r = await buyItem(kind, id);
+      if (!r.ok) { setBuyError(r.error || 'Purchase failed'); setTimeout(() => setBuyError(''), 2500); return; }
+    }
+    unlock();
+    setJustBought(id);
+    setTimeout(() => setJustBought(null), 1500);
+  }
 
   const activeColor      = COLORS.find(c => c.id === (previewColor ?? colorId));
   const hatsAndExtras    = ACCESSORIES.filter(a => a.category !== 'clothing');
@@ -84,11 +97,10 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
     const owned = acc.category === 'clothing' ? ownedClothing : ownedAccessories;
     if (owned.includes(acc.id)) return;
     if (!isLocal && playBits < acc.price) return;
-    addPlayBits(-acc.price);
-    if (acc.category === 'clothing') { ownClothing(acc.id); equipClothing(acc.id); }
-    else { ownAccessory(acc.id); equipAccessory(acc.id); }
-    setJustBought(acc.id);
-    setTimeout(() => setJustBought(null), 1500);
+    purchase('accessory', acc.id, () => {
+      if (acc.category === 'clothing') { ownClothing(acc.id); equipClothing(acc.id); }
+      else { ownAccessory(acc.id); equipAccessory(acc.id); }
+    });
   }
 
   function toggleEquip(acc: AccessoryItem) {
@@ -137,6 +149,11 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
 
     return (
       <div className="min-h-screen flex flex-col bg-brand-background">
+      {buyError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-red-600 text-white font-black text-sm px-4 py-2 rounded-full shadow-lg">
+          {buyError}
+        </div>
+      )}
 
         {/* ── Top header ─────────────────────────────────────────────────────── */}
         <div className="bg-gradient-to-r from-violet-700 via-purple-700 to-indigo-800 shadow-xl">
@@ -295,10 +312,7 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
                           ) : (
                             <button onClick={() => {
                               if (!canBuy) return;
-                              if (!isLocal) addPlayBits(-outfit.price);
-                              ownClothing(outfit.id); equipClothing(outfit.id);
-                              setJustBought(outfit.id);
-                              setTimeout(() => setJustBought(null), 1500);
+                              purchase('outfit', outfit.id, () => { ownClothing(outfit.id); equipClothing(outfit.id); });
                             }} disabled={!canBuy}
                               className={`w-full py-2 rounded-xl font-black text-sm transition-all ${
                                 bought ? 'bg-emerald-500 text-white' :
@@ -383,10 +397,7 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
                                   <button
                                     onClick={() => {
                                       if (!canBuy) return;
-                                      if (!isLocal) addPlayBits(-item.price);
-                                      ownCharacter(item.id);
-                                      setJustBought(item.id);
-                                      setTimeout(() => setJustBought(null), 1500);
+                                      purchase('character', item.id, () => ownCharacter(item.id));
                                     }}
                                     disabled={!canBuy}
                                     className={`w-full py-3 rounded-2xl font-black text-sm transition-all ${
@@ -613,9 +624,7 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
                     ) : (
                       <button onClick={() => {
                         if (!canBuy) return;
-                        if (!isLocal) addPlayBits(-outfit.price);
-                        ownClothing(outfit.id); equipClothing(outfit.id);
-                        setJustBought(outfit.id); setTimeout(() => setJustBought(null), 1500);
+                        purchase('outfit', outfit.id, () => { ownClothing(outfit.id); equipClothing(outfit.id); });
                       }} disabled={!canBuy}
                         className={`mt-1 text-xs font-black px-3 py-1 rounded-full transition-all ${
                           bought ? 'bg-emerald-500 text-white' :
@@ -662,8 +671,7 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
                     ) : (
                       <button onClick={() => {
                         if (!canBuy) return;
-                        if (!isLocal) addPlayBits(-item.price);
-                        ownCharacter(item.id); setJustBought(item.id); setTimeout(() => setJustBought(null), 1500);
+                        purchase('character', item.id, () => ownCharacter(item.id));
                       }} disabled={!canBuy}
                         className={`mt-1 text-xs font-black px-3 py-1 rounded-full transition-all ${
                           bought ? 'bg-emerald-500 text-white' :
@@ -696,6 +704,11 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(8px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      {buyError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-red-600 text-white font-black text-sm px-4 py-2 rounded-full shadow-lg">
+          {buyError}
+        </div>
+      )}
       <motion.div
         initial={{ scale: 0.88, opacity: 0, y: 20 }}
         animate={{ scale: 1,    opacity: 1, y: 0  }}

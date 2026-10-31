@@ -4,11 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   getAllWallets, getAllRedemptions, getAllShopItems,
   addShopItem, toggleShopItem, deleteShopItem,
-  updateRedemptionStatus, formatPlayTime,
+  formatPlayTime,
   getAllScores, getAllTransactions, getAllSessions,
   getGlobalConfig, setGlobalConfig,
   getAllGradeRequests, resolveGradeRequest,
-  banPlayer, unbanPlayer, mergeWallets, syncGradesToLearningScores,
+  banPlayer, unbanPlayer, syncGradesToLearningScores,
   type GradeChangeRequest,
 } from '@/lib/wallet';
 import { ALL_GAMES } from '@/lib/gameConfigs';
@@ -26,6 +26,7 @@ import {
   parseQuestionsWithOllama,
 } from '@/lib/curriculum';
 import { StaffGate } from '@/components/admin/StaffGate';
+import { adminResolveRedemption, adminMergeWallets } from '@/lib/coinsClient';
 
 
 function resolveGameName(id: string | null | undefined, focusTable?: number): string {
@@ -149,7 +150,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
         : group.reduce((a, b) => a.coins >= b.coins ? a : b);
       const drops = group.filter(w => w.student_name !== keep.student_name);
       for (const drop of drops) {
-        await mergeWallets(keep.student_name, drop.student_name);
+        await adminMergeWallets(keep.student_name, drop.student_name);
         // Update local keep coins so subsequent merges in same group accumulate correctly
         keep = { ...keep, coins: keep.coins + drop.coins };
         merged++;
@@ -207,7 +208,8 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   };
 
   const handleStatus = async (id: string, status: 'approved' | 'rejected') => {
-    await updateRedemptionStatus(id, status);
+    // Rejecting gives the student's PlayBits back (server side).
+    try { await adminResolveRedemption(id, status); } catch (e) { alert(String(e)); }
     await load();
   };
 
@@ -1568,7 +1570,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
                   disabled={merging}
                   onClick={async () => {
                     setMerging(true);
-                    await mergeWallets(mergeModal.keep.student_name, mergeModal.drop.student_name);
+                    await adminMergeWallets(mergeModal.keep.student_name, mergeModal.drop.student_name);
                     setWallets(prev => {
                       const keep = prev.find(p => p.student_name === mergeModal.keep.student_name)!;
                       const drop = prev.find(p => p.student_name === mergeModal.drop.student_name)!;

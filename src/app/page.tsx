@@ -23,6 +23,7 @@ import { Shop } from "@/components/shop/Shop";
 import { WalletBadge } from "@/components/hub/WalletBadge";
 import { useWalletStore } from "@/store/useWalletStore";
 import { useSessionStore } from "@/store/useSessionStore";
+import { syncOwned } from "@/lib/coinsClient";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { loginRequest } from "@/lib/msal";
 import { Leaderboard } from "@/components/hub/Leaderboard";
@@ -113,15 +114,9 @@ export default function Home() {
   const [emailInput, setEmailInput] = useState('');
   const [showStats, setShowStats] = useState(false);
   const [bannedInfo, setBannedInfo] = useState<{ banned: boolean; reason: string } | null>(null);
-  const [testBypass, setTestBypass] = useState(false); // hidden tester unlock (skips time gate)
-
-  // Tester URL unlock: open /?unlock=676767 to preview without the gesture.
-  useEffect(() => {
-    if (typeof window !== 'undefined' &&
-        new URLSearchParams(window.location.search).get('unlock') === '676767') {
-      setTestBypass(true);
-    }
-  }, []);
+  // Staff (from Wisely) skip the time limits; the old ?unlock= code was readable by anyone.
+  const isStaffSession = useSessionStore(st => !!st.session && (st.session.isStaff || st.session.isAdmin));
+  const testBypass = isStaffSession;
   const { isFullscreen, toggle: toggleFullscreen, enter: enterFullscreen } = useFullscreen();
   const msalConfigured = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID !== '00000000-0000-0000-0000-000000000000';
   const { instance, accounts } = useMsal();
@@ -162,11 +157,20 @@ export default function Home() {
     // Grade and class come from Wisely through the server session. When Wisely has
     // a grade it wins over whatever this device remembered.
     startSession(instance, accounts[0]).then(s => {
-      if (!s?.grade) return;
+      if (!s) return;
       const st = useGameStore.getState();
-      if (st.playerGrade !== s.grade) {
+      if (s.grade && st.playerGrade !== s.grade) {
         setProfile(displayName, email, st.colorId || 'green', s.grade, st.characterId || 'male');
       }
+      // Owned shop items live on the wallet so they follow the student to any tablet.
+      syncOwned({ accessories: st.ownedAccessories, clothing: st.ownedClothing, characters: st.ownedCharacters })
+        .then(owned => {
+          if (!owned) return;
+          const g = useGameStore.getState();
+          (owned.accessories ?? []).forEach(id => { if (!g.ownedAccessories.includes(id)) g.ownAccessory(id); });
+          (owned.clothing ?? []).forEach(id => { if (!g.ownedClothing.includes(id)) g.ownClothing(id); });
+          (owned.characters ?? []).forEach(id => { if (!g.ownedCharacters.includes(id)) g.ownCharacter(id); });
+        });
     });
     // If grade isn't in localStorage, restore from DB to avoid re-asking
     if (!playerGrade) {

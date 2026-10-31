@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 import { playSound } from '@/lib/sounds';
-import { addCoins } from '@/lib/wallet';
+import { awardCoins } from '@/lib/coinsClient';
 import { useGameStore } from '@/store/useGameStore';
 import {
   TRIVIA_CATEGORIES, TriviaCategory, TriviaGrade, TriviaLevel, TriviaQuestion,
@@ -452,13 +452,14 @@ export function TriviaGame({ onBack }: { onBack: () => void }) {
   const handleDone = useCallback(async (score: number, total: number, coins: number, lostAllLives: boolean) => {
     setFinalScore(score);
     setFinalTotal(total);
-    setFinalCoins(coins);
+    setFinalCoins(0);
     setLostLives(lostAllLives);
     if (coins > 0 && playerName) {
-      await addCoins(playerName, coins, 0, true, '', `trivia-${category}`, playerEmail ?? '').catch(() => {});
+      const r = await awardCoins({ game: `trivia-${category}`, coins, correct: score, total, level });
+      setFinalCoins(r.credited);
     }
     setPhase('done');
-  }, [playerName, playerEmail, category]);
+  }, [playerName, category, level]);
 
   if (phase === 'level') {
     return (

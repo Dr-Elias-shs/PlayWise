@@ -4,9 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Volume2, RotateCcw, Delete } from 'lucide-react';
 import { playSound } from '@/lib/sounds';
-import { addCoins } from '@/lib/wallet';
+import { awardCoins } from '@/lib/coinsClient';
 import { recordGameResult } from '@/lib/learningScore';
-import { applyDailyFreshness } from '@/lib/gameRewards';
 import { useGameStore } from '@/store/useGameStore';
 import { getWordsForGrade } from '@/lib/spellingBee';
 import { supabase } from '@/lib/supabase';
@@ -578,11 +577,12 @@ export function SpellingBeeGame({ onBack }: { onBack: () => void }) {
         const rawCoins = newCorrect * 2 * gradeBonus + (newCorrect === words.length ? 10 : 0);
         if (playerName) {
           const dbKey = playerEmail || playerName;
-          applyDailyFreshness(dbKey, 'spelling-bee', rawCoins).then(coins => {
-            setCoinsEarned(coins);
-            addCoins(playerName, coins, elapsed, newCorrect > 0, playerGrade ?? '', 'spelling-bee', playerEmail).catch(() => {});
-            recordGameResult(dbKey, 'spelling-bee', newCorrect, words.length, playerGrade ?? '').catch(() => {});
-          });
+          setCoinsEarned(0);
+          if (newCorrect > 0) {
+            awardCoins({ game: 'spelling-bee', coins: rawCoins, correct: newCorrect, total: words.length, playSeconds: elapsed })
+              .then(r => setCoinsEarned(r.credited));
+          }
+          recordGameResult(dbKey, 'spelling-bee', newCorrect, words.length, playerGrade ?? '').catch(() => {});
         }
       } else {
         setIdx(nextIdx);
