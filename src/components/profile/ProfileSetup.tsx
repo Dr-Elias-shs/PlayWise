@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/useGameStore';
 import { useSessionStore } from '@/store/useSessionStore';
+import { WorldBackdrop } from '@/components/world/WorldBackdrop';
 import { COLORS } from '@/lib/avatar-items';
 import { useCharacterRegistry } from '@/lib/characterRegistry';
 import {
@@ -83,8 +84,8 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6"
-      style={{ background: 'linear-gradient(135deg, #1e1b4b, #4c1d95, #6b21a8)' }}>
+    <div className="min-h-screen relative flex items-center justify-center p-6">
+      <WorldBackdrop wash={0.2} />
 
       {/* SHS logo — upper left */}
       <div className="fixed top-4 left-4 bg-white/90 backdrop-blur-sm rounded-xl p-1.5 shadow-lg">
@@ -95,7 +96,8 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg"
+        className="relative z-10 bg-white/95 backdrop-blur-md rounded-[32px] p-8 w-full max-w-lg"
+        style={{ boxShadow: '0 8px 0 rgba(15,60,40,0.18), 0 24px 50px -16px rgba(15,60,40,0.45)' }}
       >
         {/* ── Character type picker ── */}
         <div className="mb-6">
@@ -235,7 +237,7 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
         <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
           onClick={handleSave}
           className="w-full py-4 text-white font-black text-lg rounded-2xl shadow-lg"
-          style={{ background: 'linear-gradient(135deg, #7c3aed, #9333ea)' }}>
+          style={{ background: 'linear-gradient(135deg, #f59e0b, #f97316)', boxShadow: '0 5px 0 #b45309' }}>
           {isEditing ? '✅ Save Changes' : "🚀 Let's Play!"}
         </motion.button>
 

@@ -9,6 +9,7 @@ import { StreakOverlay } from './StreakOverlay';
 import { CoinReward } from './CoinReward';
 import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
 import { Volume2, VolumeX } from 'lucide-react';
+import { placeBackground } from '@/lib/world';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -114,7 +115,7 @@ function TablePicker({ onSelect, onBack, soundEnabled, onToggleSound }: {
   onToggleSound: () => void;
 }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-violet-900 to-purple-900 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: placeBackground('multiplication') }}>
       <div className="w-full max-w-2xl">
         <div className="flex justify-between items-center mb-10">
           <button onClick={onBack}
@@ -193,7 +194,7 @@ function GameOver({ score, maxStreak, correctCount, wrongCount, coinsEarned, bre
   const display = outcome ? outcomeDisplay[outcome] : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-violet-900 to-purple-900 flex items-center justify-center p-6">
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: placeBackground('multiplication') }}>
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         {Array.from({ length: 16 }).map((_, i) => (
           <motion.div key={i}
@@ -481,7 +482,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
       <LevelPicker
         onSelect={setLevel}
         onBack={() => setFocusNumber(null)}
-        bgStyle="linear-gradient(135deg, #6d28d9, #9333ea, #a21caf)"
+        bgStyle={placeBackground('multiplication')}
       />
     );
   }
@@ -506,7 +507,7 @@ export const MultiplicationGame = ({ onBack }: { onBack: () => void }) => {
   const label = streakLabel(streak);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-700 via-purple-600 to-fuchsia-700 flex flex-col select-none relative">
+    <div className="min-h-screen flex flex-col select-none relative" style={{ background: placeBackground('multiplication', 0.6) }}>
       <StreakOverlay streak={streak} />
 
       {/* Header */}

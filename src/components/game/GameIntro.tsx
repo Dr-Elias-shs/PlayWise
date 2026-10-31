@@ -3,6 +3,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { GameConfig } from "@/lib/gameConfigs";
+import { PLACES } from '@/lib/world';
+import { LoopVideo } from '@/components/world/LoopVideo';
 
 // ─── Per-game extras ──────────────────────────────────────────────────────────
 
@@ -178,7 +180,7 @@ export function GameIntro({ config, onPlay, onBack }: Props) {
           onClick={onBack}
           className="absolute top-5 left-5 bg-white/10 backdrop-blur-sm border border-white/20 text-white/70 hover:text-white hover:bg-white/20 transition-all rounded-2xl px-4 py-2 text-sm font-bold z-20"
         >
-          ← Hub
+          ← Valley
         </motion.button>
 
         {/* Center card */}
@@ -196,20 +198,27 @@ export function GameIntro({ config, onPlay, onBack }: Props) {
             padding: "2.5rem 2rem 2rem",
           }}
         >
-          {/* Emoji hero */}
+          {/* The place in PlayWise Valley, alive (Higgsfield loop); emoji for games without one */}
           <motion.div
-            initial={{ scale: 0, rotate: -15 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 18, delay: 0.15 }}
+            initial={{ scale: 0.6, opacity: 0, rotate: -4 }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.15 }}
             className="text-center mb-5"
           >
-            <motion.span
-              className="text-8xl inline-block"
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-            >
-              {config.emoji}
-            </motion.span>
+            {PLACES[config.id] ? (
+              <div className="relative mx-auto rounded-[28px] overflow-hidden aspect-[4/3] w-full"
+                style={{ boxShadow: '0 0 0 4px rgba(255,255,255,0.85), 0 16px 32px -10px rgba(0,0,0,0.5)' }}>
+                <LoopVideo src={PLACES[config.id].loop} poster={PLACES[config.id].card} className="absolute inset-0 w-full h-full" />
+                <span className="absolute left-1/2 -translate-x-1/2 bottom-2 bg-white/90 text-emerald-950 text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full">
+                  {config.emoji} {PLACES[config.id].name}
+                </span>
+              </div>
+            ) : (
+              <motion.span className="text-8xl inline-block" animate={{ y: [0, -8, 0] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}>
+                {config.emoji}
+              </motion.span>
+            )}
           </motion.div>
 
           {/* Title */}

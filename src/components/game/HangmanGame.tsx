@@ -8,6 +8,7 @@ import { playSound } from '@/lib/sounds';
 import { awardCoins } from '@/lib/coinsClient';
 import { recordGameResult } from '@/lib/learningScore';
 import { useGameStore } from '@/store/useGameStore';
+import { placeBackground } from '@/lib/world';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,7 +62,7 @@ function pickWord(lang: Language, level: Level): string {
 function LanguagePicker({ onSelect, onBack }: { onSelect: (l: Language) => void; onBack: () => void }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6"
-      style={{ background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)' }}>
+      style={{ background: placeBackground('hangman') }}>
       <div className="w-full max-w-sm">
         <div className="text-center mb-10">
           <div className="text-5xl mb-3">🪢</div>
@@ -345,7 +346,7 @@ export function HangmanGame({ onBack }: { onBack: () => void }) {
       <LevelPicker
         onSelect={lvl => { setLevel(lvl); startGame(language, lvl); }}
         onBack={() => setLanguage(null)}
-        bgStyle="linear-gradient(135deg, #0f0c29, #302b63, #24243e)"
+        bgStyle={placeBackground('hangman')}
         descriptions={{
           easy:   `Short words · first letter shown · ${LANG_CONFIG[language].native}`,
           medium: `Longer words · ${LANG_CONFIG[language].native}`,
@@ -364,7 +365,7 @@ export function HangmanGame({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)' }}>
+      style={{ background: placeBackground('hangman') }}>
 
       {/* Stars */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">

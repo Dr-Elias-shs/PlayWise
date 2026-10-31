@@ -38,48 +38,9 @@ import { useTimeGuard } from "@/hooks/useTimeGuard";
 import { TimeGate } from "@/components/TimeGate";
 import { useHeartbeat } from "@/hooks/useHeartbeat";
 import { supabase } from "@/lib/supabase";
-
-// ─── Hub game card ────────────────────────────────────────────────────────────
-
-function HubGameCard({ config, onClick, multiplayerBadge, index = 0 }: {
-  config: GameConfig;
-  onClick: () => void;
-  multiplayerBadge?: boolean;
-  index?: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.06, type: 'spring', stiffness: 260, damping: 22 }}
-      whileHover={{ y: -6, scale: 1.03 }}
-      whileTap={{ scale: 0.96 }}
-      onClick={onClick}
-      className="relative overflow-hidden rounded-3xl cursor-pointer group"
-      style={{ background: config.cardStyle, minHeight: 160 }}
-    >
-      {/* Shine sweep on hover */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-        style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%)' }} />
-
-      <div className="relative z-10 p-5 flex flex-col h-full" style={{ minHeight: 160 }}>
-        <div className="flex items-start justify-between mb-3">
-          <span className="text-5xl drop-shadow-lg">{config.emoji}</span>
-          {multiplayerBadge && (
-            <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-black px-2.5 py-1 rounded-full border border-white/20">
-              ⚔️ MULTI
-            </span>
-          )}
-        </div>
-        <h3 className="text-lg font-black text-white leading-tight">{config.title}</h3>
-        <p className="text-white/65 text-xs mt-1 leading-relaxed flex-1">{config.description}</p>
-        <div className="mt-3 flex items-center gap-1 text-white/80 text-xs font-bold">
-          Play Now <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+import { WorldBackdrop } from "@/components/world/WorldBackdrop";
+import { PlaceCard } from "@/components/world/PlaceCard";
+import { MascotBubble } from "@/components/world/MascotBubble";
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -113,6 +74,13 @@ export default function Home() {
   const [gameSettings, setGameSettings] = useState<Record<string, boolean>>({});
   const [emailInput, setEmailInput] = useState('');
   const [showStats, setShowStats] = useState(false);
+  // Hub: one game card at a time comes alive (its Higgsfield loop), cycling every 5 s.
+  const [spotlight, setSpotlight] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setSpotlight(i => i + 1), 5000);
+    return () => clearInterval(t);
+  }, []);
+  const sessionClass = useSessionStore(st => st.session?.classroom ?? null);
   const [bannedInfo, setBannedInfo] = useState<{ banned: boolean; reason: string } | null>(null);
   // Staff (from Wisely) skip the time limits; the old ?unlock= code was readable by anyone.
   const isStaffSession = useSessionStore(st => !!st.session && (st.session.isStaff || st.session.isAdmin));
@@ -302,8 +270,13 @@ export default function Home() {
   // ── Login ──
   if (screen === 'login' || (!playerName && screen !== 'profile-setup')) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-brand-background">
-        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
+      <div className="min-h-screen relative flex flex-col items-center justify-center p-6">
+        <WorldBackdrop wash={0.15} />
+        <div className="relative z-10 max-w-md w-full bg-white/95 backdrop-blur-md rounded-[32px] overflow-hidden"
+          style={{ boxShadow: '0 8px 0 rgba(15,60,40,0.18), 0 24px 50px -16px rgba(15,60,40,0.45)' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/world/intro.webp" alt="The PlayWise friends looking over PlayWise Valley" className="w-full aspect-[16/8] object-cover" />
+          <div className="p-7 pt-5">
           {/* SHS logo — upper left */}
           <div className="flex items-center gap-3 mb-6">
             <div className="bg-slate-50 p-1.5 rounded-xl border border-slate-100 shadow-sm">
@@ -317,15 +290,16 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <h1 className="text-3xl font-black text-center text-slate-800 mb-2">PlayWise</h1>
-          <p className="text-slate-500 text-center mb-8">Ready to level up your learning?</p>
+          <h1 className="font-display text-4xl font-extrabold text-center text-emerald-950 mb-1">PlayWise</h1>
+          <p className="text-emerald-900/60 text-center font-bold mb-7">Your adventure in PlayWise Valley starts here</p>
 
           <div className="space-y-3">
             {/* Microsoft SSO — the real login */}
             {msalConfigured ? (
               <button onClick={handleLogin}
-                className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-xl border-2 border-slate-100 hover:border-brand-primary hover:bg-brand-primary/5 transition-all font-bold text-slate-700 text-lg">
-                <LogIn size={22} className="text-brand-primary" />
+                className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-2xl bg-amber-400 hover:bg-amber-300 active:translate-y-0.5 transition-all font-display font-extrabold text-amber-950 text-xl"
+                style={{ boxShadow: '0 5px 0 #b45309' }}>
+                <LogIn size={22} />
                 Sign in with Microsoft
               </button>
             ) : (
@@ -363,6 +337,7 @@ export default function Home() {
                 </div>
               </div>
             )}
+          </div>
           </div>
         </div>
       </div>
@@ -449,130 +424,104 @@ export default function Home() {
   const visibleGames = ALL_GAMES.filter(g => gameSettings[g.id] !== false);
 
   return (
-    <div className="min-h-screen relative overflow-x-hidden"
-      style={{ background: 'linear-gradient(160deg, #0f0c29 0%, #1a1040 40%, #0d1f3c 100%)' }}>
+    <div className="min-h-screen relative overflow-x-hidden">
+      <WorldBackdrop />
 
-      {/* Subtle background glow orbs */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full opacity-20"
-          style={{ background: 'radial-gradient(circle, #7c3aed, transparent)' }} />
-        <div className="absolute top-1/3 -right-32 w-80 h-80 rounded-full opacity-15"
-          style={{ background: 'radial-gradient(circle, #0ea5e9, transparent)' }} />
-        <div className="absolute bottom-0 left-1/3 w-72 h-72 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #10b981, transparent)' }} />
-      </div>
+      <div className="relative z-10 px-4 py-5 md:px-8 md:py-7 lg:px-10 max-w-7xl mx-auto"
+        style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top, 0px))' }}>
 
-      <div className="relative z-10 p-4 md:p-8 lg:p-10 max-w-7xl mx-auto">
-
-        {/* ── Header ── */}
-        <header className="flex items-center justify-between gap-4 mb-8 flex-wrap">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-3"
-          >
-            <div className="bg-white/10 backdrop-blur-sm p-2 rounded-2xl border border-white/15 hidden sm:block">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/playwise-logo.png" alt="Logo" className="w-10 h-10 object-contain" />
-            </div>
-            <div>
-              <button onClick={() => setShowStats(true)} className="text-left group">
-                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight group-hover:text-violet-300 transition-colors">
-                  Hey, {playerName}! 👋
-                </h1>
-              </button>
-              <p className="text-white/40 text-sm font-medium">
-                Grade {playerGrade} · Ready to play?
+        {/* ── Header: the owl says hello ── */}
+        <header className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3 bg-white/85 backdrop-blur-md rounded-[28px] pl-2 pr-5 py-2 min-w-0"
+            style={{ boxShadow: '0 5px 0 rgba(15,60,40,0.12), 0 12px 24px -12px rgba(15,60,40,0.3)' }}>
+            <MascotBubble size={58} />
+            <button onClick={() => setShowStats(true)} className="text-left min-w-0">
+              <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-emerald-950 leading-tight truncate">
+                Hey, {playerName}!
+              </h1>
+              <p className="text-emerald-800/70 text-sm font-bold truncate">
+                Grade {playerGrade}{sessionClass ? ` · ${sessionClass}` : ''} · Where to today?
               </p>
-            </div>
+            </button>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 flex-wrap"
-          >
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2 flex-wrap">
             <WalletBadge
               studentName={playerName} playerEmail={playerEmail} refreshKey={walletRefresh}
               onClick={() => { if (playerName) syncWallet(playerName, playerEmail); setScreen('shop'); }}
             />
             <SpinWheel onWin={() => setWalletRefresh(r => r + 1)} />
-            <button onClick={toggleFullscreen}
-              className="bg-white/10 backdrop-blur-sm p-2.5 rounded-2xl border border-white/15 text-white/50 hover:text-white hover:bg-white/20 transition-all"
-              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
-              {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-            </button>
-            <button onClick={() => setScreen('profile-edit')}
-              className="bg-white/10 backdrop-blur-sm p-2.5 rounded-2xl border border-white/15 text-white/50 hover:text-white hover:bg-white/20 transition-all"
-              title="Edit Profile">
-              <Settings size={18} />
-            </button>
-            {isAuthenticated && (
-              <button onClick={handleLogout}
-                className="bg-white/10 backdrop-blur-sm p-2.5 rounded-2xl border border-white/15 text-white/50 hover:text-red-400 hover:bg-white/20 transition-all"
-                title="Sign Out">
-                <LogOut size={18} />
+            {[
+              { on: toggleFullscreen, title: isFullscreen ? 'Exit Fullscreen' : 'Fullscreen', icon: isFullscreen ? <Minimize size={18} /> : <Maximize size={18} /> },
+              { on: () => setScreen('profile-edit'), title: 'Edit Profile', icon: <Settings size={18} /> },
+              ...(isAuthenticated ? [{ on: handleLogout, title: 'Sign Out', icon: <LogOut size={18} /> }] : []),
+            ].map(b => (
+              <button key={b.title} onClick={b.on} title={b.title}
+                className="bg-white/85 backdrop-blur-md p-2.5 rounded-2xl text-emerald-900/70 hover:text-emerald-950 hover:bg-white transition-all"
+                style={{ boxShadow: '0 3px 0 rgba(15,60,40,0.15)' }}>
+                {b.icon}
               </button>
-            )}
+            ))}
           </motion.div>
         </header>
 
         {/* ── Main grid ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-5">
 
-            {/* Section label */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
               className="flex items-center gap-3">
-              <h2 className="text-white font-black text-lg tracking-tight">🎮 Choose Your Game</h2>
-              <div className="flex-1 h-px bg-white/10" />
-              <span className="text-white/30 text-xs font-semibold">{visibleGames.length} games</span>
+              <h2 className="font-display text-emerald-950 text-xl sm:text-2xl font-extrabold">Explore PlayWise Valley</h2>
+              <div className="flex-1 h-1 rounded-full bg-emerald-900/10" />
+              <span className="text-emerald-900/60 text-xs font-black bg-white/70 px-2.5 py-1 rounded-full">{visibleGames.length} places</span>
             </motion.div>
 
-            {/* Game cards grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {visibleGames.map((config, i) => (
-                <HubGameCard
+                <PlaceCard
                   key={config.id}
                   config={config}
                   index={i}
+                  spotlight={visibleGames.length > 0 && spotlight % visibleGames.length === i}
                   onClick={() => handleGameCardClick(config)}
-                  multiplayerBadge={config.id === 'multiplication'}
+                  badge={config.id === 'multiplication' ? 'Duels too' : undefined}
                 />
               ))}
             </div>
 
-            {/* Math Duels banner (hidden when the grade's Math Duels switch is off) */}
-            {gameSettings.multiplayer !== false && <motion.section
+            {/* Math Duels (hidden when the grade's Math Duels switch is off) */}
+            {gameSettings.multiplayer !== false && <motion.button
+              type="button"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
+              whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }}
               onClick={() => setScreen('multiplayer')}
-              className="relative overflow-hidden rounded-3xl cursor-pointer group"
-              style={{ background: 'linear-gradient(135deg, #2e1065, #4c1d95, #7c3aed)' }}
+              className="relative w-full text-left overflow-hidden rounded-[28px]"
+              style={{ boxShadow: '0 6px 0 rgba(49,24,87,0.35), 0 14px 30px -12px rgba(49,24,87,0.5)' }}
             >
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.08), transparent)' }} />
-              <div className="relative z-10 p-6 flex items-center gap-5">
-                <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 border border-white/20 flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/world/places/multiplication.webp" alt="" className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(49,24,87,0.92) 0%, rgba(49,24,87,0.7) 55%, rgba(49,24,87,0.2) 100%)' }} />
+              <div className="relative z-10 p-5 sm:p-6 flex items-center gap-4">
+                <div className="bg-white/15 rounded-2xl p-3.5 border border-white/25 shrink-0">
                   <Users size={28} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-xl font-black text-white">Math Duels ⚔️</h2>
-                  <p className="text-white/60 text-sm mt-0.5">Challenge classmates live — all games available</p>
+                  <h2 className="font-display text-2xl font-extrabold text-white leading-tight">Math Duels at the Castle</h2>
+                  <p className="text-white/75 text-sm mt-0.5">Challenge a classmate live, head to head</p>
                 </div>
-                <motion.div
-                  whileHover={{ x: 4 }}
-                  className="bg-white text-violet-700 font-black text-sm px-5 py-2.5 rounded-2xl shadow-lg flex-shrink-0 hidden sm:block"
-                >
-                  Enter Lobby →
-                </motion.div>
+                <span className="hidden sm:block bg-amber-400 text-amber-950 font-black text-sm px-5 py-2.5 rounded-2xl shrink-0"
+                  style={{ boxShadow: '0 3px 0 #b45309' }}>
+                  Enter lobby
+                </span>
               </div>
-            </motion.section>}
+            </motion.button>}
 
           </div>
 
-          {/* Leaderboard */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-            className="lg:col-span-1"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+            className="lg:col-span-1">
             <Leaderboard />
           </motion.div>
         </div>

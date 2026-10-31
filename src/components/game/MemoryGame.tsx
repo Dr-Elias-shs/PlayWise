@@ -7,6 +7,7 @@ import { awardCoins } from '@/lib/coinsClient';
 import { recordGameResult } from '@/lib/learningScore';
 import { playSound } from '@/lib/sounds';
 import { LevelPicker, Level, LEVEL_CONFIG } from './LevelPicker';
+import { placeBackground } from '@/lib/world';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -219,7 +220,7 @@ function GameOver({ level, matches, flips, elapsed, coins, lostAllLives, onPlayA
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6"
-      style={{ background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)' }}>
+      style={{ background: placeBackground('memory') }}>
 
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         {Array.from({ length: 14 }).map((_, i) => (
@@ -405,7 +406,7 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
     return (
       <LevelPicker
         onSelect={setLevel} onBack={onBack}
-        bgStyle="linear-gradient(135deg, #0f0c29, #302b63, #24243e)"
+        bgStyle={placeBackground('memory')}
         descriptions={LEVEL_DESCRIPTIONS}
       />
     );
@@ -431,7 +432,7 @@ export function MemoryGame({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-screen flex flex-col select-none"
-      style={{ background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)' }}>
+      style={{ background: placeBackground('memory') }}>
 
       {/* Header */}
       <div className="px-4 pt-4 pb-2 flex items-center gap-3">

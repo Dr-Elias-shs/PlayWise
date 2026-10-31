@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Nunito, Baloo_2 } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+// Nov 2026 adventure-world look: rounded, friendly faces. Headings use font-display.
+const nunito = Nunito({ subsets: ["latin"], variable: "--font-body", display: "swap" });
+const baloo = Baloo_2({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-display", display: "swap" });
 
 export const metadata: Metadata = {
   title: "PlayWise",
@@ -23,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#4F46E5",
+  themeColor: "#2f9e6e",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -41,7 +43,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${nunito.variable} ${baloo.variable} font-sans`}>
         <SWUpdater />
         <MsalProvider>
           {children}

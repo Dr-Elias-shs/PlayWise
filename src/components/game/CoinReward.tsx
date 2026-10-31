@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playSound } from '@/lib/sounds';
+import { MascotBubble } from '@/components/world/MascotBubble';
 
 interface Props { coins: number; }
 
@@ -63,6 +64,13 @@ export function CoinReward({ coins }: Props) {
 
   return (
     <div className="flex flex-col items-center">
+      {/* The owl celebrates when PlayBits were earned (Higgsfield clip) */}
+      {coins > 0 && (
+        <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 16 }} className="mb-1">
+          <MascotBubble size={84} mood="cheer" />
+        </motion.div>
+      )}
       {/* Falling coin rain */}
       <div className="relative w-full h-20 mb-2">
         {coinParticles.map(p => (

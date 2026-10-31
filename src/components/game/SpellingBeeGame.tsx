@@ -9,9 +9,10 @@ import { recordGameResult } from '@/lib/learningScore';
 import { useGameStore } from '@/store/useGameStore';
 import { getWordsForGrade } from '@/lib/spellingBee';
 import { supabase } from '@/lib/supabase';
+import { placeBackground } from '@/lib/world';
 
 const WORDS_PER_SESSION = 15;
-const BG = 'linear-gradient(135deg, #0c1a6e, #1a237e, #0d47a1)';
+const BG = placeBackground('spelling-bee');
 
 const KB_ROWS = [
   ['Q','W','E','R','T','Y','U','I','O','P'],

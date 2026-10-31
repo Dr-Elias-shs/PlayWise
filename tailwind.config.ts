@@ -18,6 +18,10 @@ const config: Config = {
           background: "#F8FAFC",
         },
       },
+      fontFamily: {
+        sans: ['var(--font-body)', 'Nunito', 'system-ui', 'Segoe UI', 'Tahoma', 'sans-serif'],
+        display: ['var(--font-display)', 'Baloo 2', 'var(--font-body)', 'system-ui', 'sans-serif'],
+      },
       borderRadius: {
         'xl': '1rem',
         '2xl': '1.5rem',

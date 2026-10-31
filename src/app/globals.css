@@ -8,6 +8,12 @@
   --background-end-rgb: 255, 255, 255;
 }
 
+/* Adventure-world look (Nov 2026): headings and bold UI text use the rounded display face. */
+h1, h2, h3, h4, .font-black, .font-display {
+  font-family: var(--font-display), 'Baloo 2', var(--font-body), system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
 body {
   background: #f8fafc;
   color: #1e293b;

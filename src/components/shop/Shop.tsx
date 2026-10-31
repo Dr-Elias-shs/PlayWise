@@ -159,7 +159,7 @@ export function Shop({ onClose, pageMode, onPrizes }: { onClose: () => void; pag
       )}
 
         {/* ── Top header ─────────────────────────────────────────────────────── */}
-        <div className="bg-gradient-to-r from-violet-700 via-purple-700 to-indigo-800 shadow-xl">
+        <div className="shadow-xl relative overflow-hidden" style={{ background: 'linear-gradient(90deg, rgba(20,83,45,0.92), rgba(15,118,110,0.85)), url(/world/places/fractions.webp) center / cover' }}>
           <div className="max-w-4xl mx-auto px-6 pt-6 pb-0">
             <div className="flex items-center justify-between mb-5">
               <button onClick={onClose}
@@ -182,7 +182,7 @@ export function Shop({ onClose, pageMode, onPrizes }: { onClose: () => void; pag
                 <button key={t} onClick={() => setMainTab(t)}
                   className={`px-5 sm:px-8 py-3 font-black text-sm rounded-t-2xl transition-all ${
                     mainTab === t
-                      ? 'bg-brand-background text-violet-700'
+                      ? 'bg-brand-background text-emerald-800'
                       : 'text-white/70 hover:text-white hover:bg-white/10'
                   }`}>
                   {t === 'shop' ? '🛍️ Shop' : '🎒 Redeemed'}
@@ -547,7 +547,7 @@ export function Shop({ onClose, pageMode, onPrizes }: { onClose: () => void; pag
   // ── MODAL MODE (in-game) ──────────────────────────────────────────────────────
   const cardContent = (
     <>
-      <div className="bg-gradient-to-r from-violet-600 to-purple-700 px-5 pt-5 pb-4">
+      <div className="px-5 pt-5 pb-4" style={{ background: 'linear-gradient(90deg, #14532d, #0f766e)' }}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-white font-black text-xl">🛒 Character Shop</h2>
           <button onClick={onClose}

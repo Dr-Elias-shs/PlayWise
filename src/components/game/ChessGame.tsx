@@ -10,6 +10,7 @@ import { awardCoins } from '@/lib/coinsClient';
 import { getBestMove, AIDifficulty } from '@/lib/chess-ai';
 import { updateChessScore, getChessLeaderboard, ChessScoreRow } from '@/lib/chess-scores';
 import { supabase } from '@/lib/supabase';
+import { placeBackground } from '@/lib/world';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ type Winner  = 'player' | 'ai' | 'opponent' | 'draw' | null;
 const COINS_WIN  = 80;
 const COINS_DRAW = 20;
 
-const BG = 'linear-gradient(135deg, #0f2027, #203a43, #2c5364)';
+const BG = placeBackground('chess');
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
 

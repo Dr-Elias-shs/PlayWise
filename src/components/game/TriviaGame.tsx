@@ -10,6 +10,7 @@ import {
   TRIVIA_CATEGORIES, TriviaCategory, TriviaGrade, TriviaLevel, TriviaQuestion,
   getTriviaQuestions, markSeen, reportQuestion,
 } from '@/lib/trivia';
+import { placeBackground } from '@/lib/world';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ function CategoryPicker({
 }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6"
-      style={{ background: 'linear-gradient(135deg, #0f172a, #1e1b4b, #0f172a)' }}>
+      style={{ background: placeBackground('trivia') }}>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">🎯</div>
@@ -127,7 +128,7 @@ function GameOver({
     <div className="min-h-screen flex items-center justify-center p-6"
       style={{ background: lostAllLives
         ? 'linear-gradient(135deg, #450a0a, #7f1d1d, #450a0a)'
-        : 'linear-gradient(135deg, #0f172a, #1e1b4b, #0f172a)' }}>
+        : placeBackground('trivia') }}>
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -325,7 +326,7 @@ function QuizPlay({ questions, level, category, grade, onDone }: GameProps) {
   const bgStyle = BG_BY_CATEGORY[category];
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: bgStyle }}>
+    <div className="min-h-screen flex flex-col" style={{ background: placeBackground('trivia', 0.6) + ', ' + bgStyle }}>
       {/* HUD */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
         <Hearts lives={lives} />
@@ -482,7 +483,7 @@ export function TriviaGame({ onBack }: { onBack: () => void }) {
       <LevelPicker
         onSelect={lvl => { setLevel(lvl); setPhase('category'); }}
         onBack={onBack}
-        bgStyle="linear-gradient(135deg, #0f172a, #1e1b4b, #0f172a)"
+        bgStyle={placeBackground('trivia')}
         descriptions={{
           easy:   '30 seconds per question',
           medium: '20 seconds per question',
@@ -511,7 +512,7 @@ export function TriviaGame({ onBack }: { onBack: () => void }) {
   if (phase === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg, #0f172a, #1e1b4b, #0f172a)' }}>
+        style={{ background: placeBackground('trivia') }}>
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-violet-400/30 border-t-violet-400 rounded-full animate-spin mx-auto" />
           <p className="text-white/60 font-medium">Loading questions…</p>

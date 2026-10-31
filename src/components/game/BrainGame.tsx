@@ -9,6 +9,7 @@ import { playSound } from '@/lib/sounds';
 import { awardCoins } from '@/lib/coinsClient';
 import { recordGameResult } from '@/lib/learningScore';
 import { useGameStore } from '@/store/useGameStore';
+import { placeBackground } from '@/lib/world';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -601,7 +602,7 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
     return (
       <LevelPicker
         onSelect={startProblem} onBack={onBack}
-        bgStyle="linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95)"
+        bgStyle={placeBackground('brain')}
         descriptions={{
           easy:   'Simple one-step problems with your owl guide',
           medium: 'Bigger numbers + logic & science missions',
@@ -613,7 +614,7 @@ export function BrainGame({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95)' }}>
+      style={{ background: placeBackground('brain') }}>
 
       {/* Particles */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useGameStore } from "@/store/useGameStore";
 import { awardCoins } from '@/lib/coinsClient';
 import { recordGameResult } from "@/lib/learningScore";
+import { placeBackground } from '@/lib/world';
 
 // ─── Question generator ───────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ function DiffPicker({ onPick }: { onPick: (d: Difficulty) => void }) {
   ];
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center gap-5 p-6"
-      style={{ background: "linear-gradient(160deg,#0a3d0a,#1a5c1a,#0d2b0d)" }}>
+      style={{ background: placeBackground('penalty') }}>
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
         <div className="text-6xl text-center mb-1">⚽</div>
         <h1 className="text-3xl font-black text-white text-center">Penalty Shootout</h1>
@@ -119,7 +120,7 @@ function EndScreen({ scored, total, coins, onAgain, onBack }:
 
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center gap-6 p-6"
-      style={{ background: "linear-gradient(160deg,#0a3d0a,#1a5c1a,#0d2b0d)" }}>
+      style={{ background: placeBackground('penalty') }}>
       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
         transition={{ type: "spring", stiffness: 260, damping: 18 }}
         className="text-center">
