@@ -1,6 +1,6 @@
 "use client";
 import { useGameStore } from "@/store/useGameStore";
-import { Users, Trophy, LogIn, LogOut, Settings, Maximize, Minimize } from "lucide-react";
+import { Users, Trophy, LogIn, LogOut, Settings, Maximize, Minimize, Music, VolumeX } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useFullscreen } from "@/hooks/useFullscreen";
@@ -39,6 +39,7 @@ import { TimeGate } from "@/components/TimeGate";
 import { useHeartbeat } from "@/hooks/useHeartbeat";
 import { supabase } from "@/lib/supabase";
 import { WorldBackdrop } from "@/components/world/WorldBackdrop";
+import { valleyMusic, musicPreference, saveMusicPreference } from "@/lib/valleyMusic";
 import { PlaceCard } from "@/components/world/PlaceCard";
 import { MascotBubble } from "@/components/world/MascotBubble";
 
@@ -81,6 +82,17 @@ export default function Home() {
     return () => clearInterval(t);
   }, []);
   const sessionClass = useSessionStore(st => st.session?.classroom ?? null);
+
+  // PlayWise Valley theme (composed in code): off by default, remembered per tablet.
+  // The hub theme plays around the games; a lighter, quieter version inside them.
+  const [musicOn, setMusicOn] = useState(false);
+  useEffect(() => { setMusicOn(musicPreference()); }, []);
+  useEffect(() => {
+    const inGame = ['game-intro', 'game-loading', 'game', 'multiplayer'].includes(screen);
+    if (!musicOn || showIntro || screen === 'login') { valleyMusic.stop(); return; }
+    valleyMusic.start(inGame ? 'play' : 'valley');
+  }, [musicOn, screen, showIntro]);
+  const toggleMusic = () => setMusicOn(on => { saveMusicPreference(!on); return !on; });
   const [bannedInfo, setBannedInfo] = useState<{ banned: boolean; reason: string } | null>(null);
   // Staff (from Wisely) skip the time limits; the old ?unlock= code was readable by anyone.
   const isStaffSession = useSessionStore(st => !!st.session && (st.session.isStaff || st.session.isAdmin));
@@ -454,6 +466,7 @@ export default function Home() {
             />
             <SpinWheel onWin={() => setWalletRefresh(r => r + 1)} />
             {[
+              { on: toggleMusic, title: musicOn ? 'Music off' : 'Music on', icon: musicOn ? <Music size={18} className="text-emerald-600" /> : <VolumeX size={18} /> },
               { on: toggleFullscreen, title: isFullscreen ? 'Exit Fullscreen' : 'Fullscreen', icon: isFullscreen ? <Minimize size={18} /> : <Maximize size={18} /> },
               { on: () => setScreen('profile-edit'), title: 'Edit Profile', icon: <Settings size={18} /> },
               ...(isAuthenticated ? [{ on: handleLogout, title: 'Sign Out', icon: <LogOut size={18} /> }] : []),
