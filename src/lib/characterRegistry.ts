@@ -144,7 +144,9 @@ function rewriteRegistryUrls(reg: CharacterRegistry): CharacterRegistry {
 
 // ─── Cache config ─────────────────────────────────────────────────────────────
 
-const CACHE_KEY = 'character_registry_cache_v2'; // v2: URLs rewritten to /api/sprite
+// v3 (31 Oct 2026): new characters and outfits for every character; bump again whenever
+// the registry changes shape, so devices drop the old copy at once instead of after an hour.
+const CACHE_KEY = 'character_registry_cache_v3'; // v2: URLs rewritten to /api/sprite
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 interface CachedRegistry {

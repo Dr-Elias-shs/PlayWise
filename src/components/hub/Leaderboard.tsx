@@ -117,7 +117,7 @@ function TinyAvatar({ characterId = 'male', colorId = 'green', equippedClothingI
           pointerEvents: 'none',
           zIndex: 3,
         }}>
-          <AccessoryIcon item={accItem} size={Math.round(TINY_H * 0.3)} />
+          <AccessoryIcon item={accItem} size={Math.round(TINY_H * 0.3)} onCharacter />
         </div>
       )}
     </div>

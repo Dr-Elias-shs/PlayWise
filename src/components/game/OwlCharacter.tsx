@@ -61,7 +61,7 @@ function ItemOverlays({ size, outfitActive }: { size: number; outfitActive: bool
           style={{ top: itemTopFraction(acc) * size,
                    left: `calc(50% + ${acc.xOffset ?? 0}px)`,
                    transform: 'translateX(-50%)', fontSize: fs, lineHeight: 1 }}>
-          <AccessoryIcon item={acc} size={fs} />
+          <AccessoryIcon item={acc} size={fs} onCharacter />
         </span>
       )}
       {cloth && (

@@ -36,7 +36,7 @@ function CharPreview({ colorFilter, baseSrc, item, outfitSprite, outfit }: {
         <span className="absolute pointer-events-none select-none"
           style={{ top: topPx, left: `calc(50% + ${item.xOffset ?? 0}px)`,
                    transform: 'translateX(-50%)', fontSize: fs, lineHeight: 1 }}>
-          <AccessoryIcon item={item} size={fs} />
+          <AccessoryIcon item={item} size={fs} onCharacter />
         </span>
       )}
     </div>
