@@ -181,9 +181,13 @@ export function Leaderboard() {
 
   const fetchAll = async () => {
     // Fetch global top-50 + all classmates (in parallel so neither blocks the other)
+    // Only current students: grades come from Wisely, and players who left the school
+    // or old name-only records have no grade (cleared 31 Oct 2026).
     const globalQ = supabase
       .from('learning_scores')
       .select('*')
+      .neq('grade', '')
+      .not('grade', 'is', null)
       .order('learning_score', { ascending: false })
       .limit(50);
 
@@ -242,6 +246,12 @@ export function Leaderboard() {
     }
     setEntries(finalEntries);
 
+    // Current students (a grade from Wisely), so the other tabs drop players who left.
+    const { data: currentRows } = await supabase
+      .from('learning_scores').select('student_name').neq('grade', '').not('grade', 'is', null);
+    const current = new Set((currentRows ?? []).map(r => (r.student_name as string).toLowerCase()));
+    const isCurrent = (n: string) => current.has((n || '').toLowerCase());
+
     // Fetch top-5 per game for Specialists tab
     const specResults: Record<string, SpecialistEntry[]> = {};
     await Promise.all(
@@ -252,8 +262,8 @@ export function Leaderboard() {
           .eq('game_id', gid)
           .gte('sessions_count', 3)
           .order('avg_accuracy', { ascending: false })
-          .limit(5);
-        if (gd) specResults[gid] = gd;
+          .limit(25);
+        if (gd) specResults[gid] = gd.filter(r => isCurrent(r.student_name)).slice(0, 5);
       })
     );
     setSpecialists(specResults);
@@ -263,8 +273,8 @@ export function Leaderboard() {
       .from('chess_scores')
       .select('*')
       .order('rating', { ascending: false })
-      .limit(50);
-    setChessRows((chessData as ChessScoreRow[]) ?? []);
+      .limit(150);
+    setChessRows(((chessData as ChessScoreRow[]) ?? []).filter(r => isCurrent(r.student_name)).slice(0, 50));
 
     setLoading(false);
   };
