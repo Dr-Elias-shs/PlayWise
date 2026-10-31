@@ -157,6 +157,42 @@ class ValleyMusic {
     }
   }
 
+  /**
+   * Victory jingle (about 2 s): a rising C-major fanfare on marimba and bells
+   * over a bass landing. Plays as a sound effect whether or not the background
+   * music is on; the music dips while it plays.
+   */
+  jingle(big = false) {
+    if (typeof window === 'undefined') return;
+    this.init();
+    const ctx = this.ctx!;
+    if (ctx.state === 'suspended') ctx.resume();
+    // the jingle has its own output so it is heard even with the music off
+    const prevOut = this.out!;
+    const jOut = ctx.createGain(); jOut.gain.value = 0.28; jOut.connect(ctx.destination);
+    this.out = jOut;
+    const t = ctx.currentTime + 0.05, s = 0.11;   // a sixteenth at about 135 BPM
+    const run = [C4 + 7, C4 + 12, C4 + 16, C4 + 19];                    // G C E G rising
+    run.forEach((m, k) => this.marimba(hz(m), t + k * s, s * 1.2, 0.5));
+    const land = t + 4 * s + 0.04;
+    [C4 + 12, C4 + 16, C4 + 19, C4 + 24].forEach(m => this.marimba(hz(m), land, 1.1, 0.42));  // C major chord
+    this.pluck(hz(C4 - 12), land, 1.0, 0.6);
+    this.kick(land, 0.55);
+    [C4 + 24, C4 + 28, C4 + 31, C4 + 36].forEach((m, k) => this.bell(hz(m), land + 0.12 + k * 0.07, 0.11));
+    if (big) {   // a perfect round: a second, higher flourish
+      const t2 = land + 0.55;
+      [C4 + 19, C4 + 24, C4 + 28, C4 + 31].forEach((m, k) => this.marimba(hz(m), t2 + k * s * 0.8, s, 0.4));
+      this.bell(hz(C4 + 36), t2 + 0.4, 0.14);
+    }
+    this.out = prevOut;
+    // duck the background music, then bring it back
+    if (this.on) {
+      const g = prevOut.gain;
+      g.setTargetAtTime(this.level() * 0.25, ctx.currentTime, 0.05);
+      g.setTargetAtTime(this.level(), ctx.currentTime + (big ? 2.6 : 2), 0.5);
+    }
+  }
+
   // ── instruments ────────────────────────────────────────────────────────────
   private env(t: number, peak: number, attack: number, decay: number) {
     const g = this.ctx!.createGain();

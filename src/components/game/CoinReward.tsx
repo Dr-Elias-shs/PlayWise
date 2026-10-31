@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playSound } from '@/lib/sounds';
 import { MascotBubble } from '@/components/world/MascotBubble';
+import { valleyMusic } from '@/lib/valleyMusic';
+import { gameAudio } from '@/lib/game-audio';
 
 interface Props { coins: number; }
 
@@ -55,6 +57,11 @@ function FallingCoin({ delay, startX }: { delay: number; startX: number }) {
 
 export function CoinReward({ coins }: Props) {
   const { val, done } = useCounter(coins);
+
+  // Victory jingle when PlayBits were earned (bigger flourish for 25+), once per reward.
+  useEffect(() => {
+    if (coins > 0 && !gameAudio.muted) valleyMusic.jingle(coins >= 25);
+  }, [coins]);
 
   const coinParticles = Array.from({ length: Math.min(coins + 3, 16) }, (_, i) => ({
     id: i,
