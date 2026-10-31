@@ -164,6 +164,8 @@ export interface ParsedQuestion {
   choices:  string[];
   answer:   number;
   expr?:    string;   // math only: the arithmetic that solves it, e.g. "(3+5)/2"
+  explanation?: string;  // one sentence: why the right answer is right (shown to students)
+  flag?:    string;      // set by the second check when something looks wrong
 }
 
 const OLLAMA_MODELS_PREFERENCE = ['mistral:latest', 'gemma3:4b', 'phi:latest', 'deepseek-r1:7b'];
@@ -315,7 +317,9 @@ RULES:
 1. If the text already contains MCQ questions with answer choices, extract ALL of them exactly as written.
 2. If the text is explanatory or is a request to generate questions, GENERATE appropriate MCQ questions that test understanding. ${target ? `Generate exactly ${target}.` : 'Generate as many as the content supports (aim for at least 10).'}
 3. Every question must have exactly 4 answer choices and one correct answer.
-4. Return ONLY a valid JSON array — no explanation, no markdown, no extra text.${mathRules}${countRule}
+4. Every question must have an "explanation": ONE short sentence, in simple words for the grade, saying why the correct answer is right.
+5. Only use facts you are certain of. No trick questions, no opinions, nothing that changes over time (current scores, current champions, "this season").
+6. Return ONLY a valid JSON array — no markdown, no extra text.${mathRules}${countRule}
 
 Subject: ${subject}
 
@@ -325,7 +329,7 @@ ${rawText}
 ---
 
 Return ONLY a JSON array like:
-[{"question":"...","choices":["A","B","C","D"],"answer":0}]`;
+[{"question":"...","choices":["A","B","C","D"],"answer":0,"explanation":"..."}]`;
 }
 
 // Pull the JSON array out of a model response (robust to the junk small models
@@ -363,7 +367,7 @@ function extractQuestions(fullText: string): ParsedQuestion[] {
     typeof q.question === 'string' &&
     Array.isArray(q.choices) && q.choices.length === 4 &&
     typeof q.answer === 'number' && q.answer >= 0 && q.answer <= 3
-  );
+  ).map(q => ({ ...q, explanation: typeof q.explanation === 'string' ? q.explanation.trim() : undefined }));
   const checked = valid.map(verifyNumericAnswer);
   const whole = checked.filter(c => c.whole).map(c => c.q);
   return whole.length > 0 ? whole : checked.map(c => c.q);
@@ -486,5 +490,48 @@ export async function parseQuestionsWithOllama(
     collected = collected.concat(generateMathFill(target - collected.length, seen));
   }
 
-  return target ? collected.slice(0, target) : collected;
+  const out = target ? collected.slice(0, target) : collected;
+  return checkAnswers(out);
+}
+
+// Same question text, ignoring case, spaces and punctuation: used to drop duplicates.
+export const questionKey = (text: string) => text.toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/g, ' ').trim();
+
+// Second check: Gemini answers every question on its own, without seeing the marked
+// answer. Where it disagrees, or a question has two equal choices, the question gets
+// a flag so the person saving it looks again. Never throws; a failed check leaves no flags.
+async function checkAnswers(qs: ParsedQuestion[]): Promise<ParsedQuestion[]> {
+  const out = qs.map(q => {
+    const norm = q.choices.map(c => String(c).trim().toLowerCase());
+    return new Set(norm).size < 4 ? { ...q, flag: 'Two answer choices are the same' } : q;
+  });
+  if (out.length === 0) return out;
+  const list = out.map((q, i) =>
+    `${i + 1}. ${q.question}\n` + q.choices.map((c, j) => `   ${'ABCD'[j]}) ${c}`).join('\n')).join('\n');
+  const prompt = `Answer each multiple-choice question below. For each one give the letter of the single best answer, or "?" if none of the choices is correct or the question is ambiguous.
+
+${list}
+
+Return ONLY a JSON array of letters, one per question, in order, e.g. ["B","A","?"].`;
+  try {
+    const res = await fetch('/api/gemini/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, temperature: 0 }),
+    });
+    if (!res.ok) return out;
+    const { text } = await res.json();
+    const m = String(text || '').match(/\[[\s\S]*\]/);
+    const letters: string[] = m ? JSON.parse(m[0]) : [];
+    if (letters.length !== out.length) return out;
+    return out.map((q, i) => {
+      if (q.flag) return q;
+      const l = String(letters[i] || '').trim().toUpperCase();
+      if (l === '?') return { ...q, flag: 'The checker found no correct choice, or the question is unclear' };
+      const idx = 'ABCD'.indexOf(l);
+      return idx >= 0 && idx !== q.answer
+        ? { ...q, flag: `The checker chose "${q.choices[idx]}" instead` } : q;
+    });
+  } catch {
+    return out;
+  }
 }

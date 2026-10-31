@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { readSession } from '@/lib/server/session';
 
 export const runtime = 'nodejs';
 
@@ -18,6 +19,9 @@ function json(body: unknown, status = 200) {
 // The API key never reaches the browser. Returns 503 when no key is configured
 // so the caller can fall back to the local Ollama model.
 export async function POST(req: NextRequest) {
+  // Staff only: the school's Gemini key must not be usable by anyone on the internet.
+  const s = readSession(req);
+  if (!s || !(s.isStaff || s.isAdmin)) return json({ error: 'staff_only' }, 403);
   const { prompt, temperature = 0.3 } = await req.json().catch(() => ({}));
   if (!prompt || typeof prompt !== 'string') {
     return json({ error: 'missing_prompt' }, 400);

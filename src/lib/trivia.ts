@@ -28,26 +28,62 @@ export interface TriviaQuestion {
   grade: TriviaGrade;
   difficulty: TriviaLevel;
   source?: string;
+  explanation?: string | null;
+  status?: 'legacy' | 'pending' | 'approved' | 'rejected';
+  report_count?: number;
   created_at?: string;
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
+// Recently seen question ids per category, so a student does not get the same round twice.
+const SEEN_KEY = 'playwise_trivia_seen';
+function seen(category: string): string[] {
+  try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}')[category] ?? []; } catch { return []; }
+}
+export function markSeen(category: string, ids: string[]) {
+  try {
+    const all = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}');
+    all[category] = [...ids, ...(all[category] ?? [])].slice(0, 120);
+    localStorage.setItem(SEEN_KEY, JSON.stringify(all));
+  } catch { /* storage blocked */ }
+}
+
+// Live (approved or legacy) questions for one round: the student's grade first,
+// random order, skipping ones seen recently. If too few are left, seen ones come back.
 export async function getTriviaQuestions(
   category: TriviaCategory,
   difficulty: TriviaLevel,
   limit = 20,
+  grade?: string | null,
 ): Promise<TriviaQuestion[]> {
-  const { data, error } = await supabase
-    .from('trivia_questions')
-    .select('*')
-    .eq('category', category)
-    .eq('difficulty', difficulty)
-    .limit(limit);
-  if (error) throw error;
-  // Shuffle so same questions don't always appear in the same order
-  const rows = (data ?? []) as TriviaQuestion[];
-  return rows.sort(() => Math.random() - 0.5);
+  const g = grade && /^\d+$/.test(grade) ? Number(grade) : null;
+  const pick = async (exclude: string[]) => {
+    const { data, error } = await supabase.rpc('pick_trivia', {
+      p_category: category, p_difficulty: difficulty, p_grade: g, p_n: limit, p_exclude: exclude,
+    });
+    if (error) throw error;
+    return (data ?? []) as TriviaQuestion[];
+  };
+  let rows = await pick(seen(category));
+  if (rows.length < limit) rows = await pick([]);
+  return rows;
+}
+
+// "Report this question" (three reports send it back to review).
+export async function reportQuestion(bank: 'trivia' | 'spelling', id: string): Promise<void> {
+  await supabase.rpc('report_question', { p_bank: bank, p_id: id });
+}
+
+// Staff edits go through the server (/api/questions); the browser key is read-only.
+async function staff(body: Record<string, unknown>) {
+  const r = await fetch('/api/questions', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Not allowed');
+  return d;
 }
 
 export async function getAllTriviaForAdmin(
@@ -65,51 +101,30 @@ export async function getAllTriviaForAdmin(
   return (data ?? []) as TriviaQuestion[];
 }
 
+// New and edited questions are 'pending' until approved in Wisely.
 export async function addTriviaQuestion(
   q: Omit<TriviaQuestion, 'id' | 'created_at'>,
 ): Promise<TriviaQuestion> {
-  const { data, error } = await supabase
-    .from('trivia_questions')
-    .insert(q)
-    .select()
-    .single();
-  if (error) throw error;
-  return data as TriviaQuestion;
+  return staff({ bank: 'trivia', op: 'insert', question: q });
 }
 
 export async function updateTriviaQuestion(
   id: string,
   q: Partial<Omit<TriviaQuestion, 'id' | 'created_at'>>,
 ): Promise<void> {
-  const { error } = await supabase.from('trivia_questions').update(q).eq('id', id);
-  if (error) throw error;
+  await staff({ bank: 'trivia', op: 'update', id, question: q });
 }
 
 export async function deleteTriviaQuestion(id: string): Promise<void> {
-  const { error } = await supabase.from('trivia_questions').delete().eq('id', id);
-  if (error) throw error;
+  await staff({ bank: 'trivia', op: 'delete', id });
 }
 
 export async function clearAllTrivia(): Promise<void> {
-  const { error } = await supabase
-    .from('trivia_questions')
-    .delete()
-    .not('id', 'is', null);
-  if (error) throw error;
+  await staff({ bank: 'trivia', op: 'clear' });
 }
 
 export async function bulkInsertTrivia(
   questions: Omit<TriviaQuestion, 'id' | 'created_at'>[],
 ): Promise<number> {
-  const CHUNK = 50;
-  let total = 0;
-  for (let i = 0; i < questions.length; i += CHUNK) {
-    const { data, error } = await supabase
-      .from('trivia_questions')
-      .insert(questions.slice(i, i + CHUNK))
-      .select('id');
-    if (error) throw error;
-    total += (data ?? []).length;
-  }
-  return total;
+  return (await staff({ bank: 'trivia', op: 'bulk', questions })).inserted ?? 0;
 }

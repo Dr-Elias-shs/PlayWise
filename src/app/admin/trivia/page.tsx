@@ -7,7 +7,7 @@ import {
   deleteTriviaQuestion, bulkInsertTrivia, clearAllTrivia,
 } from '@/lib/trivia';
 import { TRIVIA_SEED } from '@/lib/trivia-seed';
-import { parseQuestionsWithOllama } from '@/lib/curriculum';
+import { parseQuestionsWithOllama, questionKey } from '@/lib/curriculum';
 import { StaffGate } from '@/components/admin/StaffGate';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -38,6 +38,15 @@ function blankForm(grade: TriviaGrade): Omit<TriviaQuestion, 'id' | 'created_at'
 
 // ─── Question card ────────────────────────────────────────────────────────────
 
+// Review status, set in Wisely. Students only see 'legacy' and 'approved'.
+const STATUS_LABEL = { legacy: 'Live · to review', pending: 'Waiting for review', approved: 'Approved', rejected: 'Rejected' } as const;
+const STATUS_STYLE = {
+  legacy: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+  pending: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  approved: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  rejected: 'bg-red-500/15 text-red-300 border-red-500/30',
+} as const;
+
 function QCard({
   q, onEdit, onDelete,
 }: {
@@ -55,6 +64,12 @@ function QCard({
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${DIFF_COLORS[q.difficulty]}`}>
               {DIFF_LABELS[q.difficulty]}
             </span>
+            {q.status && (
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${STATUS_STYLE[q.status]}`}
+                title="Questions are reviewed in Wisely (PlayWise Questions)">
+                {STATUS_LABEL[q.status]}{q.report_count ? ` · 🚩${q.report_count}` : ''}
+              </span>
+            )}
             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
               {cat?.emoji} {cat?.label}
             </span>
@@ -203,11 +218,14 @@ function QFormModal({
 
 // ─── AI Generation panel (Ollama) ────────────────────────────────────────────
 
+// A generated question before saving; flag is set when the answer check disagrees.
+type AiDraft = Omit<TriviaQuestion, 'id' | 'created_at'> & { flag?: string };
+
 function AIPanel({
   grade, onGenerated,
 }: {
   grade: TriviaGrade;
-  onGenerated: (questions: Omit<TriviaQuestion, 'id' | 'created_at'>[]) => void;
+  onGenerated: (questions: AiDraft[]) => void;
 }) {
   const [text,       setText]       = useState('');
   const [category,   setCategory]   = useState<TriviaCategory>('history');
@@ -252,18 +270,21 @@ function AIPanel({
       }
 
       // Map ParsedQuestion (choices/answer) → TriviaQuestion shape (options/correct_index)
-      const mapped: Omit<TriviaQuestion, 'id' | 'created_at'>[] = parsed.map(q => ({
+      const mapped: AiDraft[] = parsed.map(q => ({
         question: q.question,
         options: q.choices,
         correct_index: q.answer,
         category,
         grade,
         difficulty,
-        source: 'ai-ollama',
+        source: 'ai',
+        explanation: q.explanation || null,
+        flag: q.flag,
       }));
 
       onGenerated(mapped);
-      setStatus(`✅ Generated ${mapped.length} questions. Review and save them below.`);
+      const flagged = mapped.filter(m => m.flag).length;
+      setStatus(`✅ Generated ${mapped.length} questions${flagged ? `, ${flagged} flagged by the answer check` : ''}. Untick any you do not want, then save.`);
       setStream('');
     } catch (e) {
       setStatus(`Error: ${String(e)}`);
@@ -353,7 +374,8 @@ export default function AdminTriviaPage() {
 
   const [editQ,     setEditQ]     = useState<TriviaQuestion | null>(null);
   const [showAdd,   setShowAdd]   = useState(false);
-  const [aiPreview, setAiPreview] = useState<Omit<TriviaQuestion, 'id' | 'created_at'>[]>([]);
+  const [aiPreview, setAiPreview] = useState<AiDraft[]>([]);
+  const [aiDrop,    setAiDrop]    = useState<Set<number>>(new Set());
   const [seeding,   setSeeding]   = useState(false);
   const [seedStatus,setSeedStatus]= useState('');
 
@@ -426,10 +448,16 @@ export default function AdminTriviaPage() {
     await fetchQuestions();
   };
 
-  const handleSaveAI = async (qs: Omit<TriviaQuestion, 'id' | 'created_at'>[]) => {
-    const count = await bulkInsertTrivia(qs);
-    setAiPreview([]);
-    setSaveStatus(`✅ Saved ${count} AI-generated questions!`);
+  // Saves the ticked questions as 'pending' (reviewed in Wisely), skipping any that
+  // are already in the bank.
+  const handleSaveAI = async (qs: AiDraft[]) => {
+    const existing = new Set((await getAllTriviaForAdmin()).map(q => questionKey(q.question)));
+    const keep = qs.filter((q, i) => !aiDrop.has(i) && !existing.has(questionKey(q.question)))
+      .map(({ flag: _flag, ...q }) => q);
+    const dupes = qs.filter((q, i) => !aiDrop.has(i)).length - keep.length;
+    const count = keep.length ? await bulkInsertTrivia(keep) : 0;
+    setAiPreview([]); setAiDrop(new Set());
+    setSaveStatus(`✅ Saved ${count} questions for review in Wisely${dupes ? ` (${dupes} already in the bank, skipped)` : ''}.`);
     await fetchQuestions();
     setTimeout(() => setSaveStatus(''), 3000);
   };
@@ -537,7 +565,7 @@ export default function AdminTriviaPage() {
         </div>
 
         {/* AI Generator */}
-        <AIPanel grade={grade} onGenerated={qs => setAiPreview(qs)} />
+        <AIPanel grade={grade} onGenerated={qs => { setAiPreview(qs); setAiDrop(new Set(qs.flatMap((q, i) => q.flag ? [i] : []))); }} />
 
         {/* AI preview questions */}
         {aiPreview.length > 0 && (
@@ -551,18 +579,23 @@ export default function AdminTriviaPage() {
                 <button onClick={() => handleSaveAI(aiPreview)}
                   className="px-4 py-2 rounded-xl font-black text-white text-xs"
                   style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}>
-                  Save All to DB
+                  Save {aiPreview.length - aiDrop.size} for review
                 </button>
-                <button onClick={() => setAiPreview([])}
+                <button onClick={() => { setAiPreview([]); setAiDrop(new Set()); }}
                   className="px-3 py-2 rounded-xl font-bold text-white/50 hover:text-white bg-white/5 text-xs transition-colors">
                   Discard
                 </button>
               </div>
             </div>
             {aiPreview.map((q, i) => (
-              <div key={i} className="rounded-xl p-3 border border-white/10 space-y-1.5"
+              <div key={i} className={`rounded-xl p-3 border space-y-1.5 ${q.flag ? 'border-amber-400/40' : 'border-white/10'} ${aiDrop.has(i) ? 'opacity-40' : ''}`}
                 style={{ background: 'rgba(255,255,255,0.03)' }}>
-                <p className="text-white text-sm font-medium">{q.question}</p>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input type="checkbox" checked={!aiDrop.has(i)} className="mt-1"
+                    onChange={() => setAiDrop(d => { const n = new Set(d); if (n.has(i)) n.delete(i); else n.add(i); return n; })} />
+                  <p className="text-white text-sm font-medium">{q.question}</p>
+                </label>
+                {q.flag && <p className="text-amber-300 text-xs font-bold">⚠️ {q.flag}</p>}
                 <div className="grid grid-cols-2 gap-1">
                   {q.options.map((opt, oi) => (
                     <div key={oi} className={`text-xs px-2 py-1 rounded-lg ${oi === q.correct_index
@@ -572,6 +605,7 @@ export default function AdminTriviaPage() {
                     </div>
                   ))}
                 </div>
+                {q.explanation && <p className="text-white/50 text-xs">💡 {q.explanation}</p>}
               </div>
             ))}
           </div>

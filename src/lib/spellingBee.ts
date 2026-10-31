@@ -16,7 +16,9 @@
 
 import { supabase } from './supabase';
 
-// 100 grade-appropriate default words per grade (1–12)
+// About 100 grade-appropriate default words per grade (1–12). Each word appears in
+// one grade only (Nov 2026 clean-up: 134 repeats removed, upper grades refilled with
+// dictionary-checked words).
 export const SPELLING_BEE_DEFAULTS: Record<number, string[]> = {
   1: [
     'cat','dog','sun','hat','map','pen','bus','cup','leg','arm',
@@ -72,11 +74,11 @@ export const SPELLING_BEE_DEFAULTS: Record<number, string[]> = {
     'audience','balanced','behavior','believed','boundary','calendar','campaign','champion','chemical','circular',
     'civilian','classify','colorful','combined','committee','community','conclude','conflict','congress','consider',
     'continue','contrast','convince','criminal','critical','cultural','customer','decision','declared','defeated',
-    'definite','describe','designed','detailed','directly','disaster','discover','distance','distinct','document',
-    'dominant','dramatic','electric','employed','engineer','enormous','entrance','equation','evaluate','evidence',
-    'exercise','expected','explored','extended','familiar','fearless','festival','flexible','fragment','function',
-    'generous','governed','graceful','grateful','guardian','harmless','heritage','hospital','identify','isolated',
-    'keyboard','kinetic','literary','magnetic','majority','material','medieval','midnight','military','moderate',
+    'definite','designed','detailed','directly','disaster','discover','distance','distinct','document','dominant',
+    'dramatic','electric','employed','engineer','enormous','entrance','equation','evaluate','evidence','exercise',
+    'expected','explored','extended','familiar','fearless','fragment','function','generous','governed','graceful',
+    'guardian','harmless','heritage','hospital','identify','isolated','keyboard','kinetic','literary','magnetic',
+    'majority','material','medieval','midnight','military','moderate','absence','anxious','approach','argument',
   ],
   6: [
     'abbreviate','accumulate','acknowledge','administer','advantage','aesthetic','affirmative','aggressive','agriculture','allegiance',
@@ -91,76 +93,74 @@ export const SPELLING_BEE_DEFAULTS: Record<number, string[]> = {
     'parliamentary','percentage','persistence','perspective','population','precipitation','probability','publication','qualification','significance',
   ],
   7: [
-    'appreciate','arithmetic','beautiful','beginning','believe','brilliant','calendar','category','changeable','committee',
-    'conscientious','controversial','curiosity','definitely','dependency','description','disappear','discipline','embarrass','emphasize',
-    'encyclopedia','environment','especially','exaggerate','experience','explanation','extraordinary','fascinate','government','grammar',
-    'guarantee','handkerchief','harassment','hierarchy','humorous','hygiene','immediately','independence','intelligence','interrupt',
-    'jealousy','knowledge','lightning','magnificent','maintenance','mathematics','millennium','miniature','mischievous','necessary',
-    'neighborhood','noticeable','occurrence','opportunity','parliament','perceive','permanent','phenomenon','privilege','psychology',
-    'questionnaire','receive','recommend','reference','relevant','religious','restaurant','rhythm','ridiculous','sacrifice',
-    'secretary','sentence','separate','significance','sincerely','sufficient','summarize','suppress','surprise','syllable',
-    'temperature','throughout','tomorrow','tournament','tragedy','unnecessary','usually','vocabulary','wednesday','withhold',
-    'accommodate','acquaintance','autonomous','benevolent','circumstance','collaborate','commemorate','communicate','congratulate','consecutive',
+    'appreciate','arithmetic','beautiful','beginning','believe','brilliant','category','changeable','conscientious','controversial',
+    'curiosity','definitely','dependency','description','disappear','discipline','embarrass','encyclopedia','especially','exaggerate',
+    'experience','explanation','fascinate','government','grammar','guarantee','handkerchief','harassment','hierarchy','humorous',
+    'hygiene','immediately','independence','intelligence','interrupt','jealousy','knowledge','lightning','magnificent','mathematics',
+    'millennium','miniature','mischievous','necessary','neighborhood','noticeable','occurrence','parliament','perceive','permanent',
+    'phenomenon','privilege','psychology','questionnaire','receive','recommend','reference','relevant','religious','restaurant',
+    'rhythm','ridiculous','sacrifice','secretary','sentence','separate','sincerely','sufficient','summarize','suppress',
+    'surprise','syllable','temperature','throughout','tomorrow','tournament','tragedy','unnecessary','usually','vocabulary',
+    'wednesday','withhold','accommodate','acquaintance','autonomous','benevolent','circumstance','communicate','congratulate','consecutive',
+    'adolescent','accuracy','analysis','anxiety','athletics','audible','auxiliary','bachelor','bizarre','boulevard',
   ],
   8: [
-    'abbreviation','abominable','accelerate','accessible','accommodate','accomplish','accumulate','acquaintance','adequately','administration',
-    'allegiance','ambiguous','anonymous','apparatus','approximately','arbitrary','assassination','atmosphere','attendance','autonomous',
-    'believable','beneficiary','bureaucratic','catastrophic','coincidence','collaborative','commiserate','compatible','comprehensive','conceivable',
-    'confidential','connoisseur','conscience','conspicuous','contemporary','convenience','convergence','counterfeit','cumulative','deferential',
-    'delinquency','demonstration','dependable','derivative','devastation','dilemma','disastrous','discrepancy','disillusioned','dysfunctional',
-    'eccentricity','economically','elaboration','eloquently','embarrassment','empathetic','endurance','enthusiastic','equivalent','erroneous',
-    'evaluation','exaggerated','exhaustive','exquisitely','fascination','feasibility','formidable','fraudulent','fundamental','generosity',
-    'genuinely','grievance','hallucination','hesitation','humiliation','hypocritical','hypothesis','idiosyncratic','illegitimate','imagination',
-    'incapacitate','incompatible','indiscriminate','inexplicable','infrastructure','inhabitable','initiative','innovation','insignificance','intellectual',
-    'interpretation','investigation','justification','knowledgeable','manipulation','meticulous','multiplication','neutralization','observation','painstaking',
+    'abbreviation','abominable','accelerate','accessible','accomplish','adequately','administration','ambiguous','anonymous','apparatus',
+    'approximately','arbitrary','assassination','attendance','believable','beneficiary','bureaucratic','catastrophic','coincidence','collaborative',
+    'commiserate','compatible','comprehensive','conceivable','confidential','connoisseur','conscience','conspicuous','contemporary','convenience',
+    'counterfeit','cumulative','deferential','delinquency','demonstration','dependable','derivative','devastation','dilemma','disastrous',
+    'discrepancy','disillusioned','dysfunctional','eccentricity','economically','elaboration','eloquently','embarrassment','empathetic','endurance',
+    'enthusiastic','equivalent','erroneous','exaggerated','exhaustive','exquisitely','fascination','feasibility','formidable','fraudulent',
+    'generosity','genuinely','grievance','hallucination','hesitation','humiliation','hypocritical','idiosyncratic','illegitimate','imagination',
+    'incapacitate','incompatible','indiscriminate','inexplicable','infrastructure','inhabitable','initiative','insignificance','intellectual','knowledgeable',
+    'manipulation','meticulous','multiplication','neutralization','observation','painstaking','amateur','chauffeur','desperate','endeavor',
+    'existence','fluorescent','fortuitous','fraternity','honorary','ingenious','irresistible','jeopardy','judgment','kaleidoscope',
   ],
   9: [
     'abstinence','accentuate','acrimonious','amalgamate','ambivalence','ameliorate','anachronism','antagonistic','apprehension','assiduous',
-    'atrocious','audacious','auspicious','benevolent','captivating','circumspect','clandestine','cognizant','colloquial','complacent',
-    'conciliatory','condescending','conspicuous','contemptuous','contentious','convoluted','credulous','debilitate','decadence','deceptive',
-    'deferential','deficiency','deleterious','despondent','deteriorate','dilapidated','diminutive','discriminate','disenchanted','disparate',
-    'dissemble','divergent','eloquence','emaciate','eminence','empirical','enigmatic','ephemeral','equivocate','erratic',
-    'exacerbate','exorbitant','exquisite','facilitate','fallacious','fastidious','fervent','fickle','formidable','frivolous',
-    'frugal','garrulous','grandiose','gregarious','hypocrite','impetuous','inadvertent','indigenous','indomitable','inevitable',
-    'inquisitive','insidious','integrity','introspective','irrevocable','laborious','laudable','lethargic','malevolent','meticulous',
-    'nonchalant','obsolete','ostracize','painstaking','paradox','perfidious','procrastinate','profound','quandary','recalcitrant',
-    'resilience','sycophant','ubiquitous','vacillate','voracious','wistful','zealous','venerate','tenacious','sagacious',
+    'atrocious','audacious','auspicious','captivating','circumspect','clandestine','cognizant','colloquial','complacent','conciliatory',
+    'condescending','contemptuous','contentious','convoluted','credulous','debilitate','decadence','deceptive','deleterious','despondent',
+    'deteriorate','dilapidated','diminutive','discriminate','disenchanted','disparate','dissemble','divergent','eloquence','emaciate',
+    'eminence','empirical','enigmatic','ephemeral','equivocate','erratic','exacerbate','exorbitant','exquisite','fallacious',
+    'fastidious','fervent','fickle','frivolous','frugal','garrulous','grandiose','gregarious','hypocrite','impetuous',
+    'inadvertent','indigenous','indomitable','inevitable','inquisitive','insidious','integrity','introspective','irrevocable','laborious',
+    'laudable','lethargic','malevolent','nonchalant','obsolete','ostracize','paradox','perfidious','procrastinate','profound',
+    'quandary','recalcitrant','resilience','sycophant','ubiquitous','vacillate','voracious','wistful','zealous','venerate',
+    'tenacious','sagacious','chrysanthemum','eucalyptus','silhouette','rendezvous','serendipity','mnemonic',
   ],
   10: [
     'abeyance','abnegation','abstemious','acerbity','acquiesce','acrimony','admonish','alacrity','alleviate','ambivalent',
-    'ameliorate','analogous','anathema','animosity','antagonize','apathy','appease','approbation','arbitrary','arcane',
-    'arduous','assiduous','assuage','atrophy','audacious','augment','austere','avarice','aversion','belligerent',
-    'benign','blatant','brevity','cajole','callous','capricious','catharsis','caustic','censure','circumvent',
-    'clandestine','coerce','cogent','cognizant','complacent','conciliatory','condescend','confound','convoluted','cryptic',
-    'culpable','dauntless','debilitate','decorum','deference','delineate','demagogue','deprecate','destitute','devious',
-    'diaphanous','didactic','diffident','digress','diligence','discern','disdain','disparate','dissipate','divergent',
-    'dogmatic','duplicity','ebullient','eclectic','effusive','egregious','eloquent','emulate','ephemeral','equanimity',
-    'equivocal','erudite','exacerbate','exorbitant','facetious','fallacious','fervent','flagrant','forthright','garrulous',
-    'germane','gratuitous','gregarious','guile','harangue','hegemony','heresy','hierarchy','hubris','iconoclast',
+    'analogous','anathema','animosity','antagonize','apathy','appease','approbation','arcane','arduous','assuage',
+    'atrophy','augment','austere','avarice','aversion','belligerent','benign','blatant','brevity','cajole',
+    'callous','capricious','catharsis','caustic','censure','circumvent','coerce','cogent','condescend','confound',
+    'cryptic','culpable','dauntless','decorum','deference','delineate','demagogue','deprecate','destitute','devious',
+    'diaphanous','didactic','diffident','digress','diligence','discern','disdain','dissipate','dogmatic','duplicity',
+    'ebullient','eclectic','effusive','egregious','eloquent','emulate','equanimity','equivocal','erudite','facetious',
+    'flagrant','forthright','germane','gratuitous','guile','harangue','hegemony','heresy','hubris','iconoclast',
+    'sovereignty','hieroglyphics','opportune','surveillance','rhetoric','paradigm','maneuver','discretionary','preposterous','indispensable',
+    'saccharine','bellwether','vicissitude','panacea','labyrinthine','jurisprudence','reminiscence','sepulchral','quarantine',
   ],
   11: [
-    'abjure','abstruse','acerbic','adjudicate','adroit','aggrandize','aloof','ameliorate','antithetical','aphorism',
-    'approbation','arrogance','ascetic','attenuate','baleful','byzantine','cacophony','callous','candid','carping',
-    'caustic','chicanery','circumlocution','cogent','commensurate','compunction','contrite','contrition','copious','covert',
-    'culpable','decorum','deferential','demagogue','deprecate','despondent','diaphanous','didactic','dilettante','disconcert',
-    'disenfranchise','disparate','dissemble','dogmatic','ebullient','eclectic','effrontery','effusive','egregious','elicit',
-    'elliptical','eloquent','emollient','empirical','enumerate','ephemeral','equanimity','equivocal','erudite','eulogy',
-    'excoriate','expeditious','expunge','fastidious','fervent','finagle','flagrant','furtive','garrulous','germane',
-    'grandiloquent','gratuitous','harangue','hegemony','hubris','iconoclast','idiosyncrasy','ignominious','imbroglio','impetuous',
-    'incorrigible','inculcate','indefatigable','inexorable','infallible','inscrutable','intransigent','irascible','loquacious','malfeasance',
-    'mendacious','mercurial','nefarious','obfuscate','obsequious','pernicious','perspicacious','pontificate','prevaricate','recalcitrant',
+    'abjure','abstruse','acerbic','adjudicate','adroit','aggrandize','aloof','antithetical','aphorism','arrogance',
+    'ascetic','attenuate','baleful','byzantine','cacophony','candid','carping','chicanery','circumlocution','commensurate',
+    'compunction','contrite','contrition','copious','covert','dilettante','disconcert','disenfranchise','effrontery','elicit',
+    'elliptical','emollient','enumerate','eulogy','excoriate','expeditious','expunge','finagle','furtive','grandiloquent',
+    'idiosyncrasy','ignominious','imbroglio','incorrigible','inculcate','indefatigable','inexorable','infallible','inscrutable','intransigent',
+    'irascible','loquacious','malfeasance','mendacious','mercurial','nefarious','obfuscate','obsequious','pernicious','perspicacious',
+    'pontificate','prevaricate','admonition','anomaly','appellation','archaeology','architecture','ascertain','axiomatic','bereavement',
+    'bourgeoisie','cavalcade','cemetery','chiaroscuro','convalescence','corroborate','deceive','diphthong','disparage','dissentient',
+    'echelon','efficacy','accommodation','camouflage','chagrin','commitment','consensus','curriculum','cynicism','decipher',
+    'denouement','despicable','diaphragm','disseminate','dissuade','embellish','entrepreneur','exhilarate','extracurricular',
   ],
   12: [
-    'abnegation','abscond','abstemious','acrimony','acquiescence','adjudication','aggrandizement','allegory','amalgamation','amelioration',
-    'anachronism','anathema','apostrophe','approbation','archetypal','assiduous','atavistic','austerity','autochthonous','avarice',
-    'baroque','bifurcation','calumniate','caricature','catharsis','circumlocution','cogency','commiserate','compunction','contiguous',
-    'contrition','copious','demagogue','desecrate','detrimental','diaphanous','diatribe','dichotomy','didactic','dilettante',
-    'disenfranchise','disparate','dissipate','ebullience','eclectic','efficacious','effrontery','egregious','elicit','emollient',
-    'empiricism','epicurean','equanimity','erudite','etymology','eulogize','exacerbate','expeditious','expunge','fastidious',
-    'finagle','flagrant','furtive','grandiloquent','harangue','hegemony','hubris','iconoclast','idiosyncrasy','ignominious',
-    'imbroglio','incorrigible','inculcate','indefatigable','inexorable','inscrutable','intransigent','irascible','loquacious','malfeasance',
-    'mendacious','mercurial','nefarious','obfuscate','obsequious','pernicious','perspicacious','pontificate','prevaricate','recalcitrant',
-    'sycophant','ubiquitous','vacuous','verisimilitude','vituperate','xenophobia','zealotry','zeitgeist','specious','solipsism',
+    'abscond','acquiescence','adjudication','aggrandizement','allegory','amalgamation','amelioration','apostrophe','archetypal','atavistic',
+    'austerity','autochthonous','baroque','bifurcation','calumniate','caricature','cogency','contiguous','desecrate','detrimental',
+    'diatribe','dichotomy','ebullience','efficacious','empiricism','epicurean','etymology','eulogize','vacuous','verisimilitude',
+    'vituperate','xenophobia','zealotry','zeitgeist','specious','solipsism','aberration','accoutrement','adumbrate','aeronautics',
+    'ailurophile','ancillary','annihilate','apothecary','apocryphal','apotheosis','apparition','archaism','choreography','chronology',
+    'supercilious','mellifluous','sesquipedalian','obstreperous','pneumonia','ophthalmic','arrhythmia','osteoporosis','metamorphosis','juxtaposition',
+    'esoteric','perfunctory','surreptitious','reconnaissance','svelte','oeuvre','pastiche','apothegm','cacography','epitome',
+    'fuchsia','pneumatic','ptarmigan','zephyr','onomatopoeia','repertoire','quixotic','wunderkind','syzygy','caucus',
   ],
 };
 
@@ -170,6 +170,7 @@ export interface SpellingBeeWord {
   grade: number;
   hint?: string | null;
   is_custom: boolean;
+  status?: 'legacy' | 'pending' | 'approved' | 'rejected';
   created_at: string;
 }
 
@@ -180,14 +181,15 @@ export async function getWordsForGrade(grade: number): Promise<string[]> {
       .from('spelling_bee_words')
       .select('word')
       .eq('grade', grade)
+      .in('status', ['legacy', 'approved'])   // new words wait for review in Wisely
       .order('created_at', { ascending: true });
 
     if (error || !data || data.length === 0) {
-      return [...(SPELLING_BEE_DEFAULTS[grade] ?? [])];
+      return (SPELLING_BEE_DEFAULTS[grade] ?? []).map(w => w.toUpperCase());
     }
     return data.map((r: { word: string }) => r.word.toUpperCase());
   } catch {
-    return [...(SPELLING_BEE_DEFAULTS[grade] ?? [])];
+    return (SPELLING_BEE_DEFAULTS[grade] ?? []).map(w => w.toUpperCase());
   }
 }
 
@@ -202,39 +204,35 @@ export async function getWordRecordsForGrade(grade: number): Promise<SpellingBee
   return data ?? [];
 }
 
+// Staff edits go through the server (/api/questions); new words are 'pending'
+// until approved in Wisely.
+async function staff(body: Record<string, unknown>) {
+  const r = await fetch('/api/questions', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bank: 'spelling', ...body }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Not allowed');
+  return d;
+}
+
 // Admin: add a single word
 export async function addSpellingWord(word: string, grade: number, hint?: string): Promise<void> {
-  const clean = word.trim().toUpperCase();
-  if (!clean) return;
-  const { error } = await supabase
-    .from('spelling_bee_words')
-    .insert([{ word: clean, grade, hint: hint || null, is_custom: true }]);
-  if (error) throw error;
+  if (!word.trim()) return;
+  await staff({ op: 'insert', word, grade, hint });
 }
 
 // Admin: bulk-add words (returns count added)
 export async function bulkAddSpellingWords(words: string[], grade: number): Promise<number> {
-  const rows = words
-    .map(w => w.trim().toUpperCase())
-    .filter(w => w.length > 0)
-    .map(word => ({ word, grade, is_custom: true }));
-  if (rows.length === 0) return 0;
-  const { error } = await supabase.from('spelling_bee_words').insert(rows);
-  if (error) throw error;
-  return rows.length;
+  return (await staff({ op: 'bulk', words, grade })).inserted ?? 0;
 }
 
 // Admin: delete a word by id
 export async function deleteSpellingWord(id: string): Promise<void> {
-  const { error } = await supabase.from('spelling_bee_words').delete().eq('id', id);
-  if (error) throw error;
+  await staff({ op: 'delete', id });
 }
 
 // Admin: wipe grade and re-seed from defaults
 export async function resetGradeToDefaults(grade: number): Promise<void> {
-  await supabase.from('spelling_bee_words').delete().eq('grade', grade);
-  const defaults = SPELLING_BEE_DEFAULTS[grade] ?? [];
-  if (defaults.length === 0) return;
-  const rows = defaults.map(word => ({ word: word.toUpperCase(), grade, is_custom: false }));
-  await supabase.from('spelling_bee_words').insert(rows);
+  await staff({ op: 'reset', grade });
 }

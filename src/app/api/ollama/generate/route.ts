@@ -1,7 +1,13 @@
 import { NextRequest } from 'next/server';
 import { getOllamaBase } from '@/lib/ollamaBase';
+import { readSession } from '@/lib/server/session';
 
 export async function POST(req: NextRequest) {
+  // Staff only, like the Gemini route.
+  const s = readSession(req);
+  if (!s || !(s.isStaff || s.isAdmin)) {
+    return new Response(JSON.stringify({ error: 'staff_only' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
   const body = await req.json();
   const base = await getOllamaBase();
 

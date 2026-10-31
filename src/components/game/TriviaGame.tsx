@@ -8,7 +8,7 @@ import { awardCoins } from '@/lib/coinsClient';
 import { useGameStore } from '@/store/useGameStore';
 import {
   TRIVIA_CATEGORIES, TriviaCategory, TriviaGrade, TriviaLevel, TriviaQuestion,
-  getTriviaQuestions,
+  getTriviaQuestions, markSeen, reportQuestion,
 } from '@/lib/trivia';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -205,6 +205,7 @@ function QuizPlay({ questions, level, category, grade, onDone }: GameProps) {
   const [selected,  setSelected]  = useState<number | null>(null);
   const [locked,    setLocked]    = useState(false);
   const [shake,     setShake]     = useState(false);
+  const [reported,  setReported]  = useState<Set<string>>(new Set());
 
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const advRef    = useRef<ReturnType<typeof setTimeout>  | null>(null);
@@ -293,7 +294,7 @@ function QuizPlay({ questions, level, category, grade, onDone }: GameProps) {
           setSelected(null);
           setLocked(false);
         }
-      }, 1000);
+      }, q.explanation ? 3000 : 1000);
     } else {
       playSound('wrong');
       setShake(true);
@@ -313,7 +314,7 @@ function QuizPlay({ questions, level, category, grade, onDone }: GameProps) {
             setSelected(null);
             setLocked(false);
           }
-        }, 1400);
+        }, q.explanation ? 3800 : 1400);
       }
     }
   };
@@ -403,6 +404,20 @@ function QuizPlay({ questions, level, category, grade, onDone }: GameProps) {
                 );
               })}
             </div>
+
+            {/* Why the answer is right, and a way to flag a wrong question */}
+            {selected !== null && (
+              <div className="space-y-2 text-center">
+                {q.explanation && (
+                  <p className="text-white/90 text-sm font-semibold rounded-2xl px-4 py-3"
+                    style={{ background: 'rgba(0,0,0,0.3)' }}>💡 {q.explanation}</p>
+                )}
+                <button onClick={() => { if (!reported.has(q.id)) { reportQuestion('trivia', q.id).catch(() => {}); setReported(r => new Set(r).add(q.id)); } }}
+                  className="text-white/50 hover:text-white/80 text-xs font-bold">
+                  {reported.has(q.id) ? '✓ Thanks, a teacher will check it' : '🚩 Something wrong with this question?'}
+                </button>
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -435,13 +450,14 @@ export function TriviaGame({ onBack }: { onBack: () => void }) {
     setPhase('loading');
     setLoadErr('');
     try {
-      const qs = await getTriviaQuestions(cat, lvl as TriviaLevel, Q_PER_GAME + 5);
+      const qs = await getTriviaQuestions(cat, lvl as TriviaLevel, Q_PER_GAME, grade);
       if (qs.length === 0) {
         setLoadErr(`No questions found for this category and level. Ask your teacher to add some!`);
         setPhase('category');
         return;
       }
       setQuestions(qs.slice(0, Q_PER_GAME));
+      markSeen(cat, qs.map(x => x.id));
       setPhase('playing');
     } catch (e) {
       setLoadErr(`Could not load questions: ${String(e)}`);
