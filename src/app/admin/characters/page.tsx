@@ -6,6 +6,7 @@ import {
   useCharacterRegistry, uploadCharacterFile, slugify, resolveOutfitStand,
   type CharacterDef, type RegistryOutfit, type CharacterRegistry,
 } from '@/lib/characterRegistry';
+import { StaffGate } from '@/components/admin/StaffGate';
 
 // ─── Tiny helpers ─────────────────────────────────────────────────────────────
 
@@ -658,7 +659,14 @@ function OutfitRow({
 
 type Tab = 'characters' | 'special' | 'outfits' | 'preview';
 
-export default function CharacterImportTool() {
+// The character tool had no lock at all; it now opens for Wisely admins only.
+export default function CharacterImportPage() {
+  const [unlocked, setUnlocked] = useState(false);
+  if (!unlocked) return <StaffGate level="admin" onUnlock={() => setUnlocked(true)} />;
+  return <CharacterImportTool />;
+}
+
+function CharacterImportTool() {
   const registry = useCharacterRegistry();
   const [tab,             setTab]          = useState<Tab>('characters');
   const [addCharOpen,     setAddChar]      = useState(false);

@@ -25,8 +25,8 @@ import {
   addQuestion, updateQuestion, deleteQuestion, toggleQuestion, bulkAddQuestions,
   parseQuestionsWithOllama,
 } from '@/lib/curriculum';
+import { StaffGate } from '@/components/admin/StaffGate';
 
-const ADMIN_PIN = 'astalabista'; // change this in production
 
 function resolveGameName(id: string | null | undefined, focusTable?: number): string {
   if (!id || id === 'multiplication') {
@@ -72,42 +72,6 @@ interface Transaction {
 }
 interface Session {
   student_name: string; game_id: string; coins_earned: number; play_time_seconds: number; created_at: string;
-}
-
-// ─── PIN Gate ─────────────────────────────────────────────────────────────────
-
-function PinGate({ onUnlock }: { onUnlock: () => void }) {
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState(false);
-
-  const check = () => {
-    if (pin === ADMIN_PIN) { onUnlock(); }
-    else { setError(true); setPin(''); setTimeout(() => setError(false), 1500); }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 p-6">
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        className="bg-slate-800 rounded-3xl p-8 w-full max-w-sm text-center border border-slate-700">
-        <div className="text-5xl mb-4">🔐</div>
-        <h2 className="text-2xl font-black text-white mb-1">Admin Access</h2>
-        <p className="text-slate-400 text-sm mb-6">Enter your PIN to continue</p>
-        <input
-          type="password" value={pin} onChange={e => setPin(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && check()}
-          placeholder="PIN"
-          className={`w-full text-center text-2xl font-black tracking-widest bg-slate-700 text-white border-2 rounded-2xl py-3 outline-none mb-4 transition-colors ${
-            error ? 'border-red-500' : 'border-slate-600 focus:border-violet-500'
-          }`}
-        />
-        {error && <p className="text-red-400 text-sm mb-3 font-bold">Wrong PIN</p>}
-        <button onClick={check}
-          className="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white font-black rounded-2xl transition-colors">
-          Unlock
-        </button>
-      </motion.div>
-    </div>
-  );
 }
 
 // ─── Main AdminPage ───────────────────────────────────────────────────────────
@@ -249,7 +213,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
 
   const pendingCount = redemptions.filter(r => r.status === 'pending').length;
 
-  if (!unlocked) return <PinGate onUnlock={() => setUnlocked(true)} />;
+  if (!unlocked) return <StaffGate level="admin" onUnlock={() => setUnlocked(true)} />;
 
   return (
     <div className="min-h-screen bg-slate-50">

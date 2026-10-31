@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ACCESSORIES, COLORS, setAccessoryPositionOverrides, getAccessoryPositionOverrides } from '@/lib/avatar-items';
 import { getGlobalConfig, setGlobalConfig } from '@/lib/wallet';
 import { useCharacterRegistry } from '@/lib/characterRegistry';
+import { StaffGate } from '@/components/admin/StaffGate';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PREVIEW_H = 216;   // 3× CHAR_H (72)
@@ -11,7 +12,6 @@ const PREVIEW_W = 144;   // 3× CHAR_HW*2 (48)
 const SCALE     = PREVIEW_H / 72;
 
 // Admin PIN (same as AdminPage)
-const ADMIN_PIN = 'astalabista';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
@@ -31,9 +31,7 @@ function PositionIndicator({ size }: { size: number }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function AccessoryEditorPage() {
-  const [pin,       setPin]       = useState('');
   const [unlocked,  setUnlocked]  = useState(false);
-  const [pinError,  setPinError]  = useState(false);
 
   const registry  = useCharacterRegistry();
   const charDef   = registry.characters[0];
@@ -140,31 +138,7 @@ export default function AccessoryEditorPage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  // ── PIN gate ──────────────────────────────────────────────────────────────
-  if (!unlocked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg,#1e1b4b,#4c1d95)' }}>
-        <div className="bg-white rounded-3xl p-8 w-80 shadow-2xl text-center">
-          <div className="text-4xl mb-4">🎒</div>
-          <h2 className="text-xl font-black text-slate-800 mb-1">Accessory Editor</h2>
-          <p className="text-slate-400 text-sm mb-6">Admin PIN required</p>
-          <input
-            type="password" value={pin} onChange={e => { setPin(e.target.value); setPinError(false); }}
-            onKeyDown={e => e.key === 'Enter' && (pin === ADMIN_PIN ? setUnlocked(true) : setPinError(true))}
-            placeholder="Enter PIN"
-            className={`w-full px-4 py-3 border-2 rounded-2xl text-center font-bold outline-none mb-3
-              ${pinError ? 'border-red-400' : 'border-slate-200 focus:border-violet-500'}`}
-          />
-          {pinError && <p className="text-red-500 text-sm mb-3">Wrong PIN</p>}
-          <button onClick={() => pin === ADMIN_PIN ? setUnlocked(true) : setPinError(true)}
-            className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-black rounded-2xl">
-            Unlock
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (!unlocked) return <StaffGate level="admin" onUnlock={() => setUnlocked(true)} />;
 
   const acc = ACCESSORIES.find(a => a.id === selected)!;
   const pos = overrides[selected] ?? { yFraction: 0, xOffset: 0 };

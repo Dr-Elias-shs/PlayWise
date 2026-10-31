@@ -8,10 +8,10 @@ import {
 } from '@/lib/trivia';
 import { TRIVIA_SEED } from '@/lib/trivia-seed';
 import { parseQuestionsWithOllama } from '@/lib/curriculum';
+import { StaffGate } from '@/components/admin/StaffGate';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ADMIN_PIN = 'astalabista';
 const GRADES: TriviaGrade[] = ['1','2','3','4','5','6','7','8','9','10','11','12'];
 const DIFFICULTIES: TriviaLevel[] = ['easy','medium','hard'];
 
@@ -341,9 +341,7 @@ function AIPanel({
 // ─── Main Admin Page ──────────────────────────────────────────────────────────
 
 export default function AdminTriviaPage() {
-  const [pin,       setPin]       = useState('');
   const [unlocked,  setUnlocked]  = useState(false);
-  const [pinError,  setPinError]  = useState(false);
 
   const [grade,     setGrade]     = useState<TriviaGrade>('1');
   const [catFilter, setCatFilter] = useState<TriviaCategory | 'all'>('all');
@@ -376,11 +374,6 @@ export default function AdminTriviaPage() {
   useEffect(() => {
     if (unlocked) fetchQuestions();
   }, [unlocked, fetchQuestions]);
-
-  const handlePinSubmit = () => {
-    if (pin === ADMIN_PIN) { setUnlocked(true); setPinError(false); }
-    else { setPinError(true); setPin(''); }
-  };
 
   const handleSeedGrades = async () => {
     if (!confirm('This will seed questions. Duplicates may be inserted. Continue?')) return;
@@ -445,37 +438,8 @@ export default function AdminTriviaPage() {
     (diffFilter === 'all' || q.difficulty === diffFilter),
   );
 
-  // ── PIN gate ──────────────────────────────────────────────────────────────
-  if (!unlocked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6"
-        style={{ background: 'linear-gradient(135deg, #0f172a, #1e1b4b, #0f172a)' }}>
-        <div className="w-full max-w-sm rounded-3xl p-8 border border-white/10 text-center space-y-5"
-          style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)' }}>
-          <div className="text-5xl">🎯</div>
-          <h1 className="text-2xl font-black text-white">Trivia Admin</h1>
-          <p className="text-white/50 text-sm">Enter the admin PIN to manage trivia questions.</p>
-          <input
-            type="password"
-            value={pin}
-            onChange={e => setPin(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handlePinSubmit()}
-            placeholder="Admin PIN"
-            className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-white text-center font-bold outline-none focus:border-violet-400 transition-colors placeholder:text-white/20"
-          />
-          {pinError && <p className="text-red-400 text-sm">Incorrect PIN.</p>}
-          <button onClick={handlePinSubmit}
-            className="w-full py-3 rounded-2xl font-black text-white"
-            style={{ background: 'linear-gradient(135deg, #6d28d9, #7c3aed)' }}>
-            Unlock
-          </button>
-          <a href="/admin" className="text-white/30 hover:text-white/60 text-sm transition-colors block">
-            ← Back to Admin
-          </a>
-        </div>
-      </div>
-    );
-  }
+  // Teachers and coordinators may manage questions; access follows Wisely roles.
+  if (!unlocked) return <StaffGate level="staff" onUnlock={() => setUnlocked(true)} />;
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)' }}>

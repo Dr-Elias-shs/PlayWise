@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/useGameStore';
+import { useSessionStore } from '@/store/useSessionStore';
 import { COLORS } from '@/lib/avatar-items';
 import { useCharacterRegistry } from '@/lib/characterRegistry';
 import {
@@ -36,6 +37,10 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
   const [requestDone,    setRequestDone]    = useState(false);
   const [existingRequest, setExistingReq]  = useState<GradeChangeRequest | null>(null);
 
+  // Grade and class from Wisely: fixed, no change requests needed.
+  const session = useSessionStore(st => st.session);
+  const wiselyGrade = session?.grade || null;
+  useEffect(() => { if (wiselyGrade) setGrade(wiselyGrade); }, [wiselyGrade]);
   const gradeAlreadySet = !!playerGrade;
 
   // On mount: sync approved grade from DB + load any pending request
@@ -59,8 +64,8 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
   }, []);
 
   const handleSave = () => {
-    if (!grade && !gradeAlreadySet) { setError('Please select your grade'); return; }
-    setProfile(playerName, playerEmail ?? '', colorId, gradeAlreadySet ? playerGrade! : grade, characterId as string);
+    if (!grade && !gradeAlreadySet && !wiselyGrade) { setError('Please select your grade'); return; }
+    setProfile(playerName, playerEmail ?? '', colorId, wiselyGrade || (gradeAlreadySet ? playerGrade! : grade), characterId as string);
     onDone();
   };
 
@@ -184,7 +189,16 @@ export function ProfileSetup({ onDone, isEditing = false }: Props) {
         <div className="mb-6">
           <p className="text-sm font-bold text-slate-500 mb-2">Your grade</p>
 
-          {gradeAlreadySet ? (
+          {wiselyGrade ? (
+            // From Wisely: the student's real class, nothing to request
+            <div className="flex items-center gap-2 px-4 py-3 border-2 border-slate-100 rounded-2xl bg-slate-50">
+              <span className="text-lg font-black text-slate-800">Grade {wiselyGrade}</span>
+              {session?.classroom && <span className="text-sm font-bold text-slate-500">· {session.classroom}</span>}
+              <span className="text-[10px] bg-emerald-100 text-emerald-700 font-black px-2 py-0.5 rounded-full">
+                From Wisely
+              </span>
+            </div>
+          ) : gradeAlreadySet ? (
             // Locked — show grade badge + request change option
             <div className="flex items-center justify-between px-4 py-3 border-2 border-slate-100
               rounded-2xl bg-slate-50">

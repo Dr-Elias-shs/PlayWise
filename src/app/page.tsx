@@ -22,6 +22,7 @@ import { RedeemPage } from "@/components/redeem/RedeemPage";
 import { Shop } from "@/components/shop/Shop";
 import { WalletBadge } from "@/components/hub/WalletBadge";
 import { useWalletStore } from "@/store/useWalletStore";
+import { useSessionStore } from "@/store/useSessionStore";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { loginRequest } from "@/lib/msal";
 import { Leaderboard } from "@/components/hub/Leaderboard";
@@ -86,6 +87,7 @@ type Screen = 'login' | 'profile-setup' | 'hub' | 'profile-edit' | 'game-intro' 
 
 export default function Home() {
   const { playerName, playerEmail, playerGrade, colorId, characterId, setPlayerName, setProfile, resetGame, loadStoredProfile } = useGameStore();
+  const { start: startSession, end: endSession } = useSessionStore();
   const { playerName: walletName, playerEmail: walletEmail, setPlayerName: setWalletName, syncWithDatabase: syncWallet } = useWalletStore();
   const [screen, setScreen] = useState<Screen>('login');
   const [showIntro, setShowIntro] = useState(() => {
@@ -157,6 +159,15 @@ export default function Home() {
     const displayName = accounts[0].name || email.split('@')[0];
     if (!email) return;
     setPlayerName(displayName, email);
+    // Grade and class come from Wisely through the server session. When Wisely has
+    // a grade it wins over whatever this device remembered.
+    startSession(instance, accounts[0]).then(s => {
+      if (!s?.grade) return;
+      const st = useGameStore.getState();
+      if (st.playerGrade !== s.grade) {
+        setProfile(displayName, email, st.colorId || 'green', s.grade, st.characterId || 'male');
+      }
+    });
     // If grade isn't in localStorage, restore from DB to avoid re-asking
     if (!playerGrade) {
       getWallet(email).then(wallet => {
@@ -219,6 +230,7 @@ export default function Home() {
     setProfile('', '', 'green', '');
     setEmailInput('');
     setScreen('login');
+    endSession();
     if (isAuthenticated) {
       // Use popup to match the popup-based login — avoids full page redirect
       // which interferes with the next loginPopup call
