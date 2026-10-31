@@ -16,6 +16,8 @@ export interface AccessoryItem {
   yFraction?: number;
   // horizontal pixel offset from center (positive = right)
   xOffset?: number;
+  // Higgsfield picture shown instead of the emoji (Nov 2026)
+  image?: string;
   // kept for any direct code references; outfit sprites are now managed via characterRegistry
   femaleSprite?: string;
 }
@@ -75,24 +77,24 @@ export const COLORS: ColorOption[] = [
 
 export const ACCESSORIES: AccessoryItem[] = [
   // ── Hats (sit on the head) ────────────────────────────────────────────────
-  { id: 'crown',      name: 'Crown',       emoji: '👑', price: 1000, category: 'hat'   },
-  { id: 'tophat',     name: 'Top Hat',     emoji: '🎩', price: 500,  category: 'hat'   },
-  { id: 'gradcap',    name: 'Grad Cap',    emoji: '🎓', price: 750,  category: 'hat'   },
-  { id: 'wizard',     name: 'Wizard Hat',  emoji: '🪄', price: 800,  category: 'hat'   },
-  { id: 'cap',        name: 'Sports Cap',  emoji: '🧢', price: 450,  category: 'hat'   },
+  { id: 'crown',      name: 'Crown',       emoji: '👑', price: 1000, category: 'hat', image: '/accessories/crown.webp'   },
+  { id: 'tophat',     name: 'Top Hat',     emoji: '🎩', price: 500,  category: 'hat', image: '/accessories/tophat.webp'   },
+  { id: 'gradcap',    name: 'Grad Cap',    emoji: '🎓', price: 750,  category: 'hat', image: '/accessories/gradcap.webp'   },
+  { id: 'wizard',     name: 'Wizard Hat',  emoji: '🪄', price: 800,  category: 'hat', image: '/accessories/wizard.webp'   },
+  { id: 'cap',        name: 'Sports Cap',  emoji: '🧢', price: 450,  category: 'hat', image: '/accessories/cap.webp'   },
   // ── Extras (face / effect level) ─────────────────────────────────────────
-  { id: 'sunglasses', name: 'Sunglasses',  emoji: '🕶️', price: 600,  category: 'extra'                       },
-  { id: 'halo',       name: 'Halo',        emoji: '😇', price: 850,  category: 'extra', yFraction: -0.08     },
-  { id: 'star',       name: 'Star Aura',   emoji: '⭐', price: 300,  category: 'extra', yFraction: -0.10     },
-  { id: 'lightning',  name: 'Lightning',   emoji: '⚡', price: 400,  category: 'extra', yFraction: -0.06     },
-  { id: 'bow',        name: 'Bow',         emoji: '🎀', price: 350,  category: 'extra', yFraction:  0.36     },
+  { id: 'sunglasses', name: 'Sunglasses',  emoji: '🕶️', price: 600,  category: 'extra', image: '/accessories/sunglasses.webp'                       },
+  { id: 'halo',       name: 'Halo',        emoji: '😇', price: 850,  category: 'extra', image: '/accessories/halo.webp', yFraction: -0.08     },
+  { id: 'star',       name: 'Star Aura',   emoji: '⭐', price: 300,  category: 'extra', image: '/accessories/star.webp', yFraction: -0.10     },
+  { id: 'lightning',  name: 'Lightning',   emoji: '⚡', price: 400,  category: 'extra', image: '/accessories/lightning.webp', yFraction: -0.06     },
+  { id: 'bow',        name: 'Bow',         emoji: '🎀', price: 350,  category: 'extra', image: '/accessories/bow.webp', yFraction:  0.36     },
   // ── Clothing (chest / body level) ────────────────────────────────────────
-  { id: 'scarf',      name: 'Scarf',       emoji: '🧣', price: 400,  category: 'clothing', yFraction: 0.36 },
-  { id: 'tie',        name: 'Neck Tie',    emoji: '👔', price: 350,  category: 'clothing', yFraction: 0.38 },
-  { id: 'medal',      name: 'Medal',       emoji: '🏅', price: 600,  category: 'clothing', yFraction: 0.48 },
-  { id: 'badge',      name: 'Star Badge',  emoji: '🏆', price: 500,  category: 'clothing', yFraction: 0.44 },
-  { id: 'backpack',   name: 'Backpack',    emoji: '🎒', price: 700,  category: 'clothing', yFraction: 0.40, xOffset: 14 },
-  { id: 'heart',      name: 'Heart Pin',   emoji: '❤️', price: 250,  category: 'clothing', yFraction: 0.50 },
+  { id: 'scarf',      name: 'Scarf',       emoji: '🧣', price: 400,  category: 'clothing', image: '/accessories/scarf.webp', yFraction: 0.36 },
+  { id: 'tie',        name: 'Neck Tie',    emoji: '👔', price: 350,  category: 'clothing', image: '/accessories/tie.webp', yFraction: 0.38 },
+  { id: 'medal',      name: 'Medal',       emoji: '🏅', price: 600,  category: 'clothing', image: '/accessories/medal.webp', yFraction: 0.48 },
+  { id: 'badge',      name: 'Star Badge',  emoji: '🏆', price: 500,  category: 'clothing', image: '/accessories/badge.webp', yFraction: 0.44 },
+  { id: 'backpack',   name: 'Backpack',    emoji: '🎒', price: 700,  category: 'clothing', image: '/accessories/backpack.webp', yFraction: 0.40, xOffset: 14 },
+  { id: 'heart',      name: 'Heart Pin',   emoji: '❤️', price: 250,  category: 'clothing', image: '/accessories/heart.webp', yFraction: 0.50 },
   // Outfit (clothing) items with character-specific sprites are now in
   // public/characters/registry.json — managed via /admin/characters
 ];

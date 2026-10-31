@@ -3,7 +3,7 @@
     {
       "id": "f-jacket",
       "name": "Varsity Jacket",
-      "emoji": "🧥",
+      "emoji": "\ud83e\udde5",
       "price": 800,
       "sprites": {
         "male": [
@@ -24,7 +24,7 @@
     {
       "id": "sako",
       "name": "School Blazer",
-      "emoji": "🥼",
+      "emoji": "\ud83e\udd7c",
       "price": 12000,
       "sprites": {
         "male": [
@@ -43,7 +43,7 @@
     {
       "id": "all-stars",
       "name": "ALL STARS",
-      "emoji": "🎽",
+      "emoji": "\ud83c\udfbd",
       "price": 50000,
       "sprites": {
         "male": [
@@ -69,7 +69,7 @@
     {
       "id": "blaze-unlock",
       "name": "BLAZE",
-      "emoji": "⭐",
+      "emoji": "\u2b50",
       "price": 50000,
       "sprites": {},
       "category": "characters",
@@ -80,98 +80,178 @@
     {
       "id": "winter",
       "name": "Winter Scarf & Beanie",
-      "emoji": "🧣",
+      "emoji": "\ud83e\udde3",
       "price": 500,
-      "category": "clothing",
-      "yFraction": 0.42,
       "sprites": {
         "male": "/characters/outfits/winter/male.webp",
-        "female": "/characters/outfits/winter/female.webp"
-      }
+        "female": "/characters/outfits/winter/female.webp",
+        "pinky": "/characters/outfits/winter/pinky.webp",
+        "blaze": "/characters/outfits/winter/blaze.webp",
+        "fox": "/characters/outfits/winter/fox.webp",
+        "robot": "/characters/outfits/winter/robot.webp",
+        "dragon": "/characters/outfits/winter/dragon.webp"
+      },
+      "category": "clothing",
+      "yFraction": 0.42,
+      "tall": 1.08
     },
     {
       "id": "football",
       "name": "Football Kit",
-      "emoji": "⚽",
+      "emoji": "\u26bd",
       "price": 800,
-      "category": "clothing",
-      "yFraction": 0.42,
       "sprites": {
         "male": "/characters/outfits/football/male.webp",
-        "female": "/characters/outfits/football/female.webp"
-      }
+        "female": "/characters/outfits/football/female.webp",
+        "pinky": "/characters/outfits/football/pinky.webp",
+        "blaze": "/characters/outfits/football/blaze.webp",
+        "fox": "/characters/outfits/football/fox.webp",
+        "robot": "/characters/outfits/football/robot.webp",
+        "dragon": "/characters/outfits/football/dragon.webp"
+      },
+      "category": "clothing",
+      "yFraction": 0.42,
+      "tall": 1.024
     },
     {
       "id": "chef",
       "name": "Chef Outfit",
-      "emoji": "👨‍🍳",
+      "emoji": "\ud83d\udc68\u200d\ud83c\udf73",
       "price": 800,
-      "category": "clothing",
-      "yFraction": 0.42,
       "sprites": {
         "male": "/characters/outfits/chef/male.webp",
-        "female": "/characters/outfits/chef/female.webp"
-      }
+        "female": "/characters/outfits/chef/female.webp",
+        "pinky": "/characters/outfits/chef/pinky.webp",
+        "blaze": "/characters/outfits/chef/blaze.webp",
+        "fox": "/characters/outfits/chef/fox.webp",
+        "robot": "/characters/outfits/chef/robot.webp",
+        "dragon": "/characters/outfits/chef/dragon.webp"
+      },
+      "category": "clothing",
+      "yFraction": 0.42,
+      "tall": 1.095
     },
     {
       "id": "scientist",
       "name": "Lab Coat & Goggles",
-      "emoji": "🥽",
+      "emoji": "\ud83e\udd7d",
       "price": 1000,
-      "category": "clothing",
-      "yFraction": 0.42,
       "sprites": {
         "male": "/characters/outfits/scientist/male.webp",
-        "female": "/characters/outfits/scientist/female.webp"
-      }
+        "female": "/characters/outfits/scientist/female.webp",
+        "pinky": "/characters/outfits/scientist/pinky.webp",
+        "blaze": "/characters/outfits/scientist/blaze.webp",
+        "fox": "/characters/outfits/scientist/fox.webp",
+        "robot": "/characters/outfits/scientist/robot.webp",
+        "dragon": "/characters/outfits/scientist/dragon.webp"
+      },
+      "category": "clothing",
+      "yFraction": 0.42
     },
     {
       "id": "superhero",
       "name": "Superhero Cape",
-      "emoji": "🦸",
+      "emoji": "\ud83e\uddb8",
       "price": 1500,
-      "category": "clothing",
-      "yFraction": 0.42,
       "sprites": {
         "male": "/characters/outfits/superhero/male.webp",
-        "female": "/characters/outfits/superhero/female.webp"
-      }
+        "female": "/characters/outfits/superhero/female.webp",
+        "pinky": "/characters/outfits/superhero/pinky.webp",
+        "blaze": "/characters/outfits/superhero/blaze.webp",
+        "fox": "/characters/outfits/superhero/fox.webp",
+        "robot": "/characters/outfits/superhero/robot.webp",
+        "dragon": "/characters/outfits/superhero/dragon.webp"
+      },
+      "category": "clothing",
+      "yFraction": 0.42,
+      "tall": 1.023
     },
     {
       "id": "pirate",
       "name": "Pirate Captain",
-      "emoji": "🏴‍☠️",
+      "emoji": "\ud83c\udff4\u200d\u2620\ufe0f",
       "price": 1500,
-      "category": "clothing",
-      "yFraction": 0.42,
       "sprites": {
         "male": "/characters/outfits/pirate/male.webp",
-        "female": "/characters/outfits/pirate/female.webp"
-      }
+        "female": "/characters/outfits/pirate/female.webp",
+        "pinky": "/characters/outfits/pirate/pinky.webp",
+        "blaze": "/characters/outfits/pirate/blaze.webp",
+        "fox": "/characters/outfits/pirate/fox.webp",
+        "robot": "/characters/outfits/pirate/robot.webp",
+        "dragon": "/characters/outfits/pirate/dragon.webp"
+      },
+      "category": "clothing",
+      "yFraction": 0.42,
+      "tall": 1.072
     },
     {
       "id": "graduate",
       "name": "Graduation Gown",
-      "emoji": "🎓",
+      "emoji": "\ud83c\udf93",
       "price": 2000,
-      "category": "clothing",
-      "yFraction": 0.42,
       "sprites": {
         "male": "/characters/outfits/graduate/male.webp",
-        "female": "/characters/outfits/graduate/female.webp"
-      }
+        "female": "/characters/outfits/graduate/female.webp",
+        "pinky": "/characters/outfits/graduate/pinky.webp",
+        "blaze": "/characters/outfits/graduate/blaze.webp",
+        "fox": "/characters/outfits/graduate/fox.webp",
+        "robot": "/characters/outfits/graduate/robot.webp",
+        "dragon": "/characters/outfits/graduate/dragon.webp"
+      },
+      "category": "clothing",
+      "yFraction": 0.42,
+      "tall": 1.119
     },
     {
       "id": "wizard",
       "name": "Wizard Robe",
-      "emoji": "🧙",
+      "emoji": "\ud83e\uddd9",
       "price": 3000,
-      "category": "clothing",
-      "yFraction": 0.42,
       "sprites": {
         "male": "/characters/outfits/wizard/male.webp",
-        "female": "/characters/outfits/wizard/female.webp"
-      }
+        "female": "/characters/outfits/wizard/female.webp",
+        "pinky": "/characters/outfits/wizard/pinky.webp",
+        "blaze": "/characters/outfits/wizard/blaze.webp",
+        "fox": "/characters/outfits/wizard/fox.webp",
+        "robot": "/characters/outfits/wizard/robot.webp",
+        "dragon": "/characters/outfits/wizard/dragon.webp"
+      },
+      "category": "clothing",
+      "yFraction": 0.42,
+      "tall": 1.099
+    },
+    {
+      "id": "fox-unlock",
+      "name": "Foxy",
+      "emoji": "\ud83e\udd8a",
+      "price": 2000,
+      "category": "characters",
+      "characterId": "fox",
+      "yFraction": 0.44,
+      "sprites": {},
+      "thumbnail": "/characters/fox.webp"
+    },
+    {
+      "id": "robot-unlock",
+      "name": "Robo",
+      "emoji": "\ud83e\udd16",
+      "price": 2500,
+      "category": "characters",
+      "characterId": "robot",
+      "yFraction": 0.44,
+      "sprites": {},
+      "thumbnail": "/characters/robot.webp"
+    },
+    {
+      "id": "dragon-unlock",
+      "name": "Drako",
+      "emoji": "\ud83d\udc09",
+      "price": 3000,
+      "category": "characters",
+      "characterId": "dragon",
+      "yFraction": 0.44,
+      "sprites": {},
+      "thumbnail": "/characters/dragon.webp"
     }
   ],
   "characters": [
@@ -218,6 +298,39 @@
       ],
       "standFrame": "https://exehbsgplaotkohufxoj.supabase.co/storage/v1/object/public/characters/blaze/walk2.png",
       "hasBuiltInLogo": false
+    },
+    {
+      "id": "fox",
+      "name": "Foxy",
+      "frames": [
+        "/characters/fox.webp",
+        "/characters/fox.webp",
+        "/characters/fox.webp"
+      ],
+      "standFrame": "/characters/fox.webp",
+      "hasBuiltInLogo": true
+    },
+    {
+      "id": "robot",
+      "name": "Robo",
+      "frames": [
+        "/characters/robot.webp",
+        "/characters/robot.webp",
+        "/characters/robot.webp"
+      ],
+      "standFrame": "/characters/robot.webp",
+      "hasBuiltInLogo": true
+    },
+    {
+      "id": "dragon",
+      "name": "Drako",
+      "frames": [
+        "/characters/dragon.webp",
+        "/characters/dragon.webp",
+        "/characters/dragon.webp"
+      ],
+      "standFrame": "/characters/dragon.webp",
+      "hasBuiltInLogo": true
     }
   ]
 }

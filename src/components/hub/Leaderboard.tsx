@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { ALL_GAME_IDS } from "@/lib/learningScore";
 import { useGameStore } from "@/store/useGameStore";
-import { useCharacterRegistry, resolveOutfitStand } from "@/lib/characterRegistry";
+import { useCharacterRegistry, resolveOutfitStand, tallStyle } from "@/lib/characterRegistry";
 import { COLORS, resolveAccessory, itemTopFraction } from "@/lib/avatar-items";
 import { useAccessoryPositions } from "@/hooks/useAccessoryPositions";
 import type { ChessScoreRow } from "@/lib/chess-scores";
+import { AccessoryIcon } from "@/components/AccessoryIcon";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -101,6 +102,7 @@ function TinyAvatar({ characterId = 'male', colorId = 'green', equippedClothingI
           position: 'absolute', bottom: 0, left: 0,
           width: TINY_H, height: TINY_H,
           objectFit: 'contain', filter: color?.filter ?? '',
+          ...(outfitSrc ? tallStyle(TINY_H, outfitDef) : {}),
         }}
       />
       {accItem && (
@@ -115,7 +117,7 @@ function TinyAvatar({ characterId = 'male', colorId = 'green', equippedClothingI
           pointerEvents: 'none',
           zIndex: 3,
         }}>
-          {accItem.emoji}
+          <AccessoryIcon item={accItem} size={Math.round(TINY_H * 0.3)} />
         </div>
       )}
     </div>

@@ -7,18 +7,20 @@ import { motion } from 'framer-motion';
 import { useWalletStore } from '@/store/useWalletStore';
 import { buyItem } from '@/lib/coinsClient';
 import { COLORS, ACCESSORIES, AccessoryItem, itemTopFraction, resolveAccessory } from '@/lib/avatar-items';
-import { useCharacterRegistry, resolveOutfitStand, type RegistryOutfit } from '@/lib/characterRegistry';
+import { useCharacterRegistry, resolveOutfitStand, tallStyle, type RegistryOutfit } from '@/lib/characterRegistry';
 import { useAccessoryPositions } from '@/hooks/useAccessoryPositions';
+import { AccessoryIcon } from '@/components/AccessoryIcon';
 
 type Tab = 'colors' | 'accessories' | 'clothing' | 'characters';
 
 const CHAR_H = 100;
 
-function CharPreview({ colorFilter, baseSrc, item, outfitSprite }: {
+function CharPreview({ colorFilter, baseSrc, item, outfitSprite, outfit }: {
   colorFilter:   string;
   baseSrc:       string;
   item?:         AccessoryItem | null;
   outfitSprite?: string | null;
+  outfit?:       RegistryOutfit | null;
 }) {
   const spriteSrc = outfitSprite ?? baseSrc;
   const topPx = item ? itemTopFraction(item) * CHAR_H : 0;
@@ -28,12 +30,13 @@ function CharPreview({ colorFilter, baseSrc, item, outfitSprite }: {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={spriteSrc} alt="Character preview" draggable={false}
         style={{ width: CHAR_H, height: CHAR_H, objectFit: 'contain',
-                 filter: colorFilter, transition: 'filter 0.25s ease' }} />
+                 filter: colorFilter, transition: 'filter 0.25s ease',
+                 ...(outfitSprite ? tallStyle(CHAR_H, outfit) : {}) }} />
       {item && !outfitSprite && (
         <span className="absolute pointer-events-none select-none"
           style={{ top: topPx, left: `calc(50% + ${item.xOffset ?? 0}px)`,
                    transform: 'translateX(-50%)', fontSize: fs, lineHeight: 1 }}>
-          {item.emoji}
+          <AccessoryIcon item={item} size={fs} />
         </span>
       )}
     </div>
@@ -117,7 +120,7 @@ export function Shop({ onClose, pageMode, onPrizes }: { onClose: () => void; pag
       <div onMouseEnter={() => setPreviewAcc(acc.id)} onMouseLeave={() => setPreviewAcc(null)}
         className={`flex items-center gap-3 rounded-2xl p-3 transition-colors
           ${equipped ? 'bg-violet-50 ring-2 ring-violet-400' : 'bg-slate-50'}`}>
-        <span className="text-3xl leading-none">{acc.emoji}</span>
+        <span className="text-3xl leading-none"><AccessoryIcon item={acc} size={30} /></span>
         <div className="flex-1 min-w-0">
           <div className="font-black text-sm text-slate-800 truncate">{acc.name}</div>
           {owned ? (
@@ -210,6 +213,7 @@ export function Shop({ onClose, pageMode, onPrizes }: { onClose: () => void; pag
                     baseSrc={tab === 'characters' ? previewCharBaseSrc : (charDef?.standFrame ?? '/character/walk2.png')}
                     item={tab === 'characters' ? undefined : previewAccItem}
                     outfitSprite={tab === 'characters' ? null : previewSprite}
+                    outfit={previewOutfit}
                   />
                 </div>
                 <div className="text-center text-xs text-slate-400 font-semibold">Preview</div>
@@ -244,6 +248,7 @@ export function Shop({ onClose, pageMode, onPrizes }: { onClose: () => void; pag
                       baseSrc={tab === 'characters' ? previewCharBaseSrc : (charDef?.standFrame ?? '/character/walk2.png')}
                       item={tab === 'characters' ? undefined : previewAccItem}
                       outfitSprite={tab === 'characters' ? null : previewSprite}
+                    outfit={previewOutfit}
                     />
                   </div>
                 </div>
@@ -517,7 +522,7 @@ export function Shop({ onClose, pageMode, onPrizes }: { onClose: () => void; pag
                         <div key={acc.id} className={`bg-white rounded-2xl p-4 shadow-sm border-2 transition-all ${
                           equipped ? 'border-violet-400' : 'border-slate-100'
                         }`}>
-                          <div className="text-4xl text-center mb-2">{acc.emoji}</div>
+                          <div className="text-4xl text-center mb-2"><AccessoryIcon item={acc} size={36} /></div>
                           <div className="font-black text-slate-800 text-center text-sm mb-2">{acc.name}</div>
                           <button onClick={() => equipAccessory(equipped ? null : acc.id)}
                             className={`w-full py-2 rounded-xl font-black text-sm transition-colors ${
@@ -561,6 +566,7 @@ export function Shop({ onClose, pageMode, onPrizes }: { onClose: () => void; pag
           baseSrc={tab === 'characters' ? previewCharBaseSrc : (charDef?.standFrame ?? '/character/walk2.png')}
           item={tab === 'characters' ? undefined : previewAccItem}
           outfitSprite={tab === 'characters' ? null : previewSprite}
+                    outfit={previewOutfit}
         />
       </div>
 

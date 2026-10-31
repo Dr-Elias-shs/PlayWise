@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore }           from '@/store/useGameStore';
-import { useCharacterRegistry, resolveOutfitStand } from '@/lib/characterRegistry';
+import { useCharacterRegistry, resolveOutfitStand, tallStyle } from '@/lib/characterRegistry';
 import { COLORS, ACCESSORIES, itemTopFraction } from '@/lib/avatar-items';
+import { AccessoryIcon } from '@/components/AccessoryIcon';
 
 export type OwlMood = 'idle' | 'correct' | 'wrong' | 'thinking' | 'celebrate';
 
@@ -60,7 +61,7 @@ function ItemOverlays({ size, outfitActive }: { size: number; outfitActive: bool
           style={{ top: itemTopFraction(acc) * size,
                    left: `calc(50% + ${acc.xOffset ?? 0}px)`,
                    transform: 'translateX(-50%)', fontSize: fs, lineHeight: 1 }}>
-          {acc.emoji}
+          <AccessoryIcon item={acc} size={fs} />
         </span>
       )}
       {cloth && (
@@ -68,7 +69,7 @@ function ItemOverlays({ size, outfitActive }: { size: number; outfitActive: bool
           style={{ top: (cloth.yFraction ?? 0.44) * size,
                    left: `calc(50% + ${cloth.xOffset ?? 0}px)`,
                    transform: 'translateX(-50%)', fontSize: fs, lineHeight: 1 }}>
-          {cloth.emoji}
+          <AccessoryIcon item={{ id: cloth.id, emoji: cloth.emoji, name: cloth.name }} size={fs} />
         </span>
       )}
     </>
@@ -88,9 +89,8 @@ export function OwlMini({ size = 60, colorIdOverride }: {
   const color      = COLORS.find(c => c.id === effectiveColorId);
 
   // Outfit sprite — skip in picker mode (colorIdOverride set)
-  const outfitSprite = colorIdOverride
-    ? null
-    : (() => { const o = registry.outfit(equippedClothingId ?? ''); return o ? resolveOutfitStand(o, characterId) : null; })();
+  const miniOutfit = colorIdOverride ? null : registry.outfit(equippedClothingId ?? '');
+  const outfitSprite = miniOutfit ? resolveOutfitStand(miniOutfit, characterId) : null;
 
   const spriteSrc = outfitSprite ?? charDef?.standFrame ?? '/character/walk2.png';
 
@@ -98,7 +98,8 @@ export function OwlMini({ size = 60, colorIdOverride }: {
     <div className="relative inline-block select-none" style={{ width: size, height: size }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={spriteSrc} alt="character" draggable={false}
-        style={{ width: size, height: size, objectFit: 'contain', filter: color?.filter ?? '' }}
+        style={{ width: size, height: size, objectFit: 'contain', filter: color?.filter ?? '',
+                 ...(outfitSprite ? tallStyle(size, miniOutfit) : {}) }}
       />
 
       {!colorIdOverride && <ItemOverlays size={size} outfitActive={!!outfitSprite} />}
@@ -114,7 +115,7 @@ export function OwlCharacter({ mood }: { mood: OwlMood }) {
   const registry     = useCharacterRegistry();
   const charDef      = registry.character(characterId) ?? registry.characters[0];
   const color        = COLORS.find(c => c.id === colorId);
-  const { outfitSprite } = useResolvedCharacter();
+  const { outfitSprite, registryOutfit } = useResolvedCharacter();
 
   const [frame, setFrame] = useState(1);
 
@@ -150,7 +151,8 @@ export function OwlCharacter({ mood }: { mood: OwlMood }) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={spriteSrc} alt="character" draggable={false}
-          style={{ width: 100, height: 100, objectFit: 'contain', filter: combinedFilter }}
+          style={{ width: 100, height: 100, objectFit: 'contain', filter: combinedFilter,
+                   ...(outfitSprite ? tallStyle(100, registryOutfit) : {}) }}
         />
         <ItemOverlays size={100} outfitActive={!!outfitSprite} />
 

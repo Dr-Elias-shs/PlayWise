@@ -22,6 +22,10 @@ export interface RegistryOutfit {
   characterId?: string; // set on character-type items — equipping transforms into this character
   yFraction?:  number;
   xOffset?:    number;
+  /** Sprite height ÷ box height for outfits with a tall hat. The sprite is drawn this
+   *  much taller than the box, bottom-aligned, so the character keeps its full size and
+   *  the hat rises above the box. Missing = 1. */
+  tall?:       number;
   /**
    * characterId → sprite(s).
    * - string   = single image used for all walk frames (character looks static while moving)
@@ -29,6 +33,13 @@ export interface RegistryOutfit {
    * Missing key = emoji overlay fallback.
    */
   sprites:    Record<string, string | string[]>;
+}
+
+/** Extra <img> style for a tall outfit sprite inside a `size`×`size` relative box. */
+export function tallStyle(size: number, outfit?: RegistryOutfit | null): Record<string, string | number> {
+  const t = outfit?.tall ?? 1;
+  if (!(t > 1)) return {};
+  return { position: 'absolute', left: 0, bottom: 0, height: size * t, objectPosition: 'bottom' };
 }
 
 /** Returns the stand/preview frame (index 1, or index 0 fallback) as a plain string. */
