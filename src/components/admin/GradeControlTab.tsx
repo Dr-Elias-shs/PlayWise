@@ -20,7 +20,10 @@ const GAME_LIST = [
   { id: 'brain',          label: 'Brain Logic',    emoji: '🧩', color: 'bg-pink-50 border-pink-200' },
   { id: 'hangman',        label: 'Hangman',        emoji: '🪢', color: 'bg-yellow-50 border-yellow-200' },
   { id: 'memory',         label: 'Memory Match',   emoji: '🧠', color: 'bg-teal-50 border-teal-200' },
-  { id: 'world',          label: 'PlayWise World', emoji: '🗺️', color: 'bg-emerald-50 border-emerald-200' },
+  { id: 'trivia',         label: 'Trivia',         emoji: '🎯', color: 'bg-emerald-50 border-emerald-200' },
+  { id: 'spelling-bee',   label: 'Spelling Bee',   emoji: '🐝', color: 'bg-amber-50 border-amber-200' },
+  { id: 'chess',          label: 'Chess',          emoji: '♟️', color: 'bg-slate-50 border-slate-200' },
+  { id: 'penalty',        label: 'Penalty Shootout', emoji: '⚽', color: 'bg-lime-50 border-lime-200' },
   { id: 'multiplayer',    label: 'Math Duels',     emoji: '⚔️', color: 'bg-red-50 border-red-200' },
 ];
 

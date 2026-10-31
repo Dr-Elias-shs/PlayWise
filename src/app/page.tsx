@@ -427,12 +427,12 @@ export default function Home() {
 
   // ── Redeem page ──
   if (screen === 'redeem') {
-    return <RedeemPage studentName={playerName} playerEmail={playerEmail} onBack={() => setScreen('hub')} onCoinsChanged={() => setWalletRefresh(r => r + 1)} />;
+    return <RedeemPage studentName={playerName} playerEmail={playerEmail} onBack={() => setScreen('shop')} onCoinsChanged={() => setWalletRefresh(r => r + 1)} />;
   }
 
   // ── Character shop ──
   if (screen === 'shop') {
-    return <Shop onClose={() => setScreen('hub')} pageMode />;
+    return <Shop onClose={() => setScreen('hub')} pageMode onPrizes={() => setScreen('redeem')} />;
   }
 
   // ── Multiplayer hub ──
@@ -540,8 +540,8 @@ export default function Home() {
               ))}
             </div>
 
-            {/* Math Duels banner */}
-            <motion.section
+            {/* Math Duels banner (hidden when the grade's Math Duels switch is off) */}
+            {gameSettings.multiplayer !== false && <motion.section
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
               onClick={() => setScreen('multiplayer')}
               className="relative overflow-hidden rounded-3xl cursor-pointer group"
@@ -564,7 +564,7 @@ export default function Home() {
                   Enter Lobby →
                 </motion.div>
               </div>
-            </motion.section>
+            </motion.section>}
 
           </div>
 

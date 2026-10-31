@@ -40,7 +40,7 @@ function CharPreview({ colorFilter, baseSrc, item, outfitSprite }: {
   );
 }
 
-export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: boolean }) {
+export function Shop({ onClose, pageMode, onPrizes }: { onClose: () => void; pageMode?: boolean; onPrizes?: () => void }) {
   const [tab,          setTab]          = useState<Tab>('colors');
   const [mainTab,      setMainTab]      = useState<'shop' | 'redeemed'>('shop');
   const [previewColor, setPreviewColor] = useState<string | null>(null);
@@ -177,7 +177,7 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
             <div className="flex gap-1">
               {(['shop', 'redeemed'] as const).map(t => (
                 <button key={t} onClick={() => setMainTab(t)}
-                  className={`px-8 py-3 font-black text-sm rounded-t-2xl transition-all ${
+                  className={`px-5 sm:px-8 py-3 font-black text-sm rounded-t-2xl transition-all ${
                     mainTab === t
                       ? 'bg-brand-background text-violet-700'
                       : 'text-white/70 hover:text-white hover:bg-white/10'
@@ -185,6 +185,13 @@ export function Shop({ onClose, pageMode }: { onClose: () => void; pageMode?: bo
                   {t === 'shop' ? '🛍️ Shop' : '🎒 Redeemed'}
                 </button>
               ))}
+              {/* Real prizes (stickers, Class DJ...) are asked for here and approved by the school. */}
+              {onPrizes && (
+                <button onClick={onPrizes}
+                  className="px-5 sm:px-8 py-3 font-black text-sm rounded-t-2xl transition-all text-white/70 hover:text-white hover:bg-white/10">
+                  🎁 Real prizes
+                </button>
+              )}
             </div>
           </div>
         </div>
