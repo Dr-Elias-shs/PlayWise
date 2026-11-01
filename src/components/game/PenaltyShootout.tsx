@@ -6,6 +6,7 @@ import { useGameStore } from "@/store/useGameStore";
 import { awardCoins } from '@/lib/coinsClient';
 import { recordGameResult } from "@/lib/learningScore";
 import { placeBackground } from '@/lib/world';
+import { LoopVideo } from '@/components/world/LoopVideo';
 
 // ─── Question generator ───────────────────────────────────────────────────────
 
@@ -55,17 +56,25 @@ function generateQuestion(diff: Difficulty): Question {
 const KICKS = 5;
 const TIME_BY_DIFF: Record<Difficulty, number> = { easy: 12, medium: 10, hard: 8 };
 
-// Ball target zones — tuned so ball lands inside the goal net, not above it
+// Where a goal lands, in goal units: gx -1..1 across the mouth, gy 0..1 up from the line
 const GOAL_ZONES = [
-  { x: -22, y: -30 }, // top-left corner
-  { x:  22, y: -30 }, // top-right corner
-  { x: -16, y: -25 }, // mid-left
-  { x:  16, y: -25 }, // mid-right
+  { gx: -0.72, gy: 0.74 }, // top-left corner
+  { gx:  0.72, gy: 0.74 }, // top-right corner
+  { gx: -0.78, gy: 0.28 }, // low left
+  { gx:  0.78, gy: 0.28 }, // low right
+  { gx: -0.40, gy: 0.82 }, // under the bar, left
+  { gx:  0.40, gy: 0.82 }, // under the bar, right
 ];
+
+// The stadium picture and where its goal sits, as fractions of the picture
+const STADIUM = { w: 1024, h: 688, left: 0.28, right: 0.714, bar: 0.363, line: 0.585 };
+const DIVE_ASPECT = 820 / 492;        // keeper-dive / keeper-miss sprites
+const DIVE_BALL = { x: 0.10, y: 0.44 }; // the ball in the catching glove (left-facing sprite)
+const KEEPER_ASPECT = 484 / 720;
 
 type KickState = "idle" | "animating" | "result";
 type KickResult = "goal" | "saved" | "timeout";
-type KeeperPose = "stand" | "dive-left" | "dive-right" | "miss-left" | "miss-right";
+type Shot = { kind: "goal"; gx: number; gy: number } | { kind: "save"; side: -1 | 1 };
 
 // ─── Difficulty picker ────────────────────────────────────────────────────────
 
@@ -174,15 +183,25 @@ interface Props { onBack: () => void; }
 // Every sprite shown during a kick. Preloaded on mount so the keeper's
 // dive/catch pose swaps in instantly instead of fetching mid-shot.
 const PENALTY_IMAGES = [
-  "/games/penalty/keeper-stand.png",
-  "/games/penalty/keeper-dive-left.png",
-  "/games/penalty/keeper-dive-right.png",
-  "/games/penalty/keeper-miss-left.png",
-  "/games/penalty/keeper-miss-right.png",
-  "/games/penalty/ball.png",
-  "/games/penalty/stadium.png",
-  "/games/penalty/goal-celebration.png",
+  "/games/penalty/stadium.webp",
+  "/games/penalty/keeper.webp",
+  "/games/penalty/keeper-dive.webp",
+  "/games/penalty/keeper-miss.webp",
+  "/games/penalty/ball.webp",
 ];
+
+const CONFETTI_COLORS = ["#facc15", "#22c55e", "#3b82f6", "#ef4444", "#f97316", "#ffffff"];
+
+function useViewport() {
+  const [vp, setVp] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const read = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    read();
+    window.addEventListener("resize", read);
+    return () => window.removeEventListener("resize", read);
+  }, []);
+  return vp;
+}
 
 export function PenaltyShootout({ onBack }: Props) {
   const { playerName, playerEmail } = useGameStore();
@@ -194,9 +213,10 @@ export function PenaltyShootout({ onBack }: Props) {
   const [kickState, setKickState]   = useState<KickState>("idle");
   const [lastResult, setLastResult] = useState<KickResult | null>(null);
   const [timeLeft, setTimeLeft]     = useState(1);           // 0–1 fraction
-  const [keeperPose, setKeeperPose] = useState<KeeperPose>("stand");
-  const [ballTarget, setBallTarget] = useState({ x: 0, y: 0 });
-  const [ballVisible, setBallVisible] = useState(true);
+  const [shot, setShot]             = useState<Shot | null>(null);
+  const [panelH, setPanelH]         = useState(240);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const vp = useViewport();
   const [done, setDone]             = useState(false);
   const [coinsEarned, setCoinsEarned] = useState(0);
 
@@ -216,9 +236,7 @@ export function PenaltyShootout({ onBack }: Props) {
   const startKick = useCallback((d: Difficulty) => {
     setQuestion(generateQuestion(d));
     setKickState("idle");
-    setKeeperPose("stand");
-    setBallVisible(true);
-    setBallTarget({ x: 0, y: 0 });
+    setShot(null);
     setLastResult(null);
     const secs = TIME_BY_DIFF[d];
     duration.current = secs;
@@ -251,17 +269,12 @@ export function PenaltyShootout({ onBack }: Props) {
     const result: KickResult = (choice === null) ? "timeout" : correct ? "goal" : "saved";
 
     if (result === "goal") {
-      // Ball flies to a random corner
-      const zone = GOAL_ZONES[Math.floor(Math.random() * GOAL_ZONES.length)];
-      setBallTarget(zone);
-      // Keeper dives WRONG way — empty hands (miss pose)
-      setKeeperPose(zone.x < 0 ? "miss-right" : "miss-left");
+      // Ball flies into a corner and the keeper dives the wrong way
+      const z = GOAL_ZONES[Math.floor(Math.random() * GOAL_ZONES.length)];
+      setShot({ kind: "goal", gx: z.gx, gy: z.gy });
     } else {
-      // Keeper dives a random direction, ball follows to their hands
-      const diveLeft = Math.random() > 0.5;
-      const xTarget  = diveLeft ? -randInt(16, 22) : randInt(16, 22);
-      setBallTarget({ x: xTarget, y: -20 });
-      setKeeperPose(diveLeft ? "dive-left" : "dive-right");
+      // Keeper dives and catches it
+      setShot({ kind: "save", side: Math.random() > 0.5 ? -1 : 1 });
     }
 
     setLastResult(result);
@@ -295,6 +308,15 @@ export function PenaltyShootout({ onBack }: Props) {
     }, 900);
   }, [kickState, question, diff, results, playerName, playerEmail, startKick]);
 
+  // The answer panel's height decides how much pitch is left above it
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setPanelH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [diff, done]);
+
   // ── Init first kick ───────────────────────────────────────────────────────
   useEffect(() => {
     if (diff) startKick(diff);
@@ -317,48 +339,64 @@ export function PenaltyShootout({ onBack }: Props) {
     );
   }
 
-  const keeperSrc =
-    keeperPose === "stand"       ? "/games/penalty/keeper-stand.png"      :
-    keeperPose === "dive-left"   ? "/games/penalty/keeper-dive-left.png"  :
-    keeperPose === "dive-right"  ? "/games/penalty/keeper-dive-right.png" :
-    keeperPose === "miss-left"   ? "/games/penalty/keeper-miss-left.png"  :
-                                   "/games/penalty/keeper-miss-right.png";
-
   const timeColor = timeLeft > 0.5 ? "#22c55e" : timeLeft > 0.25 ? "#f59e0b" : "#ef4444";
 
+  // ── Scene layout ──
+  // The stadium covers the screen like object-cover, then slides (or grows) so
+  // the goal line sits a comfortable gap above the answer panel. Keeper and
+  // ball are placed on the goal in pixels, so they line up on any screen.
+  const W = vp.w || 1024, H = vp.h || 768;
+  const openBottom = H - panelH - 12;
+  const gap = Math.max(84, H * 0.14);
+  const lineTarget = openBottom - gap;
+  const coverH = Math.max(W / STADIUM.w, H / STADIUM.h) * STADIUM.h;
+  const sceneH = Math.max(coverH, (H - lineTarget) / (1 - STADIUM.line));
+  const sceneW = sceneH * STADIUM.w / STADIUM.h;
+  const sceneLeft = (W - sceneW) / 2;
+  const sceneTop = Math.min(0, Math.max(H - sceneH, lineTarget - STADIUM.line * sceneH));
+
+  const gw = (STADIUM.right - STADIUM.left) * sceneW;
+  const gh = (STADIUM.line - STADIUM.bar) * sceneH;
+  const gx = sceneLeft + ((STADIUM.left + STADIUM.right) / 2) * sceneW;
+  const lineY = sceneTop + STADIUM.line * sceneH;
+
+  const keeperH = gh * 0.96;
+  const keeperW = keeperH * KEEPER_ASPECT;
+  const diveW = gw * 0.62, diveH = diveW / DIVE_ASPECT;
+  const diveSide: -1 | 1 = !shot ? 1 : shot.kind === "save" ? shot.side : (shot.gx < 0 ? 1 : -1);
+  const diveCx = gx + diveSide * gw * 0.28;
+  const diveCy = lineY - gh * 0.45;
+
+  const ballSize = Math.min(96, Math.max(40, gh * 0.3));
+  const ballX = gx;
+  const ballY = lineY + Math.max(ballSize * 0.7, (openBottom - lineY) * 0.62);
+
+  let target = { x: 0, y: 0 };
+  if (shot?.kind === "goal") {
+    target = { x: shot.gx * gw * 0.5, y: lineY - shot.gy * gh - ballY };
+  } else if (shot?.kind === "save") {
+    target = {
+      x: diveCx + diveSide * (0.5 - DIVE_BALL.x) * diveW - ballX,
+      y: diveCy + (DIVE_BALL.y - 0.5) * diveH - ballY,
+    };
+  }
+  const flying = kickState !== "idle" && !!shot;
+
   return (
-    <div className="fixed inset-0 overflow-hidden select-none"
-      style={{ background: "#0a2e0a" }}>
+    <div className="fixed inset-0 overflow-hidden select-none" style={{ background: "#2f8f3a" }}>
 
-      {/* ── Stadium background ── */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/games/penalty/stadium.png" alt=""
-        className="absolute inset-0 w-full h-full object-cover object-center"
-        style={{ opacity: 0.92 }} />
+      {/* ── Stadium (moving loop; still picture on slow Wi-Fi or reduced motion) ── */}
+      <motion.div className="absolute"
+        style={{ left: sceneLeft, top: sceneTop, width: sceneW, height: sceneH }}
+        animate={kickState === "result" && lastResult === "goal" ? { x: [0, -7, 6, -3, 0] } : { x: 0 }}
+        transition={{ duration: 0.45 }}>
+        <LoopVideo src="/games/penalty/stadium.mp4" poster="/games/penalty/stadium.webp"
+          className="w-full h-full" />
+      </motion.div>
 
-      {/* Dark gradient bottom overlay so UI is readable */}
-      <div className="absolute inset-0"
-        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.1) 55%, transparent 100%)" }} />
-
-      {/* ── Goal celebration flash ── */}
-      <AnimatePresence>
-        {kickState === "result" && lastResult === "goal" && (
-          <motion.div key="goal-flash" className="absolute inset-0 pointer-events-none z-20"
-            initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 1, 0] }}
-            transition={{ duration: 2.0, times: [0, 0.1, 0.85, 1] }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/games/penalty/goal-celebration.png" alt=""
-              className="w-full h-full object-cover" style={{ opacity: 0.82 }} />
-            <div className="absolute inset-0"
-              style={{ background: "radial-gradient(ellipse at center, rgba(251,191,36,0.3), transparent 70%)" }} />
-          </motion.div>
-        )}
-        {kickState === "result" && lastResult !== "goal" && (
-          <motion.div key="save-flash" className="absolute inset-0 pointer-events-none z-20"
-            initial={{ opacity: 0.6 }} animate={{ opacity: 0 }} transition={{ duration: 0.8 }}
-            style={{ background: "radial-gradient(ellipse at center, rgba(239,68,68,0.4), transparent 70%)" }} />
-        )}
-      </AnimatePresence>
+      {/* Soft shade under the panel so the answers stay readable */}
+      <div className="absolute inset-x-0 bottom-0 pointer-events-none"
+        style={{ height: panelH + 60, background: "linear-gradient(to top, rgba(0,0,0,0.55), transparent)" }} />
 
       {/* ── Score pills (top) ── */}
       <div className="absolute top-4 left-0 right-0 flex justify-center gap-2 z-20">
@@ -368,8 +406,8 @@ export function PenaltyShootout({ onBack }: Props) {
             <div key={i}
               className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-lg font-black transition-all"
               style={{
-                borderColor: res === "goal" ? "#22c55e" : res ? "#ef4444" : i === kickIndex ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.2)",
-                background:  res === "goal" ? "rgba(34,197,94,0.3)" : res ? "rgba(239,68,68,0.3)" : "rgba(0,0,0,0.3)",
+                borderColor: res === "goal" ? "#22c55e" : res ? "#ef4444" : i === kickIndex ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.4)",
+                background:  res === "goal" ? "rgba(34,197,94,0.55)" : res ? "rgba(239,68,68,0.55)" : "rgba(0,0,0,0.35)",
               }}>
               {res === "goal" ? "⚽" : res ? "❌" : i === kickIndex ? "●" : "○"}
             </div>
@@ -379,59 +417,89 @@ export function PenaltyShootout({ onBack }: Props) {
 
       {/* ── Back button ── */}
       <button onClick={onBack}
-        className="absolute top-4 left-4 z-30 bg-black/40 backdrop-blur-sm border border-white/20 text-white/70 hover:text-white rounded-xl px-3 py-1.5 text-sm font-bold transition-all">
+        className="absolute top-4 left-4 z-30 bg-black/40 backdrop-blur-sm border border-white/20 text-white/80 hover:text-white rounded-xl px-3 py-1.5 text-sm font-bold transition-all">
         ← Hub
       </button>
 
       {/* ── Goalkeeper ── */}
-      {/* Anchored by the BOTTOM so his feet stay planted on the pitch no matter
-          the size (was top-anchored, which made the bigger sprite look floaty). */}
-      <div className="absolute left-0 right-0 flex justify-center items-end"
-        style={{ bottom: "37%", zIndex: 10 }}>
-        <motion.img
-          key={keeperPose}
-          src={keeperSrc}
-          alt="goalkeeper"
-          initial={{ opacity: 0.7, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.18 }}
-          className="object-contain drop-shadow-2xl"
-          style={{
-            height: "clamp(190px, 30vw, 300px)",
-            // multiply removes white/grass backgrounds on non-transparent images
-            // miss poses are already transparent — use normal so yellow isn't darkened
-            mixBlendMode: (keeperPose === "miss-left" || keeperPose === "miss-right") ? "normal" : "multiply",
-          }}
-        />
-      </div>
+      {!shot ? (
+        <motion.img key={`stand-${kickIndex}`} src="/games/penalty/keeper.webp" alt="goalkeeper" draggable={false}
+          className="absolute pointer-events-none"
+          style={{ left: gx - keeperW / 2, top: lineY - keeperH + gh * 0.04, width: keeperW, height: keeperH, zIndex: 10,
+                   filter: "drop-shadow(0 6px 6px rgba(0,0,0,0.35))", transformOrigin: "50% 100%" }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: [0, -5, 0], x: [-gw * 0.04, gw * 0.04, -gw * 0.04] }}
+          transition={{ opacity: { duration: 0.25 }, y: { duration: 0.9, repeat: Infinity, ease: "easeInOut" },
+                        x: { duration: 2.6, repeat: Infinity, ease: "easeInOut" } }} />
+      ) : (
+        <motion.img key={`dive-${kickIndex}`}
+          src={shot.kind === "save" ? "/games/penalty/keeper-dive.webp" : "/games/penalty/keeper-miss.webp"}
+          alt="goalkeeper" draggable={false}
+          className="absolute pointer-events-none"
+          style={{ left: diveCx - diveW / 2, top: diveCy - diveH / 2, width: diveW, height: diveH, zIndex: 10,
+                   filter: "drop-shadow(0 8px 8px rgba(0,0,0,0.35))" }}
+          initial={{ x: -diveSide * gw * 0.28, y: gh * 0.25, rotate: diveSide * 25, scaleX: diveSide > 0 ? -0.75 : 0.75, scaleY: 0.75, opacity: 0.6 }}
+          animate={{ x: 0, y: 0, rotate: 0, scaleX: diveSide > 0 ? -1 : 1, scaleY: 1, opacity: 1 }}
+          transition={{ duration: 0.55, ease: "easeOut" }} />
+      )}
 
       {/* ── Ball ── */}
-      <div className="absolute left-0 right-0 flex justify-center pointer-events-none"
-        style={{ bottom: "28%", zIndex: 15 }}>
-        <motion.img
-          src="/games/penalty/ball.png"
-          alt="ball"
-          animate={kickState === "animating" ? {
-            x:      `${ballTarget.x}vw`,
-            y:      `${ballTarget.y}vh`,
-            scale:  lastResult === "goal" ? [1, 0.35] : [1, 0.55],
-            rotate: lastResult === "goal" ? [0, 540]  : [0, 180],
-            opacity: kickState === "animating" ? [1, 1, 0] : 1,
-          } : {
-            x: 0, y: 0, scale: 1, rotate: 0, opacity: ballVisible ? 1 : 0,
-          }}
-          transition={{ duration: 0.75, ease: "easeIn" }}
-          className="object-contain drop-shadow-xl"
-          style={{ width: "clamp(48px, 9vw, 80px)", height: "clamp(48px, 9vw, 80px)" }}
-        />
-      </div>
+      <motion.img key={`ball-${kickIndex}`} src="/games/penalty/ball.webp" alt="ball" draggable={false}
+        className="absolute pointer-events-none"
+        style={{ left: ballX - ballSize / 2, top: ballY - ballSize / 2, width: ballSize, height: ballSize,
+                 zIndex: shot?.kind === "goal" ? 9 : 15, filter: "drop-shadow(0 4px 4px rgba(0,0,0,0.4))" }}
+        initial={{ opacity: 0, scale: 0.6 }}
+        animate={flying ? {
+          x: target.x, y: target.y,
+          scale: shot!.kind === "goal" ? 0.42 : 0.5,
+          rotate: shot!.kind === "goal" ? 720 : 360,
+          opacity: shot!.kind === "goal" ? 1 : [1, 1, 0],
+        } : {
+          x: 0, y: [0, -6, 0], scale: 1, rotate: 0, opacity: 1,
+        }}
+        transition={flying
+          ? { duration: 0.6, ease: [0.2, 0.7, 0.4, 1] }
+          : { y: { duration: 1.2, repeat: Infinity, ease: "easeInOut" }, default: { duration: 0.3 } }} />
+
+      {/* ── Net ripple where the goal went in ── */}
+      <AnimatePresence>
+        {kickState === "result" && shot?.kind === "goal" && (
+          <motion.div key={`ripple-${kickIndex}`} className="absolute rounded-full pointer-events-none"
+            style={{ left: ballX + target.x - gh * 0.3, top: ballY + target.y - gh * 0.3, width: gh * 0.6, height: gh * 0.6,
+                     border: "3px solid rgba(255,255,255,0.9)", zIndex: 8 }}
+            initial={{ scale: 0.3, opacity: 1 }} animate={{ scale: 1.6, opacity: 0 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.7 }} />
+        )}
+      </AnimatePresence>
+
+      {/* ── Confetti on a goal ── */}
+      <AnimatePresence>
+        {kickState === "result" && lastResult === "goal" && (
+          <motion.div key={`confetti-${kickIndex}`} className="absolute inset-0 pointer-events-none z-20"
+            exit={{ opacity: 0 }}>
+            {Array.from({ length: 36 }, (_, i) => (
+              <motion.span key={i} className="absolute block rounded-sm"
+                style={{ left: `${(i * 37) % 100}%`, top: -20, width: 8, height: 14,
+                         background: CONFETTI_COLORS[i % CONFETTI_COLORS.length] }}
+                initial={{ y: 0, rotate: 0, opacity: 1 }}
+                animate={{ y: H * (0.55 + ((i * 13) % 40) / 100), rotate: (i % 2 ? 1 : -1) * 540, x: ((i * 29) % 60) - 30, opacity: [1, 1, 0] }}
+                transition={{ duration: 1.6 + (i % 5) * 0.15, ease: "easeOut", delay: (i % 6) * 0.04 }} />
+            ))}
+          </motion.div>
+        )}
+        {kickState === "result" && lastResult !== "goal" && (
+          <motion.div key="save-flash" className="absolute inset-0 pointer-events-none z-20"
+            initial={{ opacity: 0.6 }} animate={{ opacity: 0 }} transition={{ duration: 0.8 }}
+            style={{ background: "radial-gradient(ellipse at center, rgba(239,68,68,0.35), transparent 70%)" }} />
+        )}
+      </AnimatePresence>
 
       {/* ── GOAL / SAVED overlay ── */}
       <AnimatePresence>
         {kickState === "result" && (
           <motion.div key="result-label"
             className="absolute left-0 right-0 flex justify-center pointer-events-none"
-            style={{ top: "42%", zIndex: 25 }}
+            style={{ top: Math.max(64, lineY - gh * 1.55), zIndex: 25 }}
             initial={{ scale: 0.4, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 1.3, opacity: 0 }}
@@ -450,7 +518,7 @@ export function PenaltyShootout({ onBack }: Props) {
       </AnimatePresence>
 
       {/* ── Question + Answers ── */}
-      <div className="absolute left-0 right-0 bottom-0 z-20 px-4 pb-5 space-y-3">
+      <div ref={panelRef} className="absolute left-0 right-0 bottom-0 z-20 px-4 pb-4 space-y-2.5">
         {/* Timer bar */}
         <div className="w-full h-2 rounded-full overflow-hidden bg-white/15">
           <motion.div className="h-full rounded-full transition-colors"
@@ -470,23 +538,23 @@ export function PenaltyShootout({ onBack }: Props) {
 
         {/* Answer buttons */}
         {question && (
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {question.choices.map((c, i) => (
               <motion.button key={`${kickIndex}-${i}`}
                 whileHover={kickState === "idle" ? { scale: 1.04 } : {}}
                 whileTap={kickState === "idle" ? { scale: 0.95 } : {}}
                 disabled={kickState !== "idle"}
                 onClick={() => handleAnswer(c)}
-                className="py-4 rounded-2xl font-black text-xl text-white transition-all"
+                className="py-3.5 rounded-2xl font-black text-2xl text-white transition-all backdrop-blur-sm"
                 style={{
                   background: kickState === "result"
                     ? c === question.answer
                       ? "rgba(34,197,94,0.8)"
-                      : "rgba(255,255,255,0.07)"
-                    : "rgba(255,255,255,0.12)",
+                      : "rgba(0,0,0,0.35)"
+                    : "rgba(0,0,0,0.5)",
                   border: kickState === "result" && c === question.answer
                     ? "2px solid #4ade80"
-                    : "2px solid rgba(255,255,255,0.15)",
+                    : "2px solid rgba(255,255,255,0.25)",
                   opacity: kickState === "idle" ? 1 : 0.8,
                 }}>
                 {c}
