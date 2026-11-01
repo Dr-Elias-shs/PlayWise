@@ -7,6 +7,7 @@ import { awardCoins } from '@/lib/coinsClient';
 import { recordGameResult } from "@/lib/learningScore";
 import { placeBackground } from '@/lib/world';
 import { LoopVideo } from '@/components/world/LoopVideo';
+import { playSound } from '@/lib/sounds';
 
 // ─── Question generator ───────────────────────────────────────────────────────
 
@@ -237,6 +238,7 @@ export function PenaltyShootout({ onBack }: Props) {
     setQuestion(generateQuestion(d));
     setKickState("idle");
     setShot(null);
+    playSound("whistle");
     setLastResult(null);
     const secs = TIME_BY_DIFF[d];
     duration.current = secs;
@@ -267,6 +269,15 @@ export function PenaltyShootout({ onBack }: Props) {
 
     const correct = choice === question.answer;
     const result: KickResult = (choice === null) ? "timeout" : correct ? "goal" : "saved";
+
+    if (choice !== null) playSound("kick");
+    if (result === "goal") {
+      playSound("netswish");
+      playSound("cheer");
+    } else {
+      if (choice !== null) playSound("glovecatch");
+      playSound("groan");
+    }
 
     if (result === "goal") {
       // Ball flies into a corner and the keeper dives the wrong way

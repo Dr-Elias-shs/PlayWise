@@ -47,7 +47,105 @@ function noise(duration: number, vol = 0.15, delay = 0) {
   src.stop(ctx.currentTime + delay + duration + 0.05);
 }
 
+// Shaped, filtered noise: crowds, swishes, thuds
+function shapedNoise(duration: number, vol: number, delay: number, freq: number,
+                     type: BiquadFilterType = 'bandpass', attack = 0.02, q = 1) {
+  const ctx = getCtx();
+  const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = type;
+  filter.frequency.value = freq;
+  filter.Q.value = q;
+  const gain = ctx.createGain();
+  const t = ctx.currentTime + delay;
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.linearRampToValueAtTime(vol, t + attack);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+  src.start(t);
+  src.stop(t + duration + 0.05);
+}
+
 const SOUNDS: Record<string, () => void> = {
+
+  // ─── Penalty ────────────────────────────────────────────────────────────────
+
+  whistle: () => {
+    // Referee pea whistle: trill on a high tone
+    const ctx = getCtx();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 2900;
+    lfo.frequency.value = 28;
+    lfoGain.gain.value = 120;
+    lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.14, now + 0.02);
+    gain.gain.setValueAtTime(0.14, now + 0.32);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(now); lfo.start(now);
+    osc.stop(now + 0.45); lfo.stop(now + 0.45);
+  },
+
+  kick: () => {
+    // Boot on ball: low thump plus a short slap
+    const ctx = getCtx();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(45, now + 0.15);
+    gain.gain.setValueAtTime(0.7, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(now); osc.stop(now + 0.2);
+    shapedNoise(0.06, 0.35, 0, 1800, 'bandpass', 0.003);
+    shapedNoise(0.5, 0.12, 0.05, 900, 'bandpass', 0.15, 0.7); // ball whoosh
+  },
+
+  netswish: () => shapedNoise(0.45, 0.3, 0.55, 3500, 'highpass', 0.01),
+
+  cheer: () => {
+    // Crowd roar: wide band noise that swells and fades, with a horn-like note
+    shapedNoise(2.4, 0.45, 0.55, 1100, 'bandpass', 0.25, 0.5);
+    shapedNoise(2.0, 0.25, 0.6, 2400, 'bandpass', 0.3, 0.8);
+    [523, 659, 784].forEach((f, i) => tone(f, 'triangle', 0.35, 0.12, 0.7 + i * 0.12));
+  },
+
+  groan: () => {
+    // Crowd "ohhh": low band noise sliding down
+    const ctx = getCtx();
+    const now = ctx.currentTime + 0.5;
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 1.3), ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass'; filter.Q.value = 3;
+    filter.frequency.setValueAtTime(700, now);
+    filter.frequency.exponentialRampToValueAtTime(300, now + 1.2);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.5, now + 0.2);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.25);
+    src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    src.start(now); src.stop(now + 1.3);
+  },
+
+  glovecatch: () => {
+    shapedNoise(0.09, 0.45, 0.55, 600, 'lowpass', 0.004);
+  },
 
   // ─── Gameplay ───────────────────────────────────────────────────────────────
 
