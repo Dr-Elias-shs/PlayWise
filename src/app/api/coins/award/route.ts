@@ -3,6 +3,7 @@
 // session cookie, never from the body.
 import { readSession, json } from '@/lib/server/session';
 import { db, walletOf, countSince } from '@/lib/server/db';
+import { scheduleCheck, DEFAULT_CONFIG, type TimeManagementConfig } from '@/lib/timeManagement';
 import { reward, baseGame, KNOWN_GAMES, DAILY_CAP, todayStartUTC, type PlayResult } from '@/lib/server/rewards';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,16 @@ export async function POST(req: Request) {
 
   const wallet = await walletOf(s.email);
   if (wallet?.banned) return json({ error: 'Banned' }, { status: 403 });
+
+  // No PlayBits during school time (staff testing is exempt).
+  if (!s.isStaff && !s.isAdmin) {
+    const { data: tm } = await db().from('global_config').select('value').eq('key', 'time_management').maybeSingle();
+    const raw = (tm?.value ?? {}) as Partial<TimeManagementConfig>;
+    const cfg = { ...DEFAULT_CONFIG, ...raw, schedule: { ...DEFAULT_CONFIG.schedule, ...(raw.schedule ?? {}) } } as TimeManagementConfig;
+    if (scheduleCheck(cfg, s.grade || '')) {
+      return json({ credited: 0, balance: wallet?.coins ?? null, earnedToday: 0, dailyCap: DAILY_CAP, closed: true });
+    }
+  }
 
   const since = todayStartUTC();
   const sessionsToday = await countSince('game_sessions', { student_name: s.email, game_id: game }, since);

@@ -210,6 +210,11 @@ export function TimeManagementTab() {
     update({ grades });
   }
 
+  function toggleAllDay(day: string) {
+    const cur = cfg.schedule.all_day_days ?? [];
+    updateSchedule({ all_day_days: cur.includes(day) ? cur.filter(d => d !== day) : [...cur, day] });
+  }
+
   function toggleDay(day: string) {
     const days = cfg.schedule.days.includes(day)
       ? cfg.schedule.days.filter(d => d !== day)
@@ -278,6 +283,22 @@ export function TimeManagementTab() {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Open All Day</p>
+                <div className="flex gap-2 flex-wrap">
+                  {DAYS.filter(d => cfg.schedule.days.includes(d)).map(d => (
+                    <button key={d} onClick={() => toggleAllDay(d)}
+                      className={`w-12 h-10 rounded-xl font-black text-sm transition-all ${
+                        (cfg.schedule.all_day_days ?? []).includes(d)
+                          ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200'
+                          : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                      }`}>
+                      {d.slice(0, 2)}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">These days ignore the hours below.</p>
               </div>
               <div className="flex items-center gap-4 flex-wrap">
                 <div>

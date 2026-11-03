@@ -22,6 +22,7 @@ export interface TimeManagementConfig {
     days:       string[];            // 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun'
     open_time:  string;
     close_time: string;
+    all_day_days: string[];          // open days with no time window (weekends)
   };
   grades: Record<string, GradeTimeSetting>; // keyed by grade string '1'–'12'
 }
@@ -40,9 +41,10 @@ export const DEFAULT_CONFIG: TimeManagementConfig = {
   global_enabled: true,
   schedule: {
     enabled:    false,
-    days:       ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-    open_time:  '07:30',
-    close_time: '15:30',
+    days:       ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    open_time:  '15:00',
+    close_time: '20:30',
+    all_day_days: ['Sat', 'Sun'],
   },
   grades: Object.fromEntries(
     Array.from({ length: 12 }, (_, i) => [String(i + 1), { ...DEFAULT_GRADE_SETTING }])
@@ -51,20 +53,35 @@ export const DEFAULT_CONFIG: TimeManagementConfig = {
 
 // ─── Schedule helpers ─────────────────────────────────────────────────────────
 
-const DAY_CODES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
 function toMins(t: string): number {
   const [h, m] = t.split(':').map(Number);
   return h * 60 + m;
 }
 
-function nowMins(): number {
-  const d = new Date();
-  return d.getHours() * 60 + d.getMinutes();
+// School time (Beirut), whatever time zone the tablet or the server is set to.
+export function schoolNow(at: Date = new Date()): { day: string; mins: number } {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Beirut', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(at);
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? '';
+  return { day: get('weekday').slice(0, 3), mins: Number(get('hour')) * 60 + Number(get('minute')) };
 }
 
-function todayCode(): string {
-  return DAY_CODES[new Date().getDay()];
+/** Is the schedule open right now? Returns the reason when it is not. */
+export function scheduleCheck(config: TimeManagementConfig, grade: string, at?: Date): string | null {
+  const gs = config.grades[grade] ?? DEFAULT_GRADE_SETTING;
+  if (!gs.custom_schedule && !config.schedule.enabled) return null;
+  const { day, mins } = schoolNow(at);
+  const sched = config.schedule;
+  if (sched.enabled && !sched.days.includes(day)) return 'PlayWise is not available today.';
+  if (!gs.custom_schedule && (sched.all_day_days ?? []).includes(day)) return null;
+  const ot = gs.custom_schedule ? gs.open_time  : sched.open_time;
+  const ct = gs.custom_schedule ? gs.close_time : sched.close_time;
+  if (mins < toMins(ot) || mins >= toMins(ct)) {
+    const weekend = (sched.all_day_days ?? []).length ? ' and all day at weekends' : '';
+    return `PlayWise is closed during school time. Come back between ${ot} and ${ct}${weekend}.`;
+  }
+  return null;
 }
 
 export interface AccessResult {
@@ -89,23 +106,8 @@ export function checkAccess(
   }
 
   // 3. Schedule check
-  const day = todayCode();
-  const now = nowMins();
-  const sched = gs.custom_schedule ? gs : config.schedule.enabled ? config.schedule : null;
-
-  if (sched && 'days' in sched) {
-    const s = sched as typeof config.schedule;
-    if (!s.days.includes(day)) {
-      return { allowed: false, reason: 'The platform is not available today.', minutesLeft: null };
-    }
-    const open  = toMins(gs.custom_schedule ? gs.open_time  : config.schedule.open_time);
-    const close = toMins(gs.custom_schedule ? gs.close_time : config.schedule.close_time);
-    if (now < open || now > close) {
-      const ot = gs.custom_schedule ? gs.open_time  : config.schedule.open_time;
-      const ct = gs.custom_schedule ? gs.close_time : config.schedule.close_time;
-      return { allowed: false, reason: `Available from ${ot} to ${ct}.`, minutesLeft: null };
-    }
-  }
+  const closed = scheduleCheck(config, grade);
+  if (closed) return { allowed: false, reason: closed, minutesLeft: null };
 
   // 4. Daily screen time
   const used = getUsedMinutes(grade);
