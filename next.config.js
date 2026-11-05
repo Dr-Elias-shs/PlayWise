@@ -15,6 +15,14 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['pdf-parse', 'mammoth'],
   },
+  // Character, outfit and accessory pictures (Nov 2026): devices keep them for 7 days
+  // instead of asking the server again every time (Render free bandwidth ran out on
+  // 5 Nov). A player changing outfit shows a different file, so friends see it at once;
+  // only art replaced under the SAME file name can look old for up to a week.
+  async headers() {
+    const keep = [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=86400' }];
+    return ['character', 'characters', 'accessories'].map(d => ({ source: `/${d}/:path*`, headers: keep }));
+  },
 };
 
 module.exports = withPWA(nextConfig);
