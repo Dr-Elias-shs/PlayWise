@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/useGameStore';
 import { awardCoins } from '@/lib/coinsClient';
 import { getBestMove, AIDifficulty } from '@/lib/chess-ai';
-import { updateChessScore, getChessLeaderboard, ChessScoreRow } from '@/lib/chess-scores';
+import { getChessLeaderboard, ChessScoreRow } from '@/lib/chess-scores';
 import { supabase } from '@/lib/supabase';
 import { placeBackground } from '@/lib/world';
 
@@ -179,8 +179,13 @@ function AIPicker({ onSelect, onBack }: {
 
 interface ChessRoom { room_code: string; host_name: string; created_at: string; }
 
-function MPLobby({ playerName, onJoined, onBack }: {
+// Rooms older than this are not listed and cannot be joined: their host is gone.
+const ROOM_FRESH_MS = 15 * 60 * 1000;
+const freshSince = () => new Date(Date.now() - ROOM_FRESH_MS).toISOString();
+
+function MPLobby({ playerName, playerEmail, onJoined, onBack }: {
   playerName: string;
+  playerEmail: string;
   onJoined: (roomCode: string, color: 'w' | 'b') => void;
   onBack: () => void;
 }) {
@@ -195,6 +200,7 @@ function MPLobby({ playerName, onJoined, onBack }: {
       .from('chess_rooms')
       .select('room_code, host_name, created_at')
       .eq('status', 'waiting')
+      .gte('created_at', freshSince())
       .order('created_at', { ascending: false })
       .limit(10);
     setRooms((data as ChessRoom[]) ?? []);
@@ -218,6 +224,7 @@ function MPLobby({ playerName, onJoined, onBack }: {
       status: 'waiting',
       fen: new Chess().fen(),
       white_name: playerName,
+      white_email: playerEmail.toLowerCase(),
       black_name: null,
       created_at: new Date().toISOString(),
     });
@@ -229,9 +236,14 @@ function MPLobby({ playerName, onJoined, onBack }: {
     setBusy(true);
     setStatus('Joining…');
     const { data, error } = await supabase
-      .from('chess_rooms').select('*').eq('room_code', code).eq('status', 'waiting').maybeSingle();
-    if (error || !data) { setStatus('Room not found or already started.'); setBusy(false); return; }
-    await supabase.from('chess_rooms').update({ black_name: playerName, status: 'playing' }).eq('room_code', code);
+      .from('chess_rooms').select('*').eq('room_code', code).eq('status', 'waiting')
+      .gte('created_at', freshSince()).maybeSingle();
+    if (error || !data) { setStatus('Room not found, already started or expired.'); setBusy(false); return; }
+    if (String(data.white_email || '').toLowerCase() === playerEmail.toLowerCase()) {
+      setStatus('You cannot join your own room.'); setBusy(false); return;
+    }
+    await supabase.from('chess_rooms').update({ black_name: playerName, black_email: playerEmail.toLowerCase(), status: 'playing' })
+      .eq('room_code', code).eq('status', 'waiting');
     onJoined(code, 'b');
   };
 
@@ -1089,17 +1101,14 @@ export function ChessGame({ onBack }: { onBack: () => void }) {
     const qualified = gameMode !== 'mp' || moves >= MIN_MOVES_MP;
     const coins = qualified ? (w === 'player' ? COINS_WIN : w === 'draw' ? COINS_DRAW : 0) : 0;
     setCoinsEarned(0);
-    if (coins > 0 && playerName) {
-      // The server sets the chess reward (easy computer 0, medium 20, hard 40, 10 moves minimum).
+    if (playerName) {
+      // The server decides the PlayBits and the ranking (online games are checked
+      // against the room). Losses are reported too, for the ranking.
       const result = w === 'player' ? 'win' : w === 'draw' ? 'draw' : 'loss';
-      const r = await awardCoins({ game: 'chess', coins, chess: { mode: gameMode, difficulty, moves, result, opponent } });
+      const r = await awardCoins({ game: 'chess', coins, chess: { mode: gameMode, difficulty, moves, result, opponent, roomCode: gameMode === 'mp' ? roomCode : undefined } });
       setCoinsEarned(r.credited);
     }
-    if (playerName && qualified) {
-      const result = w === 'player' ? 'win' : w === 'draw' ? 'draw' : 'loss';
-      await updateChessScore(playerName, playerEmail ?? '', result, gameMode, difficulty).catch(() => {});
-    }
-  }, [playerName, playerEmail, gameMode, difficulty]);
+  }, [playerName, gameMode, difficulty, roomCode]);
 
   const resetToMenu = () => {
     setMode('menu');
@@ -1120,6 +1129,7 @@ export function ChessGame({ onBack }: { onBack: () => void }) {
     return (
       <MPLobby
         playerName={playerName}
+        playerEmail={playerEmail ?? ''}
         onJoined={(code, color) => {
           setRoomCode(code);
           setPlayerColor(color);

@@ -11,7 +11,7 @@ export interface PlayResult {
   total?: number;
   level?: string;
   playSeconds?: number;
-  chess?: { mode: 'ai' | 'mp'; difficulty?: string; moves?: number; result: 'win' | 'draw' | 'loss'; opponent?: string };
+  chess?: { mode: 'ai' | 'mp'; difficulty?: string; moves?: number; result: 'win' | 'draw' | 'loss'; opponent?: string; roomCode?: string };
 }
 
 export interface AwardReply { credited: number; balance: number | null; earnedToday: number; dailyCap: number }

@@ -41,3 +41,10 @@ export async function countSince(table: 'game_sessions' | 'coin_transactions', m
   const { count } = await q;
   return count ?? 0;
 }
+
+/** Like countSince, for one student and a game_id pattern such as 'trivia-%'. */
+export async function countLike(table: 'game_sessions' | 'coin_transactions', student: string, pattern: string, since: string) {
+  const { count } = await db().from(table).select('*', { count: 'exact', head: true })
+    .eq('student_name', student).like('game_id', pattern).gte('created_at', since);
+  return count ?? 0;
+}

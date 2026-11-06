@@ -2,9 +2,10 @@
 // Body: PlayResult (see src/lib/server/rewards.ts). The player comes from the
 // session cookie, never from the body.
 import { readSession, json } from '@/lib/server/session';
-import { db, walletOf, countSince } from '@/lib/server/db';
+import { db, walletOf, countSince, countLike } from '@/lib/server/db';
 import { scheduleCheck, DEFAULT_CONFIG, type TimeManagementConfig } from '@/lib/timeManagement';
 import { reward, baseGame, KNOWN_GAMES, DAILY_CAP, todayStartUTC, type PlayResult } from '@/lib/server/rewards';
+import { verifyRoom, recordChessScore } from '@/lib/server/chess';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,15 +32,46 @@ export async function POST(req: Request) {
   }
 
   const since = todayStartUTC();
-  const sessionsToday = await countSince('game_sessions', { student_name: s.email, game_id: game }, since);
-  const opponent = r.chess?.mode === 'mp' ? String(r.chess.opponent || '').toLowerCase().slice(0, 120) : '';
-  const winsVsOpponent = opponent
-    ? await countSince('coin_transactions', { student_name: s.email, game_id: `chess-online:${opponent}` }, since)
-    : 0;
+  const base = baseGame(game);
+
+  // Chess: online results come from the room, and the ranking is kept here.
+  let gameId = game;
+  let winsVsOpponent = 0;
+  if (base === 'chess') {
+    const c = r.chess;
+    if (!c || (c.mode !== 'ai' && c.mode !== 'mp')) return json({ error: 'Bad request' }, { status: 400 });
+    let result: 'win' | 'draw' | 'loss' = c.result === 'win' || c.result === 'draw' ? c.result : 'loss';
+    if (c.mode === 'mp') {
+      const v = await verifyRoom(String(c.roomCode || '').toUpperCase(), s.email);
+      if (!v.ok || !v.result || !v.opponent) {
+        return json({ credited: 0, balance: wallet?.coins ?? null, earnedToday: 0, dailyCap: DAILY_CAP, why: v.why });
+      }
+      result = v.result;
+      const roomId = `chess-online:${v.opponent}:${String(c.roomCode).toUpperCase()}`;
+      // One result per room, whatever the browser sends again.
+      if (await countSince('coin_transactions', { student_name: s.email, game_id: roomId }, '1970-01-01T00:00:00Z')) {
+        return json({ credited: 0, balance: wallet?.coins ?? null, earnedToday: 0, dailyCap: DAILY_CAP, why: 'already counted' });
+      }
+      winsVsOpponent = await countLike('coin_transactions', s.email, `chess-online:${v.opponent}:%`, since);
+      gameId = roomId;
+      r = { ...r, chess: { ...c, result, moves: (v.fullMoves ?? 0) * 2 } };
+    } else {
+      r = { ...r, chess: { ...c, result } };
+    }
+    await recordChessScore(s.email, s.name || '', result, c.mode, c.difficulty).catch(e => console.error('chess score:', e?.message));
+  }
+
+  // Freshness counts every session of the same game today (all trivia topics as one game).
+  const sessionsToday = base === 'trivia' || base === 'multiplication'
+    ? await countLike('game_sessions', s.email, `${base}-%`, since)
+    : await countSince('game_sessions', { student_name: s.email, game_id: game }, since);
 
   const amount = reward({ ...r, game }, sessionsToday, winsVsOpponent);
   const playSeconds = Math.max(0, Math.min(3600, Math.round(Number(r.playSeconds) || 0)));
-  const gameId = opponent && r.chess?.result === 'win' && amount > 0 ? `chess-online:${opponent}` : game;
+  // A chess game that pays nothing is not saved as a session (losses, easy computer).
+  if (base === 'chess' && amount <= 0) {
+    return json({ credited: 0, balance: wallet?.coins ?? null, earnedToday: 0, dailyCap: DAILY_CAP });
+  }
 
   const { data, error } = await db().rpc('pw_award', {
     p_student: s.email, p_display: s.name || '', p_amount: amount, p_source: 'game_play', p_game: gameId,

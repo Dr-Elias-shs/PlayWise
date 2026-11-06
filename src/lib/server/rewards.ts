@@ -11,7 +11,7 @@ export interface PlayResult {
   total?: number;
   level?: string;          // 'easy' | 'medium' | 'hard'
   playSeconds?: number;
-  chess?: { mode: 'ai' | 'mp'; difficulty?: string; moves?: number; result: 'win' | 'draw' | 'loss'; opponent?: string };
+  chess?: { mode: 'ai' | 'mp'; difficulty?: string; moves?: number; result: 'win' | 'draw' | 'loss'; opponent?: string; roomCode?: string };
 }
 
 // Per-session ceiling before the daily reduction.
@@ -22,8 +22,10 @@ const SESSION_CAPS: Record<string, number> = {
   trivia: 30, 'spelling-bee': 40, penalty: 15,
   chess: 40,
 };
-// 1st, 2nd, 3rd, 4th+ session of the same game today.
-const FRESHNESS = [1, 0.7, 0.4, 0.15];
+// 1st, 2nd, 3rd... session of the same game today (all trivia topics count as one
+// game, all multiplication tables too). From the 7th session on a game pays nothing,
+// so the 150 a day has to come from several games, not from one quick game repeated.
+const FRESHNESS = [1, 0.7, 0.4, 0.15, 0.15, 0.15, 0];
 
 export const baseGame = (g: string) =>
   g.startsWith('trivia-') ? 'trivia' : g.startsWith('multiplication-') ? 'multiplication' : g;
@@ -44,9 +46,11 @@ export function reward(r: PlayResult, sessionsToday: number, onlineWinsVsOpponen
       const win = c.difficulty === 'hard' ? 40 : c.difficulty === 'medium' ? 20 : 0;
       raw = c.result === 'win' ? win : win > 0 ? 5 : 0;
     } else {
-      // Online: at most 2 rewarded wins against the same opponent a day.
+      // Online: the result was checked against the room by the award route.
+      // At most 2 rewarded wins against the same opponent a day.
       if (c.result === 'win' && onlineWinsVsOpponentToday >= 2) return 0;
       raw = c.result === 'win' ? 40 : 5;
+      return raw;   // no freshness: the per-opponent limit and the daily ceiling apply
     }
   } else {
     // Games with right answers: no right answers, no PlayBits.
